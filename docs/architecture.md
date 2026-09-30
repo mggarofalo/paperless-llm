@@ -1,5 +1,55 @@
 # Subscription inference decision (PPLLM-2)
 
+## Next release: .NET Docker worker
+
+Owner decision, 2026-09-30: implement the worker in .NET so the owner can read
+and maintain its code. Replace the Python prototype with a .NET Worker Service,
+using the Generic Host, dependency injection, typed configuration, HTTP clients,
+cancellation and structured logging. Preserve the prototype's useful behavior
+and tests rather than continuing to expand the Python implementation.
+
+The release target is `ghcr.io/mggarofalo/paperless-llm`, with versioned images
+for Linux amd64 and arm64 and a Compose example. This is a plan: no .NET image
+or authentication setup command is available yet.
+
+First-release flow: configure view-only Paperless credentials; complete dedicated
+ChatGPT sign-in once; securely provision the server's persistent auth volume;
+start the worker; inspect its proposals and evidence. Official
+[self-hosted guidance](https://developers.openai.com/siwc/token-sharing-open-source/self-hosted-vms)
+supports local OAuth followed by protected credential transfer and server-owned
+refreshes. A localhost callback reaches the browser's computer, so setup must
+handle the laptop/server distinction explicitly and retain the server host ID.
+
+Persist rotating credentials separately from processing state and private audit
+records. Serialize refreshes and atomically save replacements. Normal restart and
+upgrade must not require sign-in again. Revocation, invalid refresh or an expired
+renewable session must pause inference and expose `auth_required`; one-time setup
+does not mean permanent authorization. See the official
+[refresh guidance](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
+
+Read-only means no mutation of Paperless: no OCR replacement, title/tag edits,
+queue clearing, deletion or receipt imports. Local writes remain necessary for
+token rotation, checkpoints and audit results. Track completion by document/source
+revision in the local store, not by changing Paperless tags. Use a view-only
+Paperless account and a client that only exposes read/download requests.
+
+Operational JSON logs go to stdout for `docker compose logs`; full OCR, credentials
+and document contents stay out of that stream. A private audit store retains
+source links/revisions, before/after proposals, page evidence, uncertainties,
+validation outcomes, model/prompt versions, timing and reported usage. Export
+JSONL and an escaped local review report. Human annotations support accuracy
+measurement; model confidence alone does not. Bound retention and disk usage,
+and never checkpoint success when its audit record could not be saved.
+
+Plan: PPLLM-11 (.NET port), PPLLM-12 (one-time auth/renewal), PPLLM-13 (accuracy
+audit/report), PPLLM-14 (container release). PPLLM-7 is now a read-only worker;
+PPLLM-8 evaluates this Docker pilot. PPLLM-6 write-back and PPLLM-9 receipt import
+are outside this release and must not block it. The existing Python release
+workflow/skill will be replaced during the port; do not publish Python artifacts
+as fulfillment of this Docker release plan.
+
+## Prototype findings retained for the port
+
 Decision, 2026-09-30: use a dedicated Sign in with ChatGPT grant and a tool-free
 Responses request for production document analysis. This milestone implements
 only a synthetic Codex subscription probe. It does not send private scans or OCR

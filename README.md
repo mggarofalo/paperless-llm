@@ -3,6 +3,13 @@
 Reviewable OCR and metadata assistance for Paperless-ngx, using ChatGPT plan
 access where supported. Work is tracked in Plane project **PPLLM**.
 
+**Next release direction:** a .NET Worker Service distributed as a Docker image.
+The owner chose .NET for maintainability. The Python code and commands below are
+the initial prototype; PPLLM-11 replaces them, including CI and release tooling.
+The first Docker release will run read-only toward Paperless and write its
+processing state and accuracy reports locally. See the
+[deployment plan](docs/architecture.md#next-release-net-docker-worker).
+
 ## Current milestone
 
 This repository starts with a **read-only foundation**:

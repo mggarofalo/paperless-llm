@@ -5,6 +5,11 @@ description: Prepare, publish, or verify a paperless-llm release from protected 
 
 # Release paperless-llm
 
+The release target has changed to a .NET Docker worker (PPLLM-11/PPLLM-14).
+The Python workflow below describes the prototype and is not ready to publish
+the planned product. Complete the port and update this skill/workflow for the
+.NET image before cutting its first release. See `docs/architecture.md`.
+
 Read root `AGENTS.md`, `pyproject.toml`, `.github/workflows/ci.yml`,
 `.github/workflows/release.yml`, and `scripts/verify_release.py` first.
 This repository publishes a wheel, source archive and `SHA256SUMS` to GitHub

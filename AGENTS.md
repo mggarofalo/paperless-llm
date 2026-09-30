@@ -1,5 +1,13 @@
 # Paperless LLM
 
+The owner selected .NET for the implementation so they can read and maintain the
+code. The next release is a .NET Worker Service in a Docker image, with one-time
+ChatGPT setup, renewable credentials, read-only Paperless access and private
+accuracy audit reports. The current Python code is a prototype to port, not the
+release target. Track migration in PPLLM-11 and Docker delivery in PPLLM-14.
+Do not expand or publish the Python prototype as the product; replace its CI and
+release tooling as part of the .NET port while preserving tested behavior.
+
 Track work in Plane project PPLLM. Keep issue status aligned with actual evidence.
 Use short-lived branches and conventional commits. Do not commit credentials,
 private scans, OCR, metadata snapshots, local auth state, or generated run data.
