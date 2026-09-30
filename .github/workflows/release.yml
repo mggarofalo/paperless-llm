@@ -1,0 +1,94 @@
+name: Release
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Validate version and protected-main ancestry
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          if ($tag -cnotmatch '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Stable version required' }
+          [xml]$project = Get-Content src/PaperlessLlm/PaperlessLlm.csproj
+          if ($tag -ne "v$($project.Project.PropertyGroup.Version)") { throw 'Version mismatch' }
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Tag must belong to protected main' }
+  checks:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+  publish:
+    name: Publish GHCR image and GitHub release
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Refuse replacement of a published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo 'Release already exists. Inspect it; do not overwrite published versions.' >&2
+            exit 1
+          fi
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Refuse replacement of a published image tag
+        shell: bash
+        run: |
+          if docker buildx imagetools inspect "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo 'Image tag already exists. Inspect partial publication; never retarget it.' >&2
+            exit 1
+          fi
+      - name: Build and push both architectures
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/mggarofalo/paperless-llm:${{ github.ref_name }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            REVISION=${{ github.sha }}
+          provenance: true
+          sbom: true
+      - name: Verify pulled image and publish deployment files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          image="ghcr.io/mggarofalo/paperless-llm@$IMAGE_DIGEST"
+          docker pull "$image"
+          test "$(docker run --rm --read-only --tmpfs /tmp "$image" --version)" = "${GITHUB_REF_NAME#v}"
+          mkdir release
+          cp compose.yaml release/compose.yaml
+          cp .env.example release/env.example
+          printf '%s\n' "$image" > release/image-digest.txt
+          sha256sum release/compose.yaml release/env.example release/image-digest.txt | sed 's|release/||' > release/SHA256SUMS
+          printf 'Docker image: `%s`\n\nPinned digest: `%s`\n\nSee the [quick start](https://github.com/mggarofalo/paperless-llm/tree/%s#quick-start) and [authentication guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/authentication.md).\n\nRead-only proposals: no Paperless changes are applied.\n' "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" "$image" "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > release/notes.md
+          gh release create "$GITHUB_REF_NAME" release/compose.yaml release/env.example release/image-digest.txt release/SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes-file release/notes.md
+          gh release download "$GITHUB_REF_NAME" --dir downloaded
+          (cd downloaded && sha256sum --check SHA256SUMS)

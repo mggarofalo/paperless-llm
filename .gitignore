@@ -13,3 +13,9 @@ build/
 runs/
 *.token
 auth.json
+
+bin/
+obj/
+TestResults/
+secrets/
+data/
