@@ -100,3 +100,10 @@ def test_cli_rejects_limit_before_remote_connection(monkeypatch, capsys):
     monkeypatch.setattr(cli, "PaperlessClient", lambda **kwargs: pytest.fail("Unexpected connection"))
     assert cli.main(["discover", "--limit", "101"]) == 1
     assert "limit" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("args", [["--profile", " ", "discover"], ["discover", "--tag", " "]])
+def test_blank_profile_or_tag_rejected_without_connection(monkeypatch, capsys, args):
+    monkeypatch.setattr(cli, "PaperlessClient", lambda **kwargs: pytest.fail("Unexpected connection"))
+    assert cli.main(args) == 1
+    assert "nonempty name" in capsys.readouterr().err
