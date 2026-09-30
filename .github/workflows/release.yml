@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags: ['v[0-9]*.[0-9]*.[0-9]*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Validate stable version and main ancestry
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os, re, tomllib
+          tag = os.environ['GITHUB_REF_NAME']
+          if not re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', tag):
+              raise SystemExit('Expected stable vMAJOR.MINOR.PATCH')
+          with open('pyproject.toml', 'rb') as stream:
+              version = tomllib.load(stream)['project']['version']
+          if tag != 'v' + version:
+              raise SystemExit('Tag does not match package version')
+          PY
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+  checks:
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish verified distributions
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: '0.11.32'
+          python-version: '3.11'
+      - name: Build and verify exact release version
+        shell: bash
+        run: |
+          export SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)
+          uv build --no-create-gitignore
+          uv run --no-project python scripts/verify_release.py dist --version "${GITHUB_REF_NAME#v}" --write-checksums
+      - name: Publish GitHub release or retain existing assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            test "$(gh release view "$GITHUB_REF_NAME" --json isDraft,isPrerelease --jq '(.isDraft == false) and (.isPrerelease == false)')" = true
+            echo 'Release exists; verify it below without replacing assets.'
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.whl dist/*.tar.gz dist/SHA256SUMS \
+              --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
+          fi
+      - name: Download and verify published assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          verify_dir=$(mktemp -d)
+          gh release download "$GITHUB_REF_NAME" --dir "$verify_dir"
+          uv run --no-project python scripts/verify_release.py "$verify_dir" --version "${GITHUB_REF_NAME#v}"
+          cmp dist/SHA256SUMS "$verify_dir/SHA256SUMS"

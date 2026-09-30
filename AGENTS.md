@@ -18,3 +18,7 @@ no silent separately billed API fallback. Keep secrets out of command output/log
 Run relevant tests. Tests must cover meaningful failure modes and invariants.
 Use synthetic fixtures; do not commit personal documents. Keep dependency footprint
 small and commands bounded. Document limitations honestly.
+
+Changes to main go through a PR and passing CI; do not bypass branch protection.
+For releases, follow `.agents/skills/release/SKILL.md`. Stable version tag pushes
+trigger GitHub release publication; do not publish a release merely to test CI.

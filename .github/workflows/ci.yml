@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python: '3.11'
+          - os: ubuntu-latest
+            python: '3.13'
+          - os: macos-latest
+            python: '3.13'
+          - os: windows-latest
+            python: '3.13'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: '0.11.32'
+          python-version: ${{ matrix.python }}
+      - name: Install locked test dependencies
+        run: uv sync --locked --extra test
+      - name: Run synthetic unit tests
+        run: uv run --locked --extra test pytest -q
+
+  packaging:
+    name: Release packaging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: '0.11.32'
+          python-version: '3.11'
+      - name: Check lockfile
+        run: uv lock --check
+      - name: Build wheel and source archive
+        run: uv build --no-create-gitignore
+      - name: Verify distributions and write checksums
+        run: uv run --no-project python scripts/verify_release.py dist --write-checksums
+      - name: Smoke-test installed wheel outside the source environment
+        shell: bash
+        run: |
+          expected=$(uv run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          actual=$(uv run --isolated --no-project --with ./dist/paperless_llm-${expected}-py3-none-any.whl ppllm --version)
+          test "$actual" = "$expected"
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14

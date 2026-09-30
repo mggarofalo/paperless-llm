@@ -18,3 +18,6 @@ ppllm = "paperless_llm.cli:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/scripts", "/pyproject.toml", "/README.md", "/uv.lock"]

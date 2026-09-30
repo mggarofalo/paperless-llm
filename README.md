@@ -96,6 +96,15 @@ uv run pytest
 uv build
 ```
 
+GitHub Actions runs synthetic tests on Linux (Python 3.11 and 3.13), macOS and
+Windows (Python 3.13), plus distribution verification and an installed-wheel smoke
+test. CI needs no Paperless credentials or ChatGPT subscription.
+
+Releases use stable `vMAJOR.MINOR.PATCH` tags on main. The release workflow reruns
+CI and publishes a verified wheel, source archive and checksums to GitHub Releases;
+it does not publish to PyPI. Follow the repository's
+[release skill](.agents/skills/release/SKILL.md) to prepare and verify a release.
+
 Use synthetic fixtures and never commit personal scans, OCR, tokens or run output.
 See [AGENTS.md](AGENTS.md), [architecture](docs/architecture.md), and
 [connector details](docs/connector.md).
