@@ -1,0 +1,64 @@
+name: paperless-llm
+
+x-runtime: &runtime
+  image: ghcr.io/mggarofalo/paperless-llm:v0.1.0
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:size=512m,mode=1777
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  worker:
+    <<: *runtime
+    restart: unless-stopped
+    command: [worker]
+    environment:
+      PPLLM_PAPERLESS_URL: ${PPLLM_PAPERLESS_URL:?Set the Paperless URL in .env}
+      PPLLM_PAPERLESS_TOKEN_FILE: /run/secrets/paperless_token
+      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-luna}
+      PPLLM_TAG: ${PPLLM_TAG:-needs review}
+      PPLLM_POLL_SECONDS: ${PPLLM_POLL_SECONDS:-300}
+      PPLLM_BATCH_SIZE: ${PPLLM_BATCH_SIZE:-5}
+      PPLLM_BACKFILL_LIMIT: ${PPLLM_BACKFILL_LIMIT:-0}
+      PPLLM_MAX_AUDIT_MIB: ${PPLLM_MAX_AUDIT_MIB:-2048}
+    secrets: [paperless_token]
+    volumes:
+      - auth:/data/auth
+      - state:/data/state
+      - audit:/data/audit
+    stop_grace_period: 30s
+    healthcheck:
+      test: [CMD, dotnet, PaperlessLlm.dll, health]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Run only during sign-in; the worker has no listening port.
+  auth:
+    <<: *runtime
+    profiles: [setup]
+    command: [auth, login]
+    environment:
+      PPLLM_AUTH_BIND: "0.0.0.0"
+      PPLLM_AUTH_PORT: "1455"
+      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-luna}
+    ports:
+      - "127.0.0.1:1455:1455"
+    volumes:
+      - auth:/data/auth
+
+secrets:
+  paperless_token:
+    file: ./secrets/paperless_token.txt
+
+volumes:
+  auth:
+  state:
+  audit:

@@ -1,40 +1,34 @@
-# Read-only Paperless connector
+# Paperless connector
 
-`PaperlessClient` runs the installed, authenticated `paperless` executable with
-argument arrays, JSON output, a selected profile, and a per-command timeout.
-It never reads credential files or OS keyring entries. Authenticate the CLI
-separately. The CLI owns origin validation and network authentication.
+[Home](../README.md) · [Architecture](architecture.md) · [Authentication](authentication.md)
 
-```python
-from paperless_llm.paperless import PaperlessClient
+The .NET connector uses a dedicated Paperless API token mounted from a secret
+file. It does not depend on the interactive `paperless` CLI or copy its credentials.
+Create a view-only account with the [authentication guide](authentication.md).
 
-client = PaperlessClient(profile="default", timeout=60)
-documents = client.list_documents(tag="needs review", limit=10)
-document = client.get_document(123)
-taxonomy = client.taxonomy()  # tags, correspondents, document_types
-snapshot = client.collect_snapshot([123])
-# Optional: explicitly choose a PRIVATE destination outside the repository.
-# client.download_original(123, private_directory / "123.original")
-```
+All connector requests use GET. It lists documents and taxonomy, fetches document
+metadata/OCR, and downloads originals. Pagination stays within the configured
+instance and endpoint, with bounded page counts and response sizes. Automatic
+redirects are disabled so credentials cannot follow a redirect to another service.
+Document titles and filenames are never used as local output paths.
 
-Discovery resolves the tag by exact, case-insensitive name and rejects absent or
-ambiguous names. It filters by the resolved numeric ID and orders documents by ID.
-Pagination uses numeric page arguments, never server-provided URLs, with at most
-50 pages per resource and 1,000 documents per discovery. Oversized, repeated,
-malformed, and stalled pages fail closed. A snapshot contains `documents` and
-`taxonomy`; it is an observation, not an atomic server transaction.
+Defaults are a 60-second request timeout, 100 entries per page, 50 pages per
+request sequence, 8 MiB JSON responses and 50 MiB originals. A missing or ambiguous
+eligibility tag fails rather than selecting every document.
 
-Document metadata, OCR, and original bytes are sensitive. Nothing logs response
-bodies or CLI stderr; connector errors use fixed messages. Callers are responsible
-for private storage and must not commit snapshots. Original download filenames
-come from the caller, never document metadata. Downloads stage in a temporary
-directory beside the destination, clean up on error, and create the final file
-exclusively so existing files are preserved. Python uses restrictive creation
-permissions on platforms that support them; Windows storage inherits the parent
-directory ACL. Use a private directory.
+## Source evidence
 
-The connector exposes no update, delete, upload, or raw API methods. It does not
-OCR files, execute document instructions, verify subscription access, or send data
-to an LLM. Concurrent server changes can still cause pagination to skip records;
-run discovery again to refresh. The timeout is per CLI command, not a whole-run
-deadline. Output byte size depends on server document content.
+PNG and JPEG originals are supported. PDFs are rendered with the bundled Poppler
+utilities, with at most 10 pages, 2000 pixels per page dimension, 30 MiB total
+rendered output and a 90-second rendering deadline. All PDF pages must render;
+a document exceeding a limit is rejected rather than silently truncated.
+Other original formats are not supported in this release.
+
+The connector hashes the original bytes and relevant document metadata. The worker
+rechecks the metadata revision after model inference. This detects concurrent
+changes exposed by Paperless metadata; it is not a transactional lock on the
+Paperless database. See [job management](operations.md#document-enrollment).
+
+View-only credentials are the server-side enforcement boundary. The application's
+GET-only interface adds another boundary, but cannot correct an overprivileged
+account or make documents visible without the appropriate object permissions.

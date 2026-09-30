@@ -1,71 +1,47 @@
 name: CI
-
 on:
   push:
     branches: [main]
   pull_request:
   workflow_call:
-
 permissions:
   contents: read
-
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
 jobs:
   test:
-    name: Tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    name: Tests (${{ matrix.os }}, .NET 10)
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            python: '3.11'
-          - os: ubuntu-latest
-            python: '3.13'
-          - os: macos-latest
-            python: '3.13'
-          - os: windows-latest
-            python: '3.13'
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          version: '0.11.32'
-          python-version: ${{ matrix.python }}
-      - name: Install locked test dependencies
-        run: uv sync --locked --extra test
-      - name: Run synthetic unit tests
-        run: uv run --locked --extra test pytest -q
-
-  packaging:
-    name: Release packaging
+          dotnet-version: '10.0.x'
+      - run: dotnet restore --locked-mode
+      - name: Install renderer for integration tests
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y poppler-utils
+      - run: dotnet test --no-restore --configuration Release --logger trx --tl:off
+  container:
+    name: Container smoke test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7.0.1
-      - uses: astral-sh/setup-uv@v10.2.0
-        with:
-          version: '0.11.32'
-          python-version: '3.11'
-      - name: Check lockfile
-        run: uv lock --check
-      - name: Build wheel and source archive
-        run: uv build --no-create-gitignore
-      - name: Verify distributions and write checksums
-        run: uv run --no-project python scripts/verify_release.py dist --write-checksums
-      - name: Smoke-test installed wheel outside the source environment
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build release image
+        run: docker build --tag ppllm:ci .
+      - name: Verify non-root, read-only runtime and bundled renderer
         shell: bash
         run: |
-          expected=$(uv run --no-project python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
-          actual=$(uv run --isolated --no-project --with ./dist/paperless_llm-${expected}-py3-none-any.whl ppllm --version)
-          test "$actual" = "$expected"
-      - uses: actions/upload-artifact@v7.0.1
-        with:
-          name: python-distributions
-          path: dist/
-          if-no-files-found: error
-          retention-days: 14
+          test "$(docker run --rm --read-only --tmpfs /tmp ppllm:ci --version)" = '0.1.0'
+          docker run --rm --read-only --tmpfs /tmp ppllm:ci --help
+          docker run --rm --read-only --tmpfs /tmp --mount type=volume,dst=/data/auth ppllm:ci auth status
+          docker run --rm --read-only --tmpfs /tmp --mount type=volume,dst=/data/state ppllm:ci status
+          docker run --rm --read-only --tmpfs /tmp --entrypoint sh ppllm:ci -c 'test "$(id -u)" != 0 && pdftoppm -v'
+          docker compose --env-file .env.example config --quiet

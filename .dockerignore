@@ -1,0 +1,8 @@
+**
+!global.json
+!PaperlessLlm.slnx
+!src/
+!src/PaperlessLlm/
+!src/PaperlessLlm/**
+src/PaperlessLlm/bin/
+src/PaperlessLlm/obj/

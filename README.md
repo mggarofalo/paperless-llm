@@ -1,121 +1,58 @@
 # Paperless LLM
 
-Reviewable OCR and metadata assistance for Paperless-ngx, using ChatGPT plan
-access where supported. Work is tracked in Plane project **PPLLM**.
+A .NET 10 worker that reads Paperless-ngx documents, asks a ChatGPT model to review
+OCR and metadata, and saves private reports for you to inspect. It never applies
+changes to Paperless. Your receipt-tracking and review tags remain under your control.
 
-**Next release direction:** a .NET Worker Service distributed as a Docker image.
-The owner chose .NET for maintainability. The Python code and commands below are
-the initial prototype; PPLLM-11 replaces them, including CI and release tooling.
-The first Docker release will run read-only toward Paperless and write its
-processing state and accuracy reports locally. See the
-[deployment plan](docs/architecture.md#next-release-net-docker-worker).
+The Docker image includes the worker and PDF renderer. It uses your authorized
+ChatGPT plan through Sign in with ChatGPT; there is no separately billed API-key
+fallback. Documents selected for review, their OCR and taxonomy are sent to OpenAI.
 
-## Current milestone
+## Quick start
 
-This repository starts with a **read-only foundation**:
+Requires Docker Engine with Compose v2, an accessible Paperless instance, and a
+ChatGPT account that can authorize plan usage for this app.
 
-- Bounded discovery through the authenticated `paperless` CLI.
-- Local document/taxonomy snapshots and optional original downloads with SHA-256 hashes.
-- Strict local validation of proposed OCR, titles, dates, correspondents, types and tags.
-- Synthetic subscription/model probes, separate from real-document processing.
+1. Download [compose.yaml](compose.yaml) and [.env.example](.env.example) into an
+   empty deployment directory. Rename `.env.example` to `.env` and set
+   `PPLLM_PAPERLESS_URL` (for example, `https://paperless.example.com`).
+2. Follow [authentication](docs/authentication.md) to create a **view-only
+   Paperless token**, save it as `secrets/paperless_token.txt`, and sign in with ChatGPT.
+3. Start the worker:
 
-It does **not** run unattended, send your real documents to a model, apply changes,
-delete documents, or import receipts. Production model authentication and a tool-free
-inference path must be implemented before real-document inference is enabled.
+   ```sh
+   docker compose pull
+   docker compose up -d worker
+   docker compose logs -f worker
+   ```
 
-## Install
+The first run records a baseline. By default, only subsequently added documents
+with the `needs review` tag are considered. To try a few existing documents, set
+`PPLLM_BACKFILL_LIMIT=3` **before the first worker run**. See
+[configuration and enrollment](docs/operations.md#document-enrollment).
 
-Requires Python 3.11+ and an authenticated `paperless` CLI on `PATH`.
+Reports contain the source OCR, proposed changes, visual evidence, and validation
+results. See [reviewing accuracy](docs/review.md) for copying and inspecting them.
+No proposed title, OCR, correspondent, document type or tag is written back.
 
-```powershell
-uv sync --extra test
-uv run ppllm --help
-```
+## Documentation
 
-## Read the review queue
+- [Authentication](docs/authentication.md): Paperless permissions, ChatGPT sign-in,
+  remote-server setup, refresh and revocation.
+- [Operations](docs/operations.md): settings, enrollment, logs, backups and upgrades.
+- [Reviewing accuracy](docs/review.md): private audit reports and their limitations.
+- [Architecture and development](docs/architecture.md): code map, tests and data flow.
+- [Paperless connector](docs/connector.md): supported inputs and read-only boundaries.
+- [Release procedure](.agents/skills/release/SKILL.md): protected main, CI and GHCR.
 
-```powershell
-uv run ppllm discover --limit 5
-uv run ppllm --profile default discover --tag "needs review" --limit 5
-```
+## Release scope
 
-Discovery prints IDs, titles and dates, never full OCR. It does not process the
-entire backlog. Limits are 1–100 per invocation; default 10.
+This is an initial read-only release. Human review is required to judge suggestions.
+Model confidence is not a measured accuracy score. Unsupported or oversized
+inputs are reported as failures; the worker does not silently review a truncated
+scan. There is no automatic writeback, duplicate deletion, receipt import or
+background modification of your existing Paperless workflows.
 
-## Save a review input
-
-```powershell
-uv run ppllm snapshot --document-id 42 --limit 1 --output .local/run-001
-uv run ppllm snapshot --document-id 42 --limit 1 --download-originals --output .local/run-002
-```
-
-Each output directory must be new. `snapshot.json` includes document contents and
-metadata, the current taxonomy, and optional original-file hashes. Its presence
-marks a completed snapshot. A detected concurrent document change aborts collection.
-
-Snapshots contain private data. Keep them in a directory restricted to your OS
-account. `.local/` and `runs/` are ignored by Git; arbitrary output paths are your
-responsibility. Windows permissions inherit from the parent directory. This version
-does not enforce encryption, retention, or deletion of completed snapshots.
-
-Original files keep their bytes and are saved with a neutral `.original` extension;
-page rendering and embedded PDF OCR replacement are not implemented.
-
-## Validate a proposal locally
-
-```powershell
-uv run ppllm validate --snapshot .local/run-001/snapshot.json --document-id 42 --proposal proposal.json
-```
-
-The schema and prompt builder live in `paperless_llm.proposals`. Validation means
-the proposal fits the configured constraints; it does not establish factual accuracy.
-Null fields mean abstain, never clear. Tags are additive proposals; there is no
-replacement of the whole tag set and no apply command.
-
-The CLI currently validates metadata-only proposals (`ocr_text: null`). The library
-requires explicit visual-source provenance for OCR proposals; having an original
-file in a snapshot does not establish that an inference run actually inspected it.
-
-The policy protects review/logging state, HSA reimbursement state, expense and
-property tags. New taxonomy entries need separate review. Scanned text is untrusted
-data, not an instruction to run commands.
-
-## Check subscription access with synthetic data
-
-Requires a compatible Codex CLI logged in with ChatGPT. Status does not perform
-inference; each probe uses one small subscription request.
-
-```powershell
-uv run ppllm auth-status
-uv run ppllm probe --model gpt-6-luna
-uv run ppllm probe --model gpt-6-sol
-```
-
-The probe generates its own fixed image and accepts no document/prompt input.
-It rejects API-key login and does not fall back to separately billed API access.
-The installed Codex CLI has not established an all-tools-off boundary, so a
-successful synthetic probe does **not** enable real-document inference.
-
-## Development
-
-```powershell
-uv run pytest
-uv build
-```
-
-GitHub Actions runs synthetic tests on Linux (Python 3.11 and 3.13), macOS and
-Windows (Python 3.13), plus distribution verification and an installed-wheel smoke
-test. CI needs no Paperless credentials or ChatGPT subscription.
-
-Releases use stable `vMAJOR.MINOR.PATCH` tags on main. The release workflow reruns
-CI and publishes a verified wheel, source archive and checksums to GitHub Releases;
-it does not publish to PyPI. Follow the repository's
-[release skill](.agents/skills/release/SKILL.md) to prepare and verify a release.
-
-Use synthetic fixtures and never commit personal scans, OCR, tokens or run output.
-See [AGENTS.md](AGENTS.md), [architecture](docs/architecture.md), and
-[connector details](docs/connector.md).
-
-Next milestones: production subscription authentication, source-page rendering and
-evidence, reviewed application/rollback, a durable worker, a measured pilot, and
-duplicate-safe handoff to the custom receipts app.
+ChatGPT plan authorization and available models depend on your account and the
+[Sign in with ChatGPT preview](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+Revocation or an expired refresh session requires sign-in again.
