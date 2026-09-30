@@ -52,9 +52,8 @@ public static class Program
             {
                 var status = await WorkerStatusReader.ReadAsync(Setting("STATE_DIRECTORY", "/data/state"), cancellation.Token);
                 if (command == "health")
-                    return status.Initialized && status.LastPollAt > DateTimeOffset.UtcNow.AddSeconds(
-                        -(2 * Integer("POLL_SECONDS", 300, 10, 86400) + 600)) && status.PauseReason is null
-                        && !status.AuthenticationPaused ? 0 : 1;
+                    return IsHealthy(status, DateTimeOffset.UtcNow,
+                        TimeSpan.FromSeconds(2 * Integer("POLL_SECONDS", 300, 10, 86400) + 600)) ? 0 : 1;
                 Console.WriteLine(JsonSerializer.Serialize(status, new JsonSerializerOptions { WriteIndented = true }));
                 return 0;
             }
@@ -164,6 +163,15 @@ public static class Program
             Console.Error.WriteLine("Operation failed. Check configuration, volume access and service connectivity.");
             return 1;
         }
+    }
+
+    internal static bool IsHealthy(WorkerStatus status, DateTimeOffset now, TimeSpan freshness)
+    {
+        // A bounded batch can outlast the polling interval. Job transitions are
+        // heartbeats too, so useful ongoing work is not mistaken for a hung poll.
+        var activity = status.Jobs.Select(job => job.UpdatedAt)
+            .Append(status.LastPollAt ?? DateTimeOffset.MinValue).Max();
+        return status.Initialized && activity > now - freshness && status.PauseReason is null && !status.AuthenticationPaused;
     }
 
     private static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable("PPLLM_" + name) ?? fallback;
