@@ -6,7 +6,7 @@ using PaperlessLlm.Review;
 
 namespace PaperlessLlm.Eval;
 
-public sealed record RegionReference(string Name, string Text);
+public sealed record RegionReference(string Name, string Text, int? Page = null);
 public sealed record RichReference
 {
     public List<RegionReference> Regions { get; init; } = [];
@@ -37,7 +37,7 @@ public sealed record RichCaseScore(string CaseId, bool Valid, string? Failure, b
 public static class RegionScorer
 {
     private static readonly Regex Words = new(@"[\p{L}\p{N}]+(?:[.,/'’\-][\p{L}\p{N}]+)*|[$+−-]", RegexOptions.Compiled);
-    private static readonly Regex Money = new(@"(?<![\p{L}\d.,])(?<open>\()?\s*(?<sign>[-−+])?\s*\$?\s*(?<number>(?:\d{1,3}(?:,\d{3})+|\d+)\.\d{2})(?<trailing>-)?\s*(?<close>\))?(?!\d)", RegexOptions.Compiled);
+    private static readonly Regex Money = new(@"(?<![\p{L}\d.,])(?<open>\()?\s*(?<sign>[-−+])?\s*\$?\s*(?<number>(?:\d{1,3}(?:,\d{3})+|\d*)\.\d{2})(?<trailing>-)?\s*(?<close>\))?(?!\d)", RegexOptions.Compiled);
 
     public static RichCaseScore Score(EvalCase c, string? intentJson, RichReference reference)
     {
@@ -49,7 +49,8 @@ public static class RegionScorer
             var ocr = intent.GetProperty("ocr");
             var replaced = ocr.GetProperty("action").GetString() == "set";
             var text = replaced ? string.Join('\n', ocr.GetProperty("pages").EnumerateArray().Select(p => p.GetProperty("text").GetString())) : c.Document.Content;
-            var result = ScoreText(text, reference);
+            var pageTexts = replaced ? ocr.GetProperty("pages").EnumerateArray().ToDictionary(p => p.GetProperty("page").GetInt32(), p => p.GetProperty("text").GetString() ?? "") : null;
+            var result = ScoreText(text, reference, pageTexts);
             var omissions = reference.Identifiers.Concat(reference.Anchors).Count(s => ContainsToken(c.Document.Content, s) && !ContainsToken(text, s));
             var oldAmounts = ExtractAmounts(c.Document.Content);
             var newAmounts = ExtractAmounts(text);
@@ -62,10 +63,10 @@ public static class RegionScorer
         }
     }
 
-    public static RichTextScore ScoreText(string text, RichReference reference)
+    public static RichTextScore ScoreText(string text, RichReference reference, IReadOnlyDictionary<int, string>? pages = null)
     {
         var amounts = ExtractAmounts(text);
-        return new(reference.Regions.Select(r => RegionAccuracy(r.Text, text)).DefaultIfEmpty(0).Average(), reference.Regions.Count,
+        return new(reference.Regions.Select(r => RegionAccuracy(r.Text, r.Page is int page && pages is not null ? pages.GetValueOrDefault(page, "") : text)).DefaultIfEmpty(0).Average(), reference.Regions.Count,
             reference.Amounts.Count(a => amounts.Contains(CanonicalAmount(a))), reference.Amounts.Count,
             reference.Identifiers.Count(a => ContainsToken(text, a)), reference.Identifiers.Count,
             reference.Anchors.Count(a => ContainsToken(text, a)), reference.Anchors.Count);

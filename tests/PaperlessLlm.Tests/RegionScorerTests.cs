@@ -13,6 +13,7 @@ public sealed class RegionScorerTests
         Assert.Contains("-3.00", amounts);
         Assert.Contains("120.50", amounts);
         Assert.DoesNotContain("15.99", amounts);
+        Assert.Contains("0.00", RegionScorer.ExtractAmounts("Tax .00"));
     }
 
     [Fact]
@@ -30,5 +31,13 @@ public sealed class RegionScorerTests
         Assert.Equal(1, RegionScorer.RegionAccuracy(reference, "STORE HEADER\n" + reference + "\nTHANK YOU"));
         Assert.True(RegionScorer.RegionAccuracy(reference, "STORE HEADER\nITEM A 12.00\nTOTAL 16.00") < 1);
         Assert.Equal(0, RegionScorer.RegionAccuracy(reference, ""));
+    }
+
+    [Fact]
+    public void PageSpecificRegionCannotBeSatisfiedByTextOnAnotherPage()
+    {
+        var reference = new RichReference { Regions = [new("footer", "PAGE TWO IDENTIFIER", 2)] };
+        var score = RegionScorer.ScoreText("PAGE TWO IDENTIFIER", reference, new Dictionary<int, string> { [1] = "PAGE TWO IDENTIFIER", [2] = "" });
+        Assert.Equal(0, score.RegionAccuracy);
     }
 }
