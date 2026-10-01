@@ -143,7 +143,9 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
             foreach (var row in rows.EnumerateArray())
             {
                 var id = RequiredId(row, "id");
-                if (!seen.Add(id) || (previousId is not null && (descending ? id >= previousId : id <= previousId)))
+                // Taxonomy endpoints may ignore ordering=id and return name order.
+                // Only document discovery relies on monotonic IDs; reject duplicates everywhere.
+                if (!seen.Add(id) || (resource == "documents" && previousId is not null && (descending ? id >= previousId : id <= previousId)))
                     throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
                 previousId = id;
                 if (afterId is null || id > afterId) values.Add(row.Clone());
@@ -311,5 +313,4 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         finally { if (File.Exists(stage)) File.Delete(stage); }
     }
 }
-
 
