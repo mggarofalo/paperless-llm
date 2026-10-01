@@ -8,6 +8,12 @@ RUN dotnet restore src/PaperlessLlm/PaperlessLlm.csproj --locked-mode
 COPY src/PaperlessLlm/ src/PaperlessLlm/
 RUN dotnet publish src/PaperlessLlm/PaperlessLlm.csproj -c Release -o /out --no-restore /p:UseAppHost=false
 
+FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runner
+WORKDIR /runner
+COPY runner/package.json runner/package-lock.json ./
+RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+COPY runner/bridge.mjs ./
+
 FROM mcr.microsoft.com/dotnet/runtime:10.0.12-noble@sha256:ff17a18b639a0327e52c7c296fa2e1abe6e03eb61d8121a8ef67cc6aa430a27e AS runtime
 ARG VERSION=0.1.0
 ARG REVISION=unknown
@@ -22,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils c
     && chown -R app:app /data && chmod 700 /data/auth /data/state /data/audit
 WORKDIR /app
 COPY --from=build /out/ ./
+COPY --from=runner /usr/local/bin/node /usr/local/bin/node
+COPY --from=runner /runner /app/runner
 ENV DOTNET_EnableDiagnostics=0 \
     PPLLM_AUTH_DIRECTORY=/data/auth \
     PPLLM_STATE_DIRECTORY=/data/state \

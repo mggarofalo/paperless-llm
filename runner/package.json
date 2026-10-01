@@ -1,0 +1,6 @@
+{
+  "name": "paperless-llm-runner",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@earendil-works/pi-coding-agent": "0.99.2" }
+}
