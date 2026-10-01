@@ -62,6 +62,14 @@ public sealed class RunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RateLimitIsTypedSeparatelyFromCredentialFailure()
+    {
+        var runner = Runner("console.log('{\"type\":\"error\",\"code\":\"rate_limited\"}');process.exitCode=22;");
+        var error = await Assert.ThrowsAsync<RunnerRateLimitException>(() => runner.StatusAsync());
+        Assert.Equal("runner_rate_limited", error.Message);
+    }
+
+    [Fact]
     public async Task MissingCredentialStatusIsFalseAndModelsAreParsed()
     {
         var runner = Runner("console.log(process.argv[2]==='models'?'{\"type\":\"models\",\"models\":[\"gpt-6-luna\"]}':'{\"type\":\"auth_required\"}');");

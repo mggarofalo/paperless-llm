@@ -66,9 +66,10 @@ try {
       }, { reasoning: 'medium', maxTokens: 16000 });
       if (result.stopReason === 'error' || result.stopReason === 'aborted') {
         // Provider error text can contain request/credential details. Never forward it.
-        const auth = /401|403|unauthoriz|token.*expir|invalid_grant/i.test(result.errorMessage ?? '');
-        emit({ type: 'error', code: auth ? 'auth_required' : 'inference_failed' });
-        process.exitCode = auth ? 20 : 21;
+        const limited = /429|rate.?limit|usage.?limit|usage_not_included|too many requests/i.test(result.errorMessage ?? '');
+        const auth = !limited && /401|403|unauthoriz|token.*expir|invalid_grant/i.test(result.errorMessage ?? '');
+        emit({ type: 'error', code: limited ? 'rate_limited' : auth ? 'auth_required' : 'inference_failed' });
+        process.exitCode = limited ? 22 : auth ? 20 : 21;
       } else if (result.model !== model.id || result.provider !== provider || result.stopReason !== 'stop' || result.content.some(x => x.type === 'toolCall')) {
         emit({ type: 'error', code: 'incomplete_response' });
         process.exitCode = 21;
@@ -80,8 +81,9 @@ try {
     }
   } else throw new Error('unknown_command');
 } catch (error) {
-  const auth = phase === 'auth' || /401|403|unauthoriz|token.*expir|invalid_grant|refresh.*fail/i.test(String(error?.message ?? ''));
-  const code = auth ? 'auth_required' : ['context_limit', 'image_invalid', 'input_limit'].includes(error?.message) ? error.message : 'inference_failed';
+  const limited = /429|rate.?limit|usage.?limit|usage_not_included|too many requests/i.test(String(error?.message ?? ''));
+  const auth = !limited && (phase === 'auth' || /401|403|unauthoriz|token.*expir|invalid_grant|refresh.*fail/i.test(String(error?.message ?? '')));
+  const code = limited ? 'rate_limited' : auth ? 'auth_required' : ['context_limit', 'image_invalid', 'input_limit'].includes(error?.message) ? error.message : 'inference_failed';
   emit({ type: 'error', code });
-  process.exitCode = auth ? 20 : 21;
+  process.exitCode = limited ? 22 : auth ? 20 : 21;
 }

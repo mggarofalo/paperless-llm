@@ -9,6 +9,7 @@ namespace PaperlessLlm.Runner;
 
 public sealed record PiRunnerOptions(string HomeDirectory, string BridgePath, string NodeExecutable = "node", TimeSpan? Timeout = null);
 public sealed record DeviceLogin(string Url, string Code);
+public sealed class RunnerRateLimitException() : Exception("runner_rate_limited");
 
 /// <summary>One isolated Pi provider request. The child has no Paperless credentials or tool executor.</summary>
 public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
@@ -91,6 +92,8 @@ public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
             var messages = await output;
             await errors;
             var authFailure = messages.Any(x => x.TryGetProperty("code", out var code) && code.GetString() == "auth_required");
+            if (process.ExitCode == 22 || messages.Any(x => x.TryGetProperty("code", out var code) && code.GetString() == "rate_limited"))
+                throw new RunnerRateLimitException();
             if (process.ExitCode == 20 || authFailure && command != "status") throw new AuthException("runner_sign_in_required", requiresSignIn: true);
             if (process.ExitCode != 0)
             {
