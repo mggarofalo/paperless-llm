@@ -164,6 +164,42 @@ public sealed class ExperimentRunnerTests
         finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
     }
 
+    [Fact]
+    public async Task StageArtifactsPersistEvenWhenCallerTokenIsCancelled()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "ppllm-cancel-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        try
+        {
+            await ExperimentRunner.PersistStageArtifactsAsync(directory, "final", "bounded stdout", "bounded stderr", "{\"cancelled\":true}", cancellation.Token);
+            Assert.Equal("bounded stdout", File.ReadAllText(Path.Combine(directory, "final.stdout.jsonl")));
+            Assert.Equal("bounded stderr", File.ReadAllText(Path.Combine(directory, "final.stderr.log")));
+            Assert.Contains("cancelled", File.ReadAllText(Path.Combine(directory, "final.provenance.json")));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task StopProcessTreeTerminatesStartedChildWithoutNetworkOrCodex()
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = OperatingSystem.IsWindows() ? "powershell.exe" : "/bin/sh",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+        if (OperatingSystem.IsWindows())
+        {
+            start.ArgumentList.Add("-NoProfile"); start.ArgumentList.Add("-Command"); start.ArgumentList.Add("Start-Sleep -Seconds 60");
+        }
+        else { start.ArgumentList.Add("-c"); start.ArgumentList.Add("sleep 60"); }
+        using var process = Process.Start(start)!;
+        await ExperimentRunner.StopProcessTreeAsync(process);
+        Assert.True(process.HasExited);
+    }
+
     private static EvalCase SyntheticCase() => new()
     {
         CaseId = "synthetic-01", Split = "train", PageCount = 0,

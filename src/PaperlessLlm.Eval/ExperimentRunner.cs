@@ -34,6 +34,7 @@ public static class ExperimentRunner
     private const int MaxStreamCharacters = 4 * 1024 * 1024;
     public static async Task RunAsync(ExperimentOptions options, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (options.Concurrency is < 1 or > 32) throw new ArgumentException("Concurrency must be 1..32.");
         if (options.TimeoutSeconds is < 10 or > 1800) throw new ArgumentException("Timeout must be 10..1800 seconds.");
         var allCases = await ReadCasesAsync(options.Cases, cancellationToken);
@@ -60,22 +61,33 @@ public static class ExperimentRunner
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 Interlocked.Increment(ref failures);
-                await File.WriteAllTextAsync(Path.Combine(output, OutputName(c.CaseId) + ".error.txt"), ex.ToString(), cancellationToken);
+                await File.WriteAllTextAsync(Path.Combine(output, OutputName(c.CaseId) + ".error.txt"), ex.ToString(), CancellationToken.None);
             }
             finally { semaphore.Release(); }
         });
-        await Task.WhenAll(tasks);
-        var provenance = new
+        try { await Task.WhenAll(tasks); }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            recipe = recipe,
-            recipe_sha256 = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(recipePath, cancellationToken))),
-            prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(finalInstructions))),
-            auxiliary_prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(auxInstructions))),
-            model = options.Model, reasoning = recipe.Reasoning, concurrency = options.Concurrency,
-            timeout_seconds = options.TimeoutSeconds, started_utc = started, finished_utc = DateTimeOffset.UtcNow,
-            split = options.Split, cases = cases.Count, failures, runner = "codex exec --json --ephemeral --ignore-user-config --sandbox read-only"
-        };
-        await File.WriteAllTextAsync(Path.Combine(output, "provenance.json"), JsonSerializer.Serialize(provenance, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }), cancellationToken);
+            await WriteRunProvenanceAsync(cancelled: true);
+            throw;
+        }
+        await WriteRunProvenanceAsync(cancelled: false);
+
+        async Task WriteRunProvenanceAsync(bool cancelled)
+        {
+            var provenance = new
+            {
+                recipe = recipe,
+                recipe_sha256 = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(recipePath, CancellationToken.None))),
+                prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(finalInstructions))),
+                auxiliary_prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(auxInstructions))),
+                model = options.Model, reasoning = recipe.Reasoning, concurrency = options.Concurrency,
+                timeout_seconds = options.TimeoutSeconds, started_utc = started, finished_utc = DateTimeOffset.UtcNow,
+                split = options.Split, cases = cases.Count, failures, cancelled,
+                runner = "codex exec --json --ephemeral --ignore-user-config --sandbox read-only"
+            };
+            await File.WriteAllTextAsync(Path.Combine(output, "provenance.json"), JsonSerializer.Serialize(provenance, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }), CancellationToken.None);
+        }
     }
 
     public static List<EvalCase> SelectCasesForSplit(IReadOnlyList<EvalCase> cases, string split)
@@ -257,6 +269,7 @@ public static class ExperimentRunner
         var pageTranscriptions = new List<PageTranscription>();
         async Task<string> Stage(string name, string instructions, string prompt, IReadOnlyList<string> stageImages)
         {
+            ct.ThrowIfCancellationRequested();
             var stagePrompt = string.IsNullOrWhiteSpace(instructions) ? prompt : instructions + "\n\n" + prompt;
             var text = await InvokeCodexAsync(stagePrompt, stageImages, recipe.Reasoning, options, caseDir, name, ct);
             await File.WriteAllTextAsync(Path.Combine(caseDir, name + ".txt"), text, ct);
@@ -407,12 +420,20 @@ public static class ExperimentRunner
     private static async Task<string> InvokeCodexAsync(string prompt, IReadOnlyList<string> images, string reasoning,
         ExperimentOptions options, string caseDir, string stage, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var cwd = Path.Combine(caseDir, ".cwd-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(cwd);
         var psi = CreateCodexStartInfo(options.Model, reasoning, cwd, images);
         try
         {
             using var process = new Process { StartInfo = psi };
+            ct.ThrowIfCancellationRequested();
             if (!process.Start()) throw new IOException("Could not start codex.");
+            using var killOnCancellation = ct.Register(static state =>
+            {
+                var child = (Process)state!;
+                try { if (!child.HasExited) child.Kill(entireProcessTree: true); } catch { }
+            }, process);
+            ct.ThrowIfCancellationRequested();
             var startedUtc = DateTimeOffset.UtcNow;
             var startedTimestamp = Stopwatch.GetTimestamp();
             var stdoutTask = ReadBoundedAsync(process.StandardOutput, MaxStreamCharacters);
@@ -422,31 +443,38 @@ public static class ExperimentRunner
             try
             {
                 await process.StandardInput.WriteAsync(prompt.AsMemory(), timeout.Token);
+                ct.ThrowIfCancellationRequested();
                 process.StandardInput.Close();
                 await process.WaitForExitAsync(timeout.Token);
             }
             catch (OperationCanceledException)
             {
+                await StopProcessTreeAsync(process);
                 try { process.StandardInput.Close(); } catch (InvalidOperationException) { }
-                try { process.Kill(true); } catch { }
-                if (!process.HasExited) await process.WaitForExitAsync(CancellationToken.None);
                 timedOut = !ct.IsCancellationRequested;
             }
             var stdoutCapture = await stdoutTask; var stderrCapture = await stderrTask;
             var stdout = stdoutCapture.Text + (stdoutCapture.Truncated ? "\n[stdout truncated at configured capture limit]\n" : "");
             var stderr = stderrCapture.Text + (stderrCapture.Truncated ? "\n[stderr truncated at configured capture limit]\n" : "");
-            await File.WriteAllTextAsync(Path.Combine(caseDir, stage + ".stdout.jsonl"), stdout, ct);
-            await File.WriteAllTextAsync(Path.Combine(caseDir, stage + ".stderr.log"), stderr, ct);
             var imageRecords = new List<object>();
             foreach (var image in images)
-                imageRecords.Add(new { path = image, sha256 = File.Exists(image) ? Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(image, ct))) : null });
+            {
+                string? imageHash = null;
+                if (!ct.IsCancellationRequested && File.Exists(image))
+                {
+                    try { imageHash = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(image, ct))); }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+                }
+                imageRecords.Add(new { path = image, sha256 = imageHash });
+            }
             var usage = ReadUsage(stdout);
             var stageProvenance = new { stage, model = options.Model, reasoning, started_utc = startedUtc,
                 finished_utc = DateTimeOffset.UtcNow, elapsed_ms = (long)Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds,
                 prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(prompt))),
-                image_count = images.Count, stdout_truncated = stdoutCapture.Truncated, stderr_truncated = stderrCapture.Truncated, timed_out = timedOut, images = imageRecords,
+                image_count = images.Count, stdout_truncated = stdoutCapture.Truncated, stderr_truncated = stderrCapture.Truncated,
+                timed_out = timedOut, cancelled = ct.IsCancellationRequested, images = imageRecords,
                 input_tokens = usage.InputTokens, output_tokens = usage.OutputTokens };
-            await File.WriteAllTextAsync(Path.Combine(caseDir, stage + ".provenance.json"),
+            await PersistStageArtifactsAsync(caseDir, stage, stdout, stderr,
                 JsonSerializer.Serialize(stageProvenance, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }), ct);
             ct.ThrowIfCancellationRequested();
             if (timedOut) throw new TimeoutException($"Codex stage {stage} exceeded {options.TimeoutSeconds}s.");
@@ -455,6 +483,22 @@ public static class ExperimentRunner
             return ExtractFinalMessage(stdout);
         }
         finally { if (Directory.Exists(cwd)) { try { Directory.Delete(cwd); } catch (IOException) { } } }
+    }
+
+    internal static async Task PersistStageArtifactsAsync(string caseDirectory, string stage, string stdout, string stderr,
+        string provenanceJson, CancellationToken cancellationToken = default)
+    {
+        _ = cancellationToken; // Once a child has stopped, cancellation must not discard its bounded diagnostics.
+        await File.WriteAllTextAsync(Path.Combine(caseDirectory, stage + ".stdout.jsonl"), stdout, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(caseDirectory, stage + ".stderr.log"), stderr, CancellationToken.None);
+        await File.WriteAllTextAsync(Path.Combine(caseDirectory, stage + ".provenance.json"), provenanceJson, CancellationToken.None);
+    }
+
+    internal static async Task StopProcessTreeAsync(Process process)
+    {
+        try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+        catch (System.ComponentModel.Win32Exception) { }
+        if (!process.HasExited) await process.WaitForExitAsync(CancellationToken.None);
     }
 
     private sealed record BoundedCapture(string Text, bool Truncated);

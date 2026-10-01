@@ -51,6 +51,8 @@ stages in the final call. Prior-stage drafts are labeled untrusted evidence.
 10..1800). Failed cases remain missing from scorer-compatible `caseId.json`
 outputs and receive an `.error.txt` record. The scorer remains the authority on
 schema and production-validator behavior.
+Pressing Ctrl+C during `experiment` cancels active calls, stops their process
+trees, saves bounded stage logs and provenance, and exits with status 130.
 When `--references` is supplied to `score`, an additional `.regions.json` file
 reports partial OCR-region, signed-amount, identifier, and anchor metrics against
 the private reference map without changing the existing report schema.

@@ -8,6 +8,14 @@ internal static class EvalCli
 {
     public static async Task<int> RunAsync(string[] args)
     {
+        using var cancellation = new CancellationTokenSource();
+        ConsoleCancelEventHandler? cancelHandler = null;
+        var isExperiment = args.Length > 0 && args[0] == "experiment";
+        if (isExperiment)
+        {
+            cancelHandler = (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+            Console.CancelKeyPress += cancelHandler;
+        }
         try
         {
             if (args.Length == 0 || args[0] is "help" or "--help" or "-h") { Usage(); return args.Length == 0 ? 2 : 0; }
@@ -17,19 +25,28 @@ internal static class EvalCli
                 case "export": await ExportAsync(options); break;
                 case "score": await ScoreAsync(options); break;
                 case "compare": await CompareAsync(options); break;
-                case "experiment": await ExperimentAsync(options); break;
+                case "experiment": await ExperimentAsync(options, cancellation.Token); break;
                 default: throw new ArgumentException($"Unknown command '{args[0]}'.");
             }
             return 0;
+        }
+        catch (OperationCanceledException) when (isExperiment && cancellation.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("Experiment cancelled. Active Codex process trees were stopped and partial stage artifacts were saved.");
+            return 130;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidDataException or IOException or JsonException)
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
         }
+        finally
+        {
+            if (cancelHandler is not null) Console.CancelKeyPress -= cancelHandler;
+        }
     }
 
-    private static async Task ExperimentAsync(Dictionary<string, string> o)
+    private static async Task ExperimentAsync(Dictionary<string, string> o, CancellationToken cancellationToken)
     {
         var cases = Argument(o, "cases", 0);
         var recipe = Required(o, "recipe");
@@ -38,7 +55,7 @@ internal static class EvalCli
         var concurrency = int.TryParse(o.GetValueOrDefault("concurrency", "1"), out var parsed) ? parsed : 0;
         var timeout = int.TryParse(o.GetValueOrDefault("timeout", "300"), out var parsedTimeout) ? parsedTimeout : 0;
         await ExperimentRunner.RunAsync(new ExperimentOptions(cases, recipe, output, concurrency,
-            o.GetValueOrDefault("model", "gpt-6-luna"), timeout, split));
+            o.GetValueOrDefault("model", "gpt-6-luna"), timeout, split), cancellationToken);
         Console.WriteLine($"Experiment outputs and provenance written to {Path.GetFullPath(output)}");
     }
 
