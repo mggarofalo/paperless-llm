@@ -155,6 +155,64 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         throw new PaperlessException("Paperless exceeded the pagination safety limit.");
     }
 
+    // Paperless supports ordering and page offsets, but does not support id__gt.
+    // Locate the cursor page by binary search so old archives do not consume the
+    // request budget. Return oldest unseen IDs so a large backlog cannot be skipped.
+    private async Task<IReadOnlyList<JsonElement>> ListAfterAsync(int? tag, int afterId, int take, CancellationToken ct)
+    {
+        var cache = new Dictionary<int, (JsonElement[] Rows, int Count, bool More)>();
+        async Task<(JsonElement[] Rows, int Count, bool More)> Page(int page)
+        {
+            if (cache.TryGetValue(page, out var cached)) return cached;
+            if (cache.Count >= options.MaxPages) throw new PaperlessException("Paperless exceeded the pagination safety limit.");
+            using var result = await JsonAsync(PageUri("documents", page, options.PageSize, tag), ct);
+            var root = result.RootElement;
+            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("results", out var rows) || rows.ValueKind != JsonValueKind.Array ||
+                rows.GetArrayLength() > options.PageSize || !root.TryGetProperty("count", out var count) || count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var total) || total < 0 ||
+                !root.TryGetProperty("next", out var next)) throw new PaperlessException("Paperless returned an invalid result page.");
+            var more = next.ValueKind != JsonValueKind.Null;
+            if (more) ValidateNext(next, "documents", page + 1);
+            var copied = rows.EnumerateArray().Select(x => x.Clone()).ToArray();
+            int previous = 0;
+            foreach (var row in copied)
+            {
+                var id = RequiredId(row, "id");
+                if (id <= previous) throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
+                previous = id;
+            }
+            if (more && copied.Length == 0) throw new PaperlessException("Paperless pagination made no progress.");
+            var value = (copied, total, more); cache.Add(page, value); return value;
+        }
+        var first = await Page(1);
+        if (first.Rows.Length == 0) return [];
+        int low = 1, high = Math.Max(1, (int)(((long)first.Count + options.PageSize - 1) / options.PageSize));
+        if (RequiredId(first.Rows[^1], "id") <= afterId)
+        {
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var candidate = await Page(middle);
+                if (candidate.Rows.Length == 0) throw new PaperlessException("Paperless collection changed during discovery; retry.");
+                if (RequiredId(candidate.Rows[^1], "id") <= afterId) low = middle + 1;
+                else high = middle;
+            }
+        }
+        var values = new List<JsonElement>();
+        int previousId = 0;
+        for (int page = low; ; page++)
+        {
+            var current = await Page(page);
+            foreach (var row in current.Rows)
+            {
+                int id = RequiredId(row, "id");
+                if (id <= previousId) throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
+                previousId = id;
+                if (id > afterId) values.Add(row);
+                if (values.Count == take) return values;
+            }
+            if (!current.More) return values;
+        }
+    }
     public async Task<IReadOnlyList<PaperlessDocument>> ListDocumentsAsync(string? tagName = "needs review", int limit = 10, int? afterId = null, CancellationToken ct = default)
     {
         if (limit is < 1 or > 1000 || afterId < 0) throw new ArgumentOutOfRangeException(nameof(limit));
@@ -167,7 +225,8 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
             if (matches.Length != 1) throw new PaperlessException("Review tag was not found or is ambiguous.");
             tag = matches[0].Id;
         }
-        return (await ListAsync("documents", tag, ct, limit, afterId)).Select(ParseDocument).ToArray();
+        return (afterId is { } cursor ? await ListAfterAsync(tag, cursor, limit, ct)
+            : await ListAsync("documents", tag, ct, limit)).Select(ParseDocument).ToArray();
     }
 
     public async Task<int> GetLatestDocumentIdAsync(CancellationToken ct = default)
@@ -252,3 +311,5 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         finally { if (File.Exists(stage)) File.Delete(stage); }
     }
 }
+
+
