@@ -96,6 +96,20 @@ public sealed class OrganizerTests : IDisposable
         source.Invalid = false; await worker.RetryAsync(1); await worker.RunOnceAsync();
         Assert.Equal(2, source.Inferences);
     }
+    [Fact] public async Task AuthRecoveryUsesFreshEvidenceDirectoryEvenWithoutConsumedAttempt()
+    {
+        source.Docs[1] = ProposalTests.Document(1); source.AuthFail = true;
+        using (var worker = Worker(1)) await worker.RunOnceAsync();
+        Assert.Equal(0, Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).Attempts);
+        source.AuthFail = false;
+        using (var worker = Worker())
+        {
+            await worker.RetryAsync(1);
+            Assert.Equal(1, (await worker.RunOnceAsync()).Completed);
+        }
+        Assert.Equal(2, source.Inferences);
+        Assert.Equal(OrganizerJobState.Completed, Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).State);
+    }
     private sealed class Fake : IPaperlessClient, IIntentRunner, IIntentContextBuilder, IIntentSynchronizer, IDocumentRenderer
     {
         public Dictionary<int, PaperlessDocument> Docs { get; } = [];
@@ -109,7 +123,7 @@ public sealed class OrganizerTests : IDisposable
         public Task<PaperlessDocument> GetDocumentAsync(int id, CancellationToken ct = default) => Task.FromResult(Docs[id]);
         public Task<PaperlessTaxonomy> GetTaxonomyAsync(CancellationToken ct = default) => Task.FromResult(new PaperlessTaxonomy([], [], []));
         public async Task<OriginalDocument> DownloadOriginalAsync(int id, string destination, CancellationToken ct = default)
-        { await File.WriteAllTextAsync(destination, "image", ct); return new(destination, "image/png", "hash", 5); }
+        { if (File.Exists(destination)) throw new IOException("download_destination_exists"); await File.WriteAllTextAsync(destination, "image", ct); return new(destination, "image/png", "hash", 5); }
         public Task<IReadOnlyList<RenderedPage>> RenderAsync(OriginalDocument original, string outputDirectory, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<RenderedPage>>([new(original.Path, "image/png", "hash", 1)]);
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken ct)
@@ -127,5 +141,6 @@ public sealed class OrganizerTests : IDisposable
         }
     }
 }
+
 
 

@@ -3,6 +3,7 @@ set -euo pipefail
 # Run from a checkout with an already-built application image. No real credentials.
 image="${1:?Usage: bash tests/container/run.sh IMAGE}"
 fixture_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if command -v cygpath >/dev/null 2>&1; then fixture_dir="$(cygpath -m "$fixture_dir")"; export MSYS_NO_PATHCONV=1; fi
 suffix="$$-$RANDOM"
 network="ppllm-e2e-$suffix"
 server="ppllm-fixture-$suffix"
