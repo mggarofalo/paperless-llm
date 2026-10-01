@@ -26,6 +26,7 @@ The worker can change titles, document dates, existing correspondents and types,
 - [Review and recovery](docs/review.md): `needs review`, Paperless history and sync records.
 - [Architecture](docs/architecture.md): boundaries, runner choice and contributor commands.
 - [Paperless connector](docs/connector.md): API and rendering limits.
+- [Offline evaluation](docs/offline-evaluation.md): private corpora, prompt experiments, and measured accuracy limitations.
 - [Release procedure](.agents/skills/release/SKILL.md): protected main, CI and GHCR publication.
 
 Synthetic tests cover validation, retries and sync recovery. They do not establish live ChatGPT entitlement, renewal or OCR accuracy. Those require the deployment acceptance checks in the authentication guide. Sync rechecks the source immediately before writing, but the GET and PATCH are not atomic; a human edit in that interval can race with the update.
