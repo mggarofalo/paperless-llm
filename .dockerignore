@@ -10,3 +10,4 @@ src/PaperlessLlm/obj/
 !runner/package.json
 !runner/package-lock.json
 !runner/bridge.mjs
+!runner/repair-shrinkwrap.mjs

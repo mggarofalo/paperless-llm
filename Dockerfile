@@ -11,7 +11,8 @@ RUN dotnet publish src/PaperlessLlm/PaperlessLlm.csproj -c Release -o /out --no-
 FROM node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS runner
 WORKDIR /runner
 COPY runner/package.json runner/package-lock.json ./
-RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund
+COPY runner/repair-shrinkwrap.mjs ./
+RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund && node repair-shrinkwrap.mjs
 COPY runner/bridge.mjs ./
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0.12-noble@sha256:ff17a18b639a0327e52c7c296fa2e1abe6e03eb61d8121a8ef67cc6aa430a27e AS runtime
