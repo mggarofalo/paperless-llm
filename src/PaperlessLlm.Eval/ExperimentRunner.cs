@@ -176,9 +176,12 @@ public static class ExperimentRunner
             using var doc = JsonDocument.Parse(line);
             var root = doc.RootElement;
             if (root.TryGetProperty("type", out var type) && type.GetString() is string t &&
-                t.Contains("tool", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Codex emitted a tool event; result rejected.");
+                (t.Contains("tool", StringComparison.OrdinalIgnoreCase) || t.EndsWith("_call", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException("Codex emitted a tool event; result rejected.");
             if (root.TryGetProperty("item", out var item) && item.TryGetProperty("type", out var itemType) &&
-                itemType.GetString() is string it && (it.Contains("tool", StringComparison.OrdinalIgnoreCase) || it is "command_execution" or "file_change" or "web_search" or "mcp_tool_call")) throw new InvalidDataException("Codex emitted a tool event; result rejected.");
+                itemType.GetString() is string it && (it.Contains("tool", StringComparison.OrdinalIgnoreCase) ||
+                    it.EndsWith("_call", StringComparison.OrdinalIgnoreCase) || it is "command_execution" or "file_change" or "web_search"))
+                throw new InvalidDataException("Codex emitted a tool event; result rejected.");
             if (root.TryGetProperty("type", out type) && type.GetString() == "item.completed" &&
                 root.TryGetProperty("item", out item) && item.TryGetProperty("type", out itemType) && itemType.GetString() == "agent_message" &&
                 item.TryGetProperty("text", out var text)) last = text.GetString();

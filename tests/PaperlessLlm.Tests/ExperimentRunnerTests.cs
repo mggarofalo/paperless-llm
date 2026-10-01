@@ -46,6 +46,8 @@ public sealed class ExperimentRunnerTests
         const string good = "{\"type\":\"item.completed\",\"item\":{\"type\":\"agent_message\",\"text\":\"{}\"}}";
         Assert.Equal("{}", ExperimentRunner.ExtractFinalMessage(good));
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"item.started\",\"item\":{\"type\":\"command_execution\"}}\n" + good));
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"web_search_call\"}\n" + good));
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"item.started\",\"item\":{\"type\":\"browser_fetch_call\"}}\n" + good));
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"turn.completed\"}"));
         Assert.ThrowsAny<System.Text.Json.JsonException>(() => ExperimentRunner.ExtractFinalMessage("not-json"));
     }
