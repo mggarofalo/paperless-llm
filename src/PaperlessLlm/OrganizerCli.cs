@@ -14,7 +14,7 @@ namespace PaperlessLlm;
 
 public static class OrganizerCli
 {
-    private const string SyntheticImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aZYsAAAAASUVORK5CYII=";
+    internal const string SyntheticImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
 
     public static async Task<int> RunAsync(string[] args, CancellationToken ct)
     {
@@ -94,20 +94,22 @@ public static class OrganizerCli
         using var reader = new PaperlessClient(paperlessOptions);
         using var writer = new PaperlessWriter(paperlessOptions);
         var reviewTag = Setting("TAG", "needs review");
-        if (command == "check")
+        if (command is "check" or "worker" or "once")
         {
             if (!await runner.StatusAsync(ct)) throw new AuthException("Sign in with auth login before starting the worker.", true);
             var taxonomy = await reader.GetTaxonomyAsync(ct);
-            if (taxonomy.Tags.Count(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)) != 1)
-                throw new ArgumentException("The configured review tag must exist and be unambiguous.");
+            SetupValidation.RequireReviewTag(taxonomy, reviewTag);
             if (!(await runner.ListModelsAsync(ct)).Contains(model)) throw new ArgumentException("The configured model is absent from the runner catalog.");
-            var latest = await reader.GetLatestDocumentIdAsync(ct);
-            Console.WriteLine(JsonSerializer.Serialize(new { SavedAuth = true, VisibleLatestDocumentId = latest,
-                Note = "Read access checked. Run probe to verify inference. Confirm document change permissions separately; check makes no writes." })); return 0;
+            if (command == "check")
+            {
+                var latest = await reader.GetLatestDocumentIdAsync(ct);
+                Console.WriteLine(JsonSerializer.Serialize(new { SavedAuth = true, VisibleLatestDocumentId = latest,
+                    Note = "Read access checked. Run probe to verify inference. Confirm document change permissions separately; check makes no writes." })); return 0;
+            }
         }
         var options = new OrganizerOptions
         {
-            StateDirectory = stateDirectory, SourceUrl = paperlessOptions.BaseUrl.AbsoluteUri, Model = model,
+            StateDirectory = stateDirectory, SourceUrl = paperlessOptions.BaseUrl.AbsoluteUri, Model = model, ReviewTag = reviewTag,
             PollInterval = interval, BatchSize = Integer("BATCH_SIZE", 5, 1, 100), BackfillLimit = Integer("BACKFILL_LIMIT", 0, 0, 100),
             MaxStateBytes = (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024
         };

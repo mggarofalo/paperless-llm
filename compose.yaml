@@ -1,7 +1,7 @@
 name: paperless-llm
 
 x-runtime: &runtime
-  image: ghcr.io/mggarofalo/paperless-llm:v0.1.1
+  image: ghcr.io/mggarofalo/paperless-llm:v0.1.2
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]

@@ -8,6 +8,8 @@ Two credentials are needed: a Paperless API token for reading and updating docum
 
 Create a dedicated non-admin account. Grant view access to documents, tags, correspondents and document types, plus **change access to documents**. Ensure object permissions cover the intended current and future documents. Do not grant document deletion or taxonomy creation. The existing `needs review` tag must be visible to this account.
 
+The permissions checkboxes on the user-account screen grant global capabilities. They do not necessarily grant access to objects owned by another user. Share the existing review tag and other taxonomy with the service account (View), and share intended documents with it (View and Change). Configure upload/workflow permissions for future documents too. If `check` reports `review_tag_not_visible`, fix access to the existing tag instead of creating a second tag or making the service account a superuser.
+
 Create its API token using Paperless and save only the token in `secrets/paperless_token.txt`, beside Compose. The container reads that file as a Docker secret. On a Linux Docker host, make it readable by the image's UID 1654:
 
 ```sh
@@ -45,6 +47,10 @@ docker compose run --rm worker check
 `auth status` checks for saved OAuth credentials. `models` lists the SDK catalog, which does not prove your account can use each model. `probe` makes a real request with a synthetic one-pixel image and validates the JSON reply; this checks transport and entitlement, not OCR quality. `check` verifies visible Paperless taxonomy, the review tag, document listing and saved auth. It does not write a document or prove change permission.
 
 After these pass, start the worker and inspect a small initial batch and its Paperless history. Confirm OCR, metadata, preserved workflow tags and the review marker. Also verify operation after a token refresh and container restart. Live grant, refresh and model accuracy are deployment acceptance checks; they are not covered by the synthetic CI tests.
+
+`worker` and `once` check saved authorization, catalog availability and review-tag visibility before initializing discovery. This does not substitute for the live `probe`. In v0.1.1 the probe image had a bad PNG checksum and inference errors were collapsed to `runner_request_failed`; upgrade to v0.1.2 before diagnosing that result. A previous `completed 0, failed 0` may only mean that a baseline was recorded without processing any documents.
+
+Probe errors now preserve fixed categories: `runner_image_rejected`, `runner_model_access_denied`, `runner_access_denied`, `runner_transport_failed`, `runner_provider_unavailable` and `runner_request_rejected`. Unknown provider failures remain `runner_inference_failed`. Raw provider errors and credentials are never printed. Report the category if the corrected probe still fails; do not paste auth files.
 
 ## Renewal and revocation
 

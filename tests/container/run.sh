@@ -33,6 +33,10 @@ run() {
     -e PPLLM_DRY_RUN=false "$image" "$@"
 }
 # Drop the connection after accepting the write: journal recovery must avoid a second PATCH.
+control "await fetch('http://localhost:8080/test/hide-tag')"
+if run once; then echo 'Setup should fail with a hidden review tag' >&2; exit 1; fi
+docker run --rm --entrypoint sh -v "$volume:/data" "$image" -c 'test ! -f /data/state/organizer.json && test ! -f /data/state/organizer-bootstrap.json'
+control "await fetch('http://localhost:8080/test/show-tag')"
 control "await fetch('http://localhost:8080/test/disconnect')"
 run once
 run retry 1
