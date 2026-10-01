@@ -21,6 +21,7 @@ public sealed class OrganizerOptions
     public required string StateDirectory { get; init; }
     public required string SourceUrl { get; init; }
     public string Model { get; init; } = "gpt-6-luna";
+    public string ReviewTag { get; init; } = "needs review";
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromHours(1);
     public int BatchSize { get; init; } = 5;
     public int BackfillLimit { get; init; }

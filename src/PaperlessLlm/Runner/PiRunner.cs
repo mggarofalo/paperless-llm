@@ -97,7 +97,9 @@ public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
             {
                 var code = messages.LastOrDefault(x => x.TryGetProperty("code", out _));
                 var value = code.ValueKind == JsonValueKind.Undefined ? null : code.GetProperty("code").GetString();
-                throw new InferenceException(value is "model_unavailable" or "context_limit" or "image_invalid" or "input_limit" or "incomplete_response" ? "runner_" + value : "runner_request_failed");
+                throw new InferenceException(value is "model_unavailable" or "context_limit" or "image_invalid" or "input_limit" or "incomplete_response"
+                    or "image_rejected" or "model_access_denied" or "access_denied" or "transport_failed" or "provider_unavailable"
+                    or "request_rejected" or "auth_failed" or "inference_failed" ? "runner_" + value : "runner_request_failed");
             }
             return messages;
         }

@@ -66,6 +66,8 @@ public sealed class OrganizerWorker : BackgroundService
         CheckCapacity();
         if (File.Exists(Path.Combine(store.DirectoryPath, "checkpoint.json")))
             throw new InvalidOperationException("legacy_review_state_use_new_organizer_directory");
+        var taxonomy = await paperless.GetTaxonomyAsync(ct);
+        SetupValidation.RequireReviewTag(taxonomy, options.ReviewTag);
         var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
         var initialized = state is null;
         var jobs = await store.JobsAsync(ct);
@@ -107,7 +109,6 @@ public sealed class OrganizerWorker : BackgroundService
         state.LastPollAt = clock.GetUtcNow();
         state.LastActivityAt = clock.GetUtcNow(); state.NextRunAt = null; state.PauseReason = null;
         await store.SaveAsync(store.CheckpointPath, state, ct);
-        var taxonomy = await paperless.GetTaxonomyAsync(ct);
         int completed = 0, failed = 0;
         foreach (var job in jobs.Where(j => j.State == OrganizerJobState.Pending ||
             j.State == OrganizerJobState.RetryWaiting && j.NextAttemptAt <= clock.GetUtcNow()).Take(options.BatchSize))

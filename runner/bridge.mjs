@@ -2,6 +2,7 @@
 // there is no tool dispatcher, extension loader, project context or agent loop.
 import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { join } from 'node:path';
+import { classifyError } from './errors.mjs';
 
 process.umask(0o077);
 const provider = 'openai-codex';
@@ -66,10 +67,9 @@ try {
       }, { reasoning: 'medium', maxTokens: 16000 });
       if (result.stopReason === 'error' || result.stopReason === 'aborted') {
         // Provider error text can contain request/credential details. Never forward it.
-        const limited = /429|rate.?limit|usage.?limit|usage_not_included|too many requests/i.test(result.errorMessage ?? '');
-        const auth = !limited && /401|403|unauthoriz|token.*expir|invalid_grant/i.test(result.errorMessage ?? '');
-        emit({ type: 'error', code: limited ? 'rate_limited' : auth ? 'auth_required' : 'inference_failed' });
-        process.exitCode = limited ? 22 : auth ? 20 : 21;
+        const code = classifyError(result.errorMessage);
+        emit({ type: 'error', code });
+        process.exitCode = code === 'rate_limited' ? 22 : code === 'auth_required' ? 20 : 21;
       } else if (result.model !== model.id || result.provider !== provider || result.stopReason !== 'stop' || result.content.some(x => x.type === 'toolCall')) {
         emit({ type: 'error', code: 'incomplete_response' });
         process.exitCode = 21;
@@ -81,9 +81,7 @@ try {
     }
   } else throw new Error('unknown_command');
 } catch (error) {
-  const limited = /429|rate.?limit|usage.?limit|usage_not_included|too many requests/i.test(String(error?.message ?? ''));
-  const auth = !limited && (phase === 'auth' || /401|403|unauthoriz|token.*expir|invalid_grant|refresh.*fail/i.test(String(error?.message ?? '')));
-  const code = limited ? 'rate_limited' : auth ? 'auth_required' : ['context_limit', 'image_invalid', 'input_limit'].includes(error?.message) ? error.message : 'inference_failed';
+  const code = classifyError(error, phase);
   emit({ type: 'error', code });
-  process.exitCode = limited ? 22 : auth ? 20 : 21;
+  process.exitCode = code === 'rate_limited' ? 22 : code === 'auth_required' ? 20 : 21;
 }
