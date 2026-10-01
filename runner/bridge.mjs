@@ -63,7 +63,7 @@ try {
         systemPrompt: request.instructions + '\nReturn exactly one JSON object conforming to this schema. No Markdown.\n' + JSON.stringify(request.schema),
         messages: [{ role: 'user', content: [{ type: 'text', text: request.prompt }, ...images], timestamp: Date.now() }],
         tools: [],
-      }, { reasoning: 'low', maxTokens: 16000 });
+      }, { reasoning: 'medium', maxTokens: 16000 });
       if (result.stopReason === 'error' || result.stopReason === 'aborted') {
         // Provider error text can contain request/credential details. Never forward it.
         const auth = /401|403|unauthoriz|token.*expir|invalid_grant/i.test(result.errorMessage ?? '');
