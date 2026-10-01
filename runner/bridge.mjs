@@ -75,7 +75,7 @@ try {
         process.exitCode = 21;
       } else {
         const text = result.content.filter(x => x.type === 'text').map(x => x.text).join('');
-        JSON.parse(text); // .NET enforces the actual field/schema/policy contract.
+        // Preserve raw text for private diagnostics; .NET parses and validates before any write.
         emit({ type: 'result', text });
       }
     }

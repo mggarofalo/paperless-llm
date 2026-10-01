@@ -96,6 +96,16 @@ public sealed class OrganizerTests : IDisposable
         source.Invalid = false; await worker.RetryAsync(1); await worker.RunOnceAsync();
         Assert.Equal(2, source.Inferences);
     }
+    [Fact] public async Task RejectedResponseRemainsInPrivateAttemptEvidence()
+    {
+        source.Docs[1] = ProposalTests.Document(1); source.Invalid = true;
+        using var worker = Worker(1); await worker.RunOnceAsync();
+        var response = Assert.Single(Directory.EnumerateFiles(Path.Combine(root, "evidence"), "response.txt", SearchOption.AllDirectories));
+        Assert.Equal("{}", await File.ReadAllTextAsync(response));
+        Assert.True(File.Exists(Path.Combine(Path.GetDirectoryName(response)!, "request.json")));
+        var current = JsonSerializer.Deserialize<OrganizerJob>(await File.ReadAllTextAsync(Path.Combine(root, "jobs", "1.json")))!;
+        Assert.Null(current.Intent);
+    }
     [Fact] public async Task AuthRecoveryUsesFreshEvidenceDirectoryEvenWithoutConsumedAttempt()
     {
         source.Docs[1] = ProposalTests.Document(1); source.AuthFail = true;
@@ -110,12 +120,21 @@ public sealed class OrganizerTests : IDisposable
         Assert.Equal(2, source.Inferences);
         Assert.Equal(OrganizerJobState.Completed, Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).State);
     }
+    [Fact] public async Task RateLimitDefersWholeBatchWithoutConsumingAttempts()
+    {
+        source.Docs[1] = ProposalTests.Document(1); source.Docs[2] = ProposalTests.Document(2); source.RateLimit = true;
+        using var worker = Worker(2); await worker.RunOnceAsync();
+        var status = await OrganizerStatusReader.ReadAsync(root);
+        Assert.Equal("rate_limited", status.PauseReason);
+        Assert.All(status.Jobs, j => Assert.Equal(0, j.Attempts));
+        Assert.Equal(1, source.Inferences); Assert.Equal(0, source.Syncs);
+    }
     private sealed class Fake : IPaperlessClient, IIntentRunner, IIntentContextBuilder, IIntentSynchronizer, IDocumentRenderer
     {
         public Dictionary<int, PaperlessDocument> Docs { get; } = [];
         public List<string?> Filters { get; } = [];
         public int Inferences, Syncs;
-        public bool FailSync, CancelSync, Conflict, AuthFail, Invalid;
+        public bool FailSync, CancelSync, Conflict, AuthFail, Invalid, RateLimit;
         public CancellationTokenSource? Cancellation;
         public Task<IReadOnlyList<PaperlessDocument>> ListDocumentsAsync(string? tagName = "needs review", int limit = 10, int? afterId = null, CancellationToken ct = default)
         { Filters.Add(tagName); return Task.FromResult<IReadOnlyList<PaperlessDocument>>(Docs.Values.Where(x => afterId is null || x.Id > afterId).OrderBy(x => x.Id).Take(limit).ToArray()); }
@@ -127,7 +146,7 @@ public sealed class OrganizerTests : IDisposable
         public Task<IReadOnlyList<RenderedPage>> RenderAsync(OriginalDocument original, string outputDirectory, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<RenderedPage>>([new(original.Path, "image/png", "hash", 1)]);
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken ct)
-        { Inferences++; if (AuthFail) throw new PaperlessLlm.Auth.AuthException("secret", true); return Task.FromResult("{}"); }
+        { Inferences++; if (RateLimit) throw new PaperlessLlm.Runner.RunnerRateLimitException(); if (AuthFail) throw new PaperlessLlm.Auth.AuthException("secret", true); return Task.FromResult("{}"); }
         public Task<IntentContext> BuildAsync(PaperlessDocument source, PaperlessTaxonomy taxonomy, int pageCount, CancellationToken ct)
             => Task.FromResult(new IntentContext("instructions", "prompt", JsonDocument.Parse("{}").RootElement.Clone(), "v1"));
         public Task<SyncResult> ApplyAsync(string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
@@ -141,6 +160,4 @@ public sealed class OrganizerTests : IDisposable
         }
     }
 }
-
-
 

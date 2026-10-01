@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PaperlessLlm.Paperless;
 using PaperlessLlm.Review;
+using PaperlessLlm.Runner;
 namespace PaperlessLlm.Organizer;
 /// <summary>One durable job per discovered document. Completed documents are never automatically overwritten.</summary>
 public sealed class OrganizerWorker : BackgroundService
@@ -121,6 +122,7 @@ public sealed class OrganizerWorker : BackgroundService
                     var raw = await runner.GenerateAsync(options.Model, input.Instructions, input.Prompt, images, input.Schema, ct);
                     job.InferenceMilliseconds = inferenceTimer.ElapsedMilliseconds;
                     if (raw.Length > 2 * 1024 * 1024) throw new InvalidOperationException("intent_too_large");
+                    await AuditWriter.WritePrivateAsync(Path.Combine(attemptPath, "response.txt"), raw, ct);
                     using var parsed = JsonDocument.Parse(raw);
                     job.Intent = parsed.RootElement.Clone(); job.PolicyVersion = input.PolicyVersion;
                     job.PageCount = pages.Count; job.OriginalSha256 = original.Sha256;
@@ -147,6 +149,15 @@ public sealed class OrganizerWorker : BackgroundService
                 state.PauseReason = job.ErrorCode;
                 await SaveAsync(job, ct);
                 break; // One credential failure must not exhaust every queued document.
+            }
+            catch (RunnerRateLimitException)
+            {
+                job.Attempts--; job.State = OrganizerJobState.RetryWaiting;
+                job.ErrorCode = "rate_limited"; job.NextAttemptAt = clock.GetUtcNow() + options.PollInterval;
+                state.PauseReason = job.ErrorCode;
+                await SaveAsync(job, ct);
+                logger.LogWarning("Organizer paused until next poll: {Code}", job.ErrorCode);
+                break;
             }
             catch (Exception exception)
             {

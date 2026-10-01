@@ -29,9 +29,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: dotnet test --no-restore --configuration Release --logger trx --tl:off
   container:
-    name: Container smoke test
-    runs-on: ubuntu-latest
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: Container smoke test
+          - os: ubuntu-24.04-arm
+            name: Container smoke test (arm64)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build release image
@@ -42,6 +50,7 @@ jobs:
           test "$(docker run --rm --read-only --tmpfs /tmp ppllm:ci --version)" = '0.1.1'
           docker run --rm --read-only --tmpfs /tmp ppllm:ci --help
           docker run --rm --read-only --tmpfs /tmp --mount type=volume,dst=/data/auth ppllm:ci auth status
+          docker run --rm --network none --read-only --tmpfs /tmp --mount type=volume,dst=/data/auth ppllm:ci models
           docker run --rm --read-only --tmpfs /tmp --mount type=volume,dst=/data/state ppllm:ci status
           docker run --rm --read-only --tmpfs /tmp --entrypoint sh ppllm:ci -c 'test "$(id -u)" != 0 && pdftoppm -v'
           docker compose --env-file .env.example config --quiet

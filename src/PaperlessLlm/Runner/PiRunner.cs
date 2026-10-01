@@ -35,8 +35,6 @@ public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
         var message = result.LastOrDefault(x => x.GetProperty("type").GetString() == "result");
         if (message.ValueKind == JsonValueKind.Undefined) throw new InferenceException("runner_missing_result");
         var text = message.GetProperty("text").GetString()!;
-        try { using var parsed = JsonDocument.Parse(text); }
-        catch (JsonException) { throw new InferenceException("runner_invalid_json"); }
         return text;
     }
 

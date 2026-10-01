@@ -39,7 +39,7 @@ docker compose ps
 
 Structured logs contain document/job IDs, state transitions, fixed error codes and inference/sync durations, without OCR, document titles, prompts or credential values. `status` reads durable job counts and schedule timestamps without contacting external services. Health fails on a recorded authorization pause or when the last activity is older than the poll interval plus 15 minutes. An uninitialized worker is not healthy. The model request deadline is five minutes.
 
-Jobs get up to three attempts, with exponential delay serviced on subsequent cycles. Authorization pauses do not consume an attempt. Source conflicts become failed jobs. Invalid output can trigger another bounded inference attempt.
+Jobs get up to three attempts, with exponential delay serviced on subsequent cycles. Authorization failures and provider rate limits pause the batch without consuming an attempt. Rate limits are retried at the next poll. Source conflicts become failed jobs. Invalid output can trigger another bounded inference attempt.
 
 Stop the worker before manual commands so they can acquire its state lock:
 
