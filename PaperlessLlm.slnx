@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/PaperlessLlm/PaperlessLlm.csproj" />
+    <Project Path="src/PaperlessLlm.Eval/PaperlessLlm.Eval.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PaperlessLlm.Tests/PaperlessLlm.Tests.csproj" />
