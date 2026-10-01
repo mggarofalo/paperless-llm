@@ -36,8 +36,10 @@ public sealed class RunnerTests : IDisposable
     public async Task ChildEnvironmentDoesNotContainApplicationSecretsOrNodeOptions()
     {
         var runner = Runner("""
+            import { realpathSync } from 'node:fs';
             const forbidden=Object.keys(process.env).filter(k=>/TOKEN|SECRET|OPENAI|PAPERLESS|NODE_OPTIONS|CODEX/i.test(k));
-            if(forbidden.length||process.env.HOME!==process.cwd()||process.env.PI_CODING_AGENT_DIR!==process.cwd()) process.exit(21);
+            // macOS resolves /var to /private/var in cwd; compare the actual directories.
+            if(forbidden.length||realpathSync(process.env.HOME)!==realpathSync(process.cwd())||realpathSync(process.env.PI_CODING_AGENT_DIR)!==realpathSync(process.cwd())) process.exit(21);
             console.log('{"type":"ready"}');
             """);
         Assert.True(await runner.StatusAsync());
