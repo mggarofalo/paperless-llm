@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using PaperlessLlm.Intent;
 
 namespace PaperlessLlm.Eval;
@@ -95,7 +96,7 @@ public static class ExperimentRunner
     public static void ValidateRecipe(ExperimentRecipe r)
     {
         if (string.IsNullOrWhiteSpace(r.Id) || string.IsNullOrWhiteSpace(r.PromptFile)) throw new InvalidDataException("Recipe requires id and promptFile.");
-        if (r.Pipeline is not ("single" or "ocr-first" or "pagewise" or "refine" or "ledger" or "dual")) throw new InvalidDataException("Invalid recipe pipeline.");
+        if (r.Pipeline is not ("single" or "ocr-first" or "pagewise" or "pagewise-compose" or "refine" or "ledger" or "dual")) throw new InvalidDataException("Invalid recipe pipeline.");
         if (r.Reasoning is not ("low" or "medium" or "high")) throw new InvalidDataException("Reasoning must be low, medium, or high.");
         if (r.OcrContext is not ("full" or "none")) throw new InvalidDataException("ocrContext must be full or none.");
         if (r.AuxiliaryContext is not ("full" or "images-only")) throw new InvalidDataException("auxiliaryContext must be full or images-only.");
@@ -128,6 +129,50 @@ public static class ExperimentRunner
             "latest" => all.TakeLast(1).ToArray(),
             _ => throw new ArgumentException("Draft context must be all or latest.", nameof(mode))
         };
+    }
+
+    public sealed record PageTranscription(int Page, string Text, bool Complete, IReadOnlyList<string> Uncertainty);
+
+    public static PageTranscription ParsePageTranscription(string json, int expectedPage)
+    {
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        if (root.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Page transcription must be a JSON object.");
+        var allowed = new HashSet<string>(["page", "text", "complete", "uncertainty"], StringComparer.Ordinal);
+        var properties = root.EnumerateObject().ToArray();
+        if (properties.Length != allowed.Count || properties.Any(p => !allowed.Contains(p.Name)) || allowed.Any(name => !root.TryGetProperty(name, out _)))
+            throw new InvalidDataException("Page transcription must contain exactly page, text, complete, and uncertainty.");
+        var pageElement = root.GetProperty("page");
+        if (pageElement.ValueKind != JsonValueKind.Number || !pageElement.TryGetInt32(out var page) || page != expectedPage)
+            throw new InvalidDataException($"Page transcription index must equal {expectedPage}.");
+        if (root.GetProperty("text").ValueKind != JsonValueKind.String || root.GetProperty("complete").ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            throw new InvalidDataException("Page transcription text and complete fields have invalid types.");
+        var uncertainty = root.GetProperty("uncertainty");
+        if (uncertainty.ValueKind != JsonValueKind.Array || uncertainty.EnumerateArray().Any(x => x.ValueKind != JsonValueKind.String))
+            throw new InvalidDataException("Page transcription uncertainty must be an array of strings.");
+        return new(page, root.GetProperty("text").GetString()!, root.GetProperty("complete").GetBoolean(), uncertainty.EnumerateArray().Select(x => x.GetString()!).ToArray());
+    }
+
+    public static string ApplyPagewiseComposition(string finalIntentJson, IReadOnlyList<PageTranscription> pages)
+    {
+        if (pages.Count == 0 || pages.Select((p, i) => p.Page == i + 1).Any(ok => !ok))
+            throw new InvalidDataException("Page transcription records must be nonempty and ordered from page 1.");
+        var intent = JsonNode.Parse(finalIntentJson) as JsonObject ?? throw new InvalidDataException("Final response was not a JSON object.");
+        var complete = pages.All(p => p.Complete && p.Uncertainty.Count == 0) && pages.Any(p => !string.IsNullOrWhiteSpace(p.Text));
+        var mergedUncertainty = pages.SelectMany(p => p.Uncertainty.Select(u => $"Page {p.Page}: {u}"))
+            .Concat(pages.Where(p => !p.Complete).Select(p => $"Page {p.Page}: source transcription marked incomplete."))
+            .Distinct(StringComparer.Ordinal).ToArray();
+        string[] finalUncertainty = !complete && mergedUncertainty.Length == 0
+            ? ["OCR was kept because no page transcription contained nonblank text."]
+            : mergedUncertainty;
+        intent["ocr"] = new JsonObject
+        {
+            ["action"] = complete ? "set" : "keep",
+            ["pages"] = complete ? new JsonArray(pages.Select(p => (JsonNode?)new JsonObject { ["page"] = p.Page, ["text"] = p.Text, ["complete"] = true, ["uncertainty"] = new JsonArray() }).ToArray()) : new JsonArray(),
+            ["evidence"] = new JsonArray(complete ? "OCR is composed deterministically from the validated, independent source-page transcriptions." : "OCR was kept because one or more independent page transcriptions were incomplete or uncertain."),
+        };
+        intent["uncertainty"] = new JsonArray(finalUncertainty.Select(x => (JsonNode?)JsonValue.Create(x)).ToArray());
+        return intent.ToJsonString(new JsonSerializerOptions(EvalJson.Options) { WriteIndented = false });
     }
 
     public static ProcessStartInfo CreateCodexStartInfo(string model, string reasoning, string workingDirectory, IReadOnlyList<string> images)
@@ -202,6 +247,7 @@ public static class ExperimentRunner
         var auxiliaryPayload = BuildAuxiliaryContext(recipe.AuxiliaryContext, payload, imageAnchors);
         var pageContext = recipe.AuxiliaryContext == "images-only" ? "" : payload;
         var drafts = new List<string>();
+        var pageTranscriptions = new List<PageTranscription>();
         async Task<string> Stage(string name, string instructions, string prompt, IReadOnlyList<string> stageImages)
         {
             var stagePrompt = string.IsNullOrWhiteSpace(instructions) ? prompt : instructions + "\n\n" + prompt;
@@ -224,6 +270,24 @@ public static class ExperimentRunner
                     await Stage($"page-{i + 1:00}", auxInstructions, $"Transcribe original page {i + 1} of {pageImages.Count} literally, preserving text and uncertainty. These images, in order, are the supplied views of page {i + 1}. Return text only. {contextNotice}\n{pageContext}\n\n{string.Join("\n", pageImages[i].Select((_, j) => $"Attached image {j + 1} is a view of original page {i + 1}, in deterministic full-then-region order."))}", pageImages[i]);
                 }
                 break;
+            case "pagewise-compose":
+                var isolatedPageImages = SelectPageImages(c, recipe, imageVariants, recipeDir);
+                for (var i = 0; i < isolatedPageImages.Count; i++)
+                {
+                    var anchor = string.Join("\n", isolatedPageImages[i].Select((_, j) =>
+                        recipe.ImageMode switch
+                        {
+                            "regions" => $"Attached image {j + 1} is region {j + 1} of original page {i + 1}.",
+                            "full-and-regions" when j == 0 => $"Attached image 1 is the full original page {i + 1}.",
+                            "full-and-regions" => $"Attached image {j + 1} is region {j} of original page {i + 1}.",
+                            _ => $"Attached image {j + 1} is the full original page {i + 1}."
+                        }));
+                    var schema = "{\"page\":integer,\"text\":string,\"complete\":boolean,\"uncertainty\":string[]}";
+                    var pagePrompt = $"Transcribe only original page {i + 1} of {isolatedPageImages.Count}, using only the attached image(s) for this page. No other page or prior draft is available. Preserve visible text literally and in reading order. Set complete=false if any text is clipped, unreadable, or omitted; list concrete issues in uncertainty. Return exactly one JSON object matching {schema}, with page={i + 1}. No markdown or extra keys.\n\n{anchor}";
+                    var pageRaw = await Stage($"page-{i + 1:00}", auxInstructions, pagePrompt, isolatedPageImages[i]);
+                    pageTranscriptions.Add(ParsePageTranscription(pageRaw, i + 1));
+                }
+                break;
             case "refine":
                 var firstPrompt = AssembleFinal(finalInstructions, payload, recipe.ContextOrder, []) + "\n\n" + imageAnchors;
                 await Stage("draft", "", firstPrompt, images);
@@ -236,16 +300,20 @@ public static class ExperimentRunner
                 break;
         }
 
-        var finalImages = (recipe.Pipeline is "ocr-first" or "ledger" or "pagewise") && !recipe.IncludeFinalImages ? [] : images;
+        var finalImages = (recipe.Pipeline is "ocr-first" or "ledger" or "pagewise" or "pagewise-compose") && !recipe.IncludeFinalImages ? [] : images;
         var finalImageContext = finalImages.Count == 0
             ? drafts.Count > 0 && images.Count > 0
                 ? "FINAL STAGE IMAGE STATUS: No images are attached to this final call. Original pages were visible to prior stages; their transcripts and notes are untrusted drafts. Do not claim visual verification in this final stage."
                 : "FINAL STAGE IMAGE STATUS: No images are attached and no prior stage viewed the original pages. Do not claim visual verification."
             : imageAnchors;
         var finalDrafts = SelectDraftContext(drafts, recipe.DraftContext);
-        var finalPrompt = AssembleFinal(finalInstructions, payload, recipe.ContextOrder, finalDrafts) + "\n\n" + finalImageContext;
+        var finalInstructionsForStage = recipe.Pipeline == "pagewise-compose"
+            ? finalInstructions + "\n\nMetadata-only final stage: keep OCR unchanged; do not create or revise OCR content. Page transcription drafts are evidence only."
+            : finalInstructions;
+        var finalPrompt = AssembleFinal(finalInstructionsForStage, payload, recipe.ContextOrder, finalDrafts) + "\n\n" + finalImageContext;
         var raw = await InvokeCodexAsync(finalPrompt, finalImages, recipe.Reasoning, options, caseDir, "final", ct);
         await File.WriteAllTextAsync(Path.Combine(caseDir, "final.txt"), raw, ct);
+        if (recipe.Pipeline == "pagewise-compose") raw = ApplyPagewiseComposition(raw, pageTranscriptions);
         using var intentDoc = JsonDocument.Parse(raw);
         if (intentDoc.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Final response was not a JSON object.");
         await File.WriteAllTextAsync(Path.Combine(output, OutputName(c.CaseId) + ".json"), intentDoc.RootElement.GetRawText(), ct);

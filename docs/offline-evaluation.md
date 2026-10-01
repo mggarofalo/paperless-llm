@@ -20,7 +20,7 @@ dotnet run --project src/PaperlessLlm.Eval -- score `
 
 Recipes require `id` and `promptFile`. Optional fields are `parent`,
 `hypothesis`, `auxiliaryPromptFile`, `pipeline` (`single`, `ocr-first`,
-`pagewise`, `refine`, `ledger`, `dual`), `reasoning` (`low`, `medium`, `high`),
+`pagewise`, `pagewise-compose`, `refine`, `ledger`, `dual`), `reasoning` (`low`, `medium`, `high`),
 `ocrContext` (`full`, `none`), `auxiliaryContext` (`full`, `images-only`),
 `draftContext` (`all`, `latest`), `taxonomy` (`full`, `shortlist`), `contextOrder`
 (`instructions-first`, `evidence-first`), `imageMode` (`full`, `regions`,
@@ -36,7 +36,12 @@ The image mapping is keyed by case ID. Each case can contain `full`, `high`,
 `regions`, and `full-and-regions` arrays plus `pages` entries with a 1-based
 `page`, `full` image, optional `high` image, and `regions` array. Pagewise mode checks
 the page count and numbering before making a fresh transcription call for each
-page. Shortlist mode uses deterministic lexical overlap and retains original
+page. `pagewise-compose` validates a separate `{page,text,complete,uncertainty}`
+record for each page in an isolated image-only call. Its final model stage handles
+metadata and is forced to keep OCR; the runner composes OCR from the validated
+page records only when every page is complete and uncertainty-free. Otherwise
+the candidate keeps OCR and records the page-level uncertainty. Shortlist mode
+uses deterministic lexical overlap and retains original
 taxonomy IDs. `auxiliaryContext: images-only` withholds metadata, OCR, and
 taxonomy from OCR, ledger, and pagewise stages while retaining explicit image
 anchors. `draftContext: latest` includes only the latest synthesis from prior

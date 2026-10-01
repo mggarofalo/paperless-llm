@@ -16,6 +16,7 @@ public sealed class ExperimentRunnerTests
     [InlineData("single")]
     [InlineData("ocr-first")]
     [InlineData("pagewise")]
+    [InlineData("pagewise-compose")]
     [InlineData("refine")]
     [InlineData("ledger")]
     [InlineData("dual")]
@@ -73,6 +74,42 @@ public sealed class ExperimentRunnerTests
         Assert.Equal(new[] { "adjudicated summary" }, ExperimentRunner.SelectDraftContext(["draft A", "draft B", "adjudicated summary"], "latest"));
         Assert.Equal(3, ExperimentRunner.SelectDraftContext(["draft A", "draft B", "adjudicated summary"], "all").Count);
     }
+
+    [Fact]
+    public void PagewiseCompositionUsesValidatedOrderedSourceRecordsAndOverridesFinalModelOcr()
+    {
+        var page1 = ExperimentRunner.ParsePageTranscription("{\"page\":1,\"text\":\"First-page text\",\"complete\":true,\"uncertainty\":[]}", 1);
+        var page2 = ExperimentRunner.ParsePageTranscription("{\"page\":2,\"text\":\"Second-page footer\",\"complete\":true,\"uncertainty\":[]}", 2);
+        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{\"action\":\"set\",\"pages\":[{\"page\":99,\"text\":\"rewritten by final model\",\"complete\":true,\"uncertainty\":[]}],\"evidence\":[]},\"uncertainty\":[]}", [page1, page2]);
+        using var doc = JsonDocument.Parse(composed);
+        var ocr = doc.RootElement.GetProperty("ocr");
+        Assert.Equal("set", ocr.GetProperty("action").GetString());
+        Assert.Contains("source-page transcriptions", ocr.GetProperty("evidence")[0].GetString());
+        Assert.Equal(1, ocr.GetProperty("pages")[0].GetProperty("page").GetInt32());
+        Assert.Equal("First-page text", ocr.GetProperty("pages")[0].GetProperty("text").GetString());
+        Assert.Equal(2, ocr.GetProperty("pages")[1].GetProperty("page").GetInt32());
+        Assert.Equal("Second-page footer", ocr.GetProperty("pages")[1].GetProperty("text").GetString());
+    }
+
+    [Fact]
+    public void PagewiseCompositionKeepsOcrWhenAnyPageIsIncompleteOrUncertain()
+    {
+        var page1 = ExperimentRunner.ParsePageTranscription("{\"page\":1,\"text\":\"part\",\"complete\":true,\"uncertainty\":[]}", 1);
+        var page2 = ExperimentRunner.ParsePageTranscription("{\"page\":2,\"text\":\"partial\",\"complete\":false,\"uncertainty\":[\"footer clipped\"]}", 2);
+        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{},\"uncertainty\":[]}", [page1, page2]);
+        using var doc = JsonDocument.Parse(composed);
+        Assert.Equal("keep", doc.RootElement.GetProperty("ocr").GetProperty("action").GetString());
+        Assert.Empty(doc.RootElement.GetProperty("ocr").GetProperty("pages").EnumerateArray());
+        Assert.Contains("Page 2: footer clipped", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
+        Assert.Contains("Page 2: source transcription marked incomplete.", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
+    }
+
+    [Theory]
+    [InlineData("{\"page\":2,\"text\":\"x\",\"complete\":true,\"uncertainty\":[]}")]
+    [InlineData("{\"page\":1,\"text\":\"x\",\"complete\":\"yes\",\"uncertainty\":[]}")]
+    [InlineData("{\"page\":1,\"text\":\"x\",\"complete\":true,\"uncertainty\":[],\"extra\":1}")]
+    public void PagewiseTranscriptionRejectsMismatchedOrInvalidSchema(string json) =>
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ParsePageTranscription(json, 1));
 
     [Fact]
     public void CandidatePayloadCanRemoveOcrAndShortlistByExistingIdsWithoutLeakingLabels()
