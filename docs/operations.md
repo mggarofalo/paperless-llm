@@ -54,6 +54,8 @@ docker compose up -d worker
 
 Private state contains document metadata, originals, rendered pages, prompts and results. The soft size cap may be exceeded by one in-flight attempt; the operation journal is in the separate audit volume. There is no automatic evidence-retention policy yet. Monitor both volumes and available disk space, keep encrypted backups, and do not delete pending jobs or journals. Docker console logs rotate at three 10 MiB files in the sample Compose.
 
+This initial filesystem implementation is intended for a personal library. It retains at most 10,000 enrolled jobs; reaching that cap pauses processing until capacity is addressed in a later version. Status and polls load full job records, so memory use grows with retained OCR. Do not discard completed-job indexes to reclaim space: they prevent duplicate processing. Capacity errors are exposed through the health pause reason.
+
 ## Upgrade from v0.1.0
 
 v0.1.0 generated read-only proposals. This release applies validated updates automatically. Stop the old worker and back up its volumes first. Update Compose and `.env`; the new `organizer-state` volume preserves the old state volume for reference. Legacy checkpoint files are rejected instead of silently reused.

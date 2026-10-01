@@ -129,18 +129,38 @@ public sealed class OrganizerTests : IDisposable
         Assert.All(status.Jobs, j => Assert.Equal(0, j.Attempts));
         Assert.Equal(1, source.Inferences); Assert.Equal(0, source.Syncs);
     }
+    [Fact] public async Task PollFailureIsVisibleEvenAfterDiscoveryHeartbeat()
+    {
+        source.TaxonomyFail = true;
+        using var worker = Worker();
+        await worker.StartAsync(default);
+        OrganizerStatus? status = null;
+        for (int i = 0; i < 100; i++)
+        {
+            status = await OrganizerStatusReader.ReadAsync(root);
+            if (status.PauseReason is not null) break;
+            await Task.Delay(20);
+        }
+        await worker.StopAsync(default);
+        Assert.Equal("paperless_authentication_failed", status!.PauseReason);
+        Assert.NotNull(status.LastActivityAt);
+    }
     private sealed class Fake : IPaperlessClient, IIntentRunner, IIntentContextBuilder, IIntentSynchronizer, IDocumentRenderer
     {
         public Dictionary<int, PaperlessDocument> Docs { get; } = [];
         public List<string?> Filters { get; } = [];
         public int Inferences, Syncs;
-        public bool FailSync, CancelSync, Conflict, AuthFail, Invalid, RateLimit;
+        public bool FailSync, CancelSync, Conflict, AuthFail, Invalid, RateLimit, TaxonomyFail;
         public CancellationTokenSource? Cancellation;
         public Task<IReadOnlyList<PaperlessDocument>> ListDocumentsAsync(string? tagName = "needs review", int limit = 10, int? afterId = null, CancellationToken ct = default)
         { Filters.Add(tagName); return Task.FromResult<IReadOnlyList<PaperlessDocument>>(Docs.Values.Where(x => afterId is null || x.Id > afterId).OrderBy(x => x.Id).Take(limit).ToArray()); }
         public Task<int> GetLatestDocumentIdAsync(CancellationToken ct = default) => Task.FromResult(Docs.Keys.DefaultIfEmpty().Max());
         public Task<PaperlessDocument> GetDocumentAsync(int id, CancellationToken ct = default) => Task.FromResult(Docs[id]);
-        public Task<PaperlessTaxonomy> GetTaxonomyAsync(CancellationToken ct = default) => Task.FromResult(new PaperlessTaxonomy([], [], []));
+        public Task<PaperlessTaxonomy> GetTaxonomyAsync(CancellationToken ct = default)
+        {
+            if (TaxonomyFail) throw new PaperlessException("private", "paperless_authentication_failed");
+            return Task.FromResult(new PaperlessTaxonomy([], [], []));
+        }
         public async Task<OriginalDocument> DownloadOriginalAsync(int id, string destination, CancellationToken ct = default)
         { if (File.Exists(destination)) throw new IOException("download_destination_exists"); await File.WriteAllTextAsync(destination, "image", ct); return new(destination, "image/png", "hash", 5); }
         public Task<IReadOnlyList<RenderedPage>> RenderAsync(OriginalDocument original, string outputDirectory, CancellationToken ct = default)
@@ -160,4 +180,3 @@ public sealed class OrganizerTests : IDisposable
         }
     }
 }
-

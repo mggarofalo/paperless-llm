@@ -38,7 +38,24 @@ public sealed class OrganizerWorker : BackgroundService
                 logger.LogInformation("Organizer poll: completed {Completed}, failed {Failed}", result.Completed, result.Failed);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
-            catch (Exception) { logger.LogWarning("Organizer poll failed; inspect private state and service connectivity"); }
+            catch (Exception exception)
+            {
+                var code = exception is PaperlessException paperlessError ? paperlessError.Code
+                    : exception is InvalidOperationException invalid && invalid.Message is "organizer_storage_capacity" or "organizer_job_capacity"
+                    ? invalid.Message : "poll_failed";
+                logger.LogWarning("Organizer poll stopped with {Code}", code);
+                try
+                {
+                    using var stateLock = store.Lock();
+                    var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, stoppingToken);
+                    if (state is not null)
+                    {
+                        state.PauseReason = code; state.NextRunAt = clock.GetUtcNow() + options.PollInterval;
+                        await HeartbeatAsync(state, stoppingToken);
+                    }
+                }
+                catch (Exception) { logger.LogWarning("Could not persist poll failure status"); }
+            }
             try { await Task.Delay(options.PollInterval, clock, stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
@@ -99,6 +116,7 @@ public sealed class OrganizerWorker : BackgroundService
             job.State = OrganizerJobState.Running; job.Attempts++; job.ErrorCode = null;
             await SaveAsync(job, ct);
             await HeartbeatAsync(state, ct);
+            logger.LogInformation("Organizer job {JobId} document {DocumentId} started attempt {Attempt}", job.JobId, job.DocumentId, job.Attempts);
             try
             {
                 if (job.Intent is null)
@@ -148,7 +166,17 @@ public sealed class OrganizerWorker : BackgroundService
                 job.NextAttemptAt = clock.GetUtcNow() + options.PollInterval;
                 state.PauseReason = job.ErrorCode;
                 await SaveAsync(job, ct);
+                logger.LogWarning("Organizer paused until authorization recovers: {Code}", job.ErrorCode);
                 break; // One credential failure must not exhaust every queued document.
+            }
+            catch (PaperlessException exception) when (exception.Code is "paperless_authentication_failed" or "paperless_rate_limited")
+            {
+                job.Attempts--; job.State = OrganizerJobState.RetryWaiting;
+                job.ErrorCode = exception.Code; job.NextAttemptAt = clock.GetUtcNow() + options.PollInterval;
+                state.PauseReason = job.ErrorCode;
+                await SaveAsync(job, ct);
+                logger.LogWarning("Organizer paused until next poll: {Code}", job.ErrorCode);
+                break;
             }
             catch (RunnerRateLimitException)
             {

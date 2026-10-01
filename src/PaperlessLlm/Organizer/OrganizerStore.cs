@@ -64,8 +64,8 @@ public static class OrganizerStatusReader
         var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
         var jobs = await store.JobsAsync(ct);
         return new(state?.BaselineId ?? 0, state?.CursorId ?? 0, state?.LastPollAt,
-            jobs.Select(j => new OrganizerJobSummary(j.DocumentId, j.JobId, j.State, j.Attempts, j.ErrorCode, j.NextAttemptAt, j.Outcome)).ToArray(), state?.LastActivityAt, state?.NextRunAt, state?.PauseReason);
+            jobs.Select(j => new OrganizerJobSummary(j.DocumentId, j.JobId, j.State, j.Attempts, j.ErrorCode, j.NextAttemptAt, j.Outcome,
+                j.CreatedAt, j.UpdatedAt, j.CompletedAt, j.InferenceMilliseconds, j.SyncMilliseconds)).ToArray(), state?.LastActivityAt, state?.NextRunAt, state?.PauseReason);
     }
 }
-
 

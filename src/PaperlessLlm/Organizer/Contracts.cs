@@ -63,5 +63,7 @@ public sealed class OrganizerJob
     public long? SyncMilliseconds { get; set; }
 }
 public sealed record OrganizerPollResult(int Completed, int Failed, bool Initialized);
-public sealed record OrganizerJobSummary(int DocumentId, string JobId, OrganizerJobState State, int Attempts, string? ErrorCode, DateTimeOffset? NextAttemptAt, string? Outcome);
+public sealed record OrganizerJobSummary(int DocumentId, string JobId, OrganizerJobState State, int Attempts, string? ErrorCode, DateTimeOffset? NextAttemptAt, string? Outcome,
+    DateTimeOffset CreatedAt = default, DateTimeOffset? UpdatedAt = null, DateTimeOffset? CompletedAt = null,
+    long? InferenceMilliseconds = null, long? SyncMilliseconds = null);
 public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null);
