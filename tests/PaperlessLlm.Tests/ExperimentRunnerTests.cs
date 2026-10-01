@@ -1,4 +1,6 @@
 using PaperlessLlm.Eval;
+using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 namespace PaperlessLlm.Tests;
@@ -24,6 +26,8 @@ public sealed class ExperimentRunnerTests
     {
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateRecipe(Recipe("agent-loop")));
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateRecipe(Recipe() with { Reasoning = "xhigh" }));
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateRecipe(Recipe() with { AuxiliaryContext = "metadata-only" }));
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateRecipe(Recipe() with { DraftContext = "first" }));
     }
 
     [Fact]
@@ -44,6 +48,28 @@ public sealed class ExperimentRunnerTests
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"item.started\",\"item\":{\"type\":\"command_execution\"}}\n" + good));
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ExtractFinalMessage("{\"type\":\"turn.completed\"}"));
         Assert.ThrowsAny<System.Text.Json.JsonException>(() => ExperimentRunner.ExtractFinalMessage("not-json"));
+    }
+
+    [Fact]
+    public void CodexTransportUsesUtf8WithoutBomForUnicodeDrafts()
+    {
+        var psi = ExperimentRunner.CreateCodexStartInfo("gpt-6-luna", "medium", Path.GetTempPath(), []);
+        Assert.Equal(Encoding.UTF8.CodePage, psi.StandardInputEncoding!.CodePage);
+        Assert.Empty(psi.StandardInputEncoding.GetPreamble());
+        Assert.Equal(Encoding.UTF8.CodePage, psi.StandardOutputEncoding!.CodePage);
+        Assert.Equal(Encoding.UTF8.CodePage, psi.StandardErrorEncoding!.CodePage);
+    }
+
+    [Fact]
+    public void ImagesOnlyAuxiliaryStageOmitsDocumentPayloadAndLatestDraftKeepsOnlySynthesis()
+    {
+        const string privatePayload = "private OCR and taxonomy label";
+        const string anchors = "Attached image 1: full page 1.";
+        var context = ExperimentRunner.BuildAuxiliaryContext("images-only", privatePayload, anchors);
+        Assert.DoesNotContain(privatePayload, context);
+        Assert.Contains(anchors, context);
+        Assert.Equal(new[] { "adjudicated summary" }, ExperimentRunner.SelectDraftContext(["draft A", "draft B", "adjudicated summary"], "latest"));
+        Assert.Equal(3, ExperimentRunner.SelectDraftContext(["draft A", "draft B", "adjudicated summary"], "all").Count);
     }
 
     [Fact]
@@ -68,6 +94,18 @@ public sealed class ExperimentRunnerTests
         var invalid = EvalEngine.Score("v", "train", null, null, [c], new Dictionary<string, string> { [c.CaseId] = "not-json" });
         Assert.Equal(1, invalid.ValidatorFailures);
         Assert.Equal("invalid_intent_json", invalid.Cases[0].Failure);
+    }
+
+    [Fact]
+    public void ExperimentSplitSelectionExcludesHoldoutBeforeRunnerStarts()
+    {
+        var train = SyntheticCase();
+        var holdout = train with { CaseId = "synthetic-02", Split = "holdout" };
+        var selected = ExperimentRunner.SelectCasesForSplit([train, holdout], "train");
+        Assert.Single(selected);
+        Assert.Equal("synthetic-01", selected[0].CaseId);
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectCasesForSplit([train], "holdout"));
+        Assert.Throws<ArgumentException>(() => ExperimentRunner.SelectCasesForSplit([train], "all"));
     }
 
     private static EvalCase SyntheticCase() => new()

@@ -11,28 +11,35 @@ curator notes are never sent to Luna.
 
 ```powershell
 dotnet run --project src/PaperlessLlm.Eval -- experiment `
-  --cases private/cases.jsonl --recipe private/recipe.json `
-  --out private/runs/recipe-id --concurrency 6 --model gpt-6-luna
-dotnet run --project src/PaperlessLlm.Eval -- score private/cases.jsonl `
-  private/runs/recipe-id --split holdout --version recipe-id --out private/score.json `
-  --references private/references.json
+  --cases C:\private\eval\cases.jsonl --split train --recipe C:\private\eval\recipe.json `
+  --out C:\private\eval\runs\recipe-id --concurrency 6 --model gpt-6-luna
+dotnet run --project src/PaperlessLlm.Eval -- score `
+  C:\private\eval\cases.jsonl C:\private\eval\runs\recipe-id --split train `
+  --version recipe-id --out C:\private\eval\score.json --references C:\private\eval\references.json
 ```
 
 Recipes require `id` and `promptFile`. Optional fields are `parent`,
 `hypothesis`, `auxiliaryPromptFile`, `pipeline` (`single`, `ocr-first`,
 `pagewise`, `refine`, `ledger`, `dual`), `reasoning` (`low`, `medium`, `high`),
-`ocrContext` (`full`, `none`), `taxonomy` (`full`, `shortlist`), `contextOrder`
+`ocrContext` (`full`, `none`), `auxiliaryContext` (`full`, `images-only`),
+`draftContext` (`all`, `latest`), `taxonomy` (`full`, `shortlist`), `contextOrder`
 (`instructions-first`, `evidence-first`), `imageMode` (`full`, `regions`,
 `full-and-regions`, `high`), `imageVariants` (recipe-relative mapping file),
 and `includeFinalImages`.
+
+`experiment --split train|holdout` is required. The runner filters the case file
+to that split before any model call, so a train run cannot send holdout cases.
 
 The image mapping is keyed by case ID. Each case can contain `full`, `high`,
 `regions`, and `full-and-regions` arrays plus `pages` entries with a 1-based
 `page`, `full` image, optional `high` image, and `regions` array. Pagewise mode checks
 the page count and numbering before making a fresh transcription call for each
 page. Shortlist mode uses deterministic lexical overlap and retains original
-taxonomy IDs. Prior-stage drafts are labeled untrusted evidence in the final
-call. `--timeout` sets a per-stage limit in seconds (default 300, allowed
+taxonomy IDs. `auxiliaryContext: images-only` withholds metadata, OCR, and
+taxonomy from OCR, ledger, and pagewise stages while retaining explicit image
+anchors. `draftContext: latest` includes only the latest synthesis from prior
+stages in the final call. Prior-stage drafts are labeled untrusted evidence.
+`--timeout` sets a per-stage limit in seconds (default 300, allowed
 10..1800). Failed cases remain missing from scorer-compatible `caseId.json`
 outputs and receive an `.error.txt` record. The scorer remains the authority on
 schema and production-validator behavior.

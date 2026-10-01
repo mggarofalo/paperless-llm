@@ -34,10 +34,11 @@ internal static class EvalCli
         var cases = Argument(o, "cases", 0);
         var recipe = Required(o, "recipe");
         var output = Required(o, "out");
+        var split = Required(o, "split");
         var concurrency = int.TryParse(o.GetValueOrDefault("concurrency", "1"), out var parsed) ? parsed : 0;
         var timeout = int.TryParse(o.GetValueOrDefault("timeout", "300"), out var parsedTimeout) ? parsedTimeout : 0;
         await ExperimentRunner.RunAsync(new ExperimentOptions(cases, recipe, output, concurrency,
-            o.GetValueOrDefault("model", "gpt-6-luna"), timeout));
+            o.GetValueOrDefault("model", "gpt-6-luna"), timeout, split));
         Console.WriteLine($"Experiment outputs and provenance written to {Path.GetFullPath(output)}");
     }
 
@@ -258,6 +259,6 @@ internal static class EvalCli
           export CASES.jsonl DIR --split train|holdout [--instructions-file FILE]
           score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE]
           compare --baseline report.json --candidate report.json --out comparison.json
-          experiment --cases CASES.jsonl --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
+          experiment --cases CASES.jsonl --split train|holdout --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
         """);
 }
