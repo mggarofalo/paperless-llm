@@ -37,4 +37,20 @@ dotnet run --project src/PaperlessLlm.Eval -- compare --baseline C:\private\eval
 
 The scorer first applies the production intent shape checks and `IntentValidator` to each candidate, then checks resulting metadata values, protected tags, OCR replacement requirements, key facts, and forbidden facts. Reports include case level checks, totals, missing and malformed output counts, schema and validator failure counts/codes, partial OCR fact recall, and critical failures. Train and holdout scores are separate invocations and report versions retain model and harness provenance.
 
-For a prompt hillclimb, export and score the `train` split while editing a private instruction file. Evaluate finalists once on holdout, then freeze the winning prompt and report. Never tune against the holdout scores.
+For a prompt hillclimb, freeze the corpus, references, and split first. Export and score only `train` while editing an instruction file. Record each hypothesis, prompt hash, model/runtime version, and score; reject regressions and repeat the best candidate to check variability. Select and freeze the winner **before** exporting or inspecting holdout. Compare the frozen winner with baseline on holdout once. Never tune against holdout results; a later iteration needs a fresh reserved set.
+
+The checked-in [synthetic cases](../eval/synthetic-cases.jsonl) exercise metadata correction, missing tags, title preservation, and embedded instructions without private documents. They are text-only smoke cases, not an OCR benchmark. For example:
+
+```powershell
+dotnet run --project src/PaperlessLlm.Eval -- export eval/synthetic-cases.jsonl C:\private\eval\smoke --split train --instructions-file eval/prompts/preserve-context-v1.txt
+```
+
+Use a separately authenticated inference runner to submit each exported `system_prompt`, `schema`, `input`, and every `page_images` attachment. Return raw intent JSON under the case ID. Do not send `expected`, curator notes, other cases, or Paperless credentials to the model. Keep inference logs and images private. Match the deployment runner when making deployment acceptance claims; identical model names do not establish identical execution conditions.
+
+## Interpretation and limitations
+
+`criticalFailures` counts designated cases failing **any** scored requirement; it does not distinguish an unnecessary title rewrite from a factual or safety error. A production-validator rejection contributes zero matched facts because the proposal cannot be applied. Consequently, this is a valid-proposal fact score, not raw model transcription accuracy. Inspect rejection counts alongside accuracy counts.
+
+Fact matching is a lightweight substring check. It does not establish full transcription, character/word error rate, correct table alignment, amount signs, or the absence of unlisted hallucinations. A short number may match inside another number; punctuation and formatting can also produce false negatives. Use scan comparison and stronger reviewed references for acceptance. Cases marked `mustReplace` must be curated against the actual legibility and scope of the OCR policy; an appropriate abstention can still leave a useful repair unfinished.
+
+The [first tuning report](evaluations/2026-10-01-pilot.md) records a 16/4 real-document pilot and its limitations. Its [selected experimental prompt](../eval/prompts/preserve-context-v1.txt) is available for further offline evaluation. It is **not** the worker's default prompt and has not passed production OCR acceptance.

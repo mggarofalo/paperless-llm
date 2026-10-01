@@ -41,6 +41,7 @@ public sealed class EvalEngineTests
         var report = EvalEngine.Score("bad", "train", null, null, [testCase], new Dictionary<string, string> { [testCase.CaseId] = intent });
 
         Assert.False(report.Cases[0].Valid);
+        Assert.True(report.Cases[0].Checks["output.present"]);
         Assert.Equal("protected_tag", report.Cases[0].Failure);
         Assert.False(report.Cases[0].Checks["protected_tags.not_added"]);
         Assert.Equal(1, report.ValidatorFailures);

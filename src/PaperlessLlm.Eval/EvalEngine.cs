@@ -43,13 +43,13 @@ public static class EvalEngine
             if (!outputs.TryGetValue(testCase.CaseId, out var raw)) failure = "missing_output";
             else
             {
+                checks["output.present"] = true;
                 try
                 {
                     var document = testCase.ToDocument();
                     var taxonomy = testCase.ToTaxonomy();
                     var intent = IntentValidator.Validate(raw, document, taxonomy, testCase.PageCount);
                     valid = true;
-                    checks["output.present"] = true;
                     checks["validator.valid"] = true;
                     ocrKeyFactsMatched = ScoreIntent(testCase, intent, checks);
                 }
