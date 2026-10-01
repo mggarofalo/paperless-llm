@@ -48,7 +48,7 @@ public static class ExperimentRunner
         var auxInstructions = recipe.AuxiliaryPromptFile is null ? "" :
             await File.ReadAllTextAsync(Path.GetFullPath(recipe.AuxiliaryPromptFile, recipeDir), cancellationToken);
         var output = Path.GetFullPath(options.Output);
-        Directory.CreateDirectory(output);
+        EnsureFreshOutputDirectory(output);
         var started = DateTimeOffset.UtcNow;
         var failures = 0;
         using var semaphore = new SemaphoreSlim(options.Concurrency);
@@ -83,6 +83,13 @@ public static class ExperimentRunner
         var selected = cases.Where(c => string.Equals(c.Split, split, StringComparison.OrdinalIgnoreCase)).ToList();
         if (selected.Count == 0) throw new InvalidDataException($"Case file contains no cases for split '{split}'.");
         return selected;
+    }
+
+    public static void EnsureFreshOutputDirectory(string output)
+    {
+        if (Directory.Exists(output) && Directory.EnumerateFileSystemEntries(output).Any())
+            throw new InvalidDataException($"Output directory '{output}' must be empty; choose a fresh run directory.");
+        Directory.CreateDirectory(output);
     }
 
     public static void ValidateRecipe(ExperimentRecipe r)

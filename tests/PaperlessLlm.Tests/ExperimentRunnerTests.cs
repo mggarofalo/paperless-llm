@@ -108,6 +108,20 @@ public sealed class ExperimentRunnerTests
         Assert.Throws<ArgumentException>(() => ExperimentRunner.SelectCasesForSplit([train], "all"));
     }
 
+    [Fact]
+    public void ExperimentRefusesNonemptyOutputDirectoryInsteadOfResumingStaleResults()
+    {
+        var output = Path.Combine(Path.GetTempPath(), "ppllm-experiment-test-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            ExperimentRunner.EnsureFreshOutputDirectory(output);
+            File.WriteAllText(Path.Combine(output, "old-case.json"), "{}");
+            Assert.Throws<InvalidDataException>(() => ExperimentRunner.EnsureFreshOutputDirectory(output));
+            Assert.True(File.Exists(Path.Combine(output, "old-case.json")));
+        }
+        finally { if (Directory.Exists(output)) Directory.Delete(output, true); }
+    }
+
     private static EvalCase SyntheticCase() => new()
     {
         CaseId = "synthetic-01", Split = "train", PageCount = 0,

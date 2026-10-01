@@ -29,6 +29,8 @@ and `includeFinalImages`.
 
 `experiment --split train|holdout` is required. The runner filters the case file
 to that split before any model call, so a train run cannot send holdout cases.
+Each `--out` directory must be new or empty; the runner refuses to reuse an
+existing run directory so stale candidate files cannot hide failed cases.
 
 The image mapping is keyed by case ID. Each case can contain `full`, `high`,
 `regions`, and `full-and-regions` arrays plus `pages` entries with a 1-based
