@@ -1,6 +1,46 @@
 # Offline intent evaluation
 
-`PaperlessLlm.Eval` exports prompt cases and scores externally generated intent JSON. It has no network, Paperless client, authentication, or model runner. It references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
+## Authenticated prompt experiments
+
+Run prompt recipes through the .NET `experiment` command. Every stage starts a
+fresh local Codex process in a temporary working directory with read-only
+sandboxing and user configuration ignored. Stage event streams, text, errors,
+and provenance are written to the chosen output directory. Treat that directory
+as sensitive because it can contain document-derived text. Expected answers and
+curator notes are never sent to Luna.
+
+```powershell
+dotnet run --project src/PaperlessLlm.Eval -- experiment `
+  --cases private/cases.jsonl --recipe private/recipe.json `
+  --out private/runs/recipe-id --concurrency 6 --model gpt-6-luna
+dotnet run --project src/PaperlessLlm.Eval -- score private/cases.jsonl `
+  private/runs/recipe-id --split holdout --version recipe-id --out private/score.json `
+  --references private/references.json
+```
+
+Recipes require `id` and `promptFile`. Optional fields are `parent`,
+`hypothesis`, `auxiliaryPromptFile`, `pipeline` (`single`, `ocr-first`,
+`pagewise`, `refine`, `ledger`, `dual`), `reasoning` (`low`, `medium`, `high`),
+`ocrContext` (`full`, `none`), `taxonomy` (`full`, `shortlist`), `contextOrder`
+(`instructions-first`, `evidence-first`), `imageMode` (`full`, `regions`,
+`full-and-regions`, `high`), `imageVariants` (recipe-relative mapping file),
+and `includeFinalImages`.
+
+The image mapping is keyed by case ID. Each case can contain `full`, `high`,
+`regions`, and `full-and-regions` arrays plus `pages` entries with a 1-based
+`page`, `full` image, optional `high` image, and `regions` array. Pagewise mode checks
+the page count and numbering before making a fresh transcription call for each
+page. Shortlist mode uses deterministic lexical overlap and retains original
+taxonomy IDs. Prior-stage drafts are labeled untrusted evidence in the final
+call. `--timeout` sets a per-stage limit in seconds (default 300, allowed
+10..1800). Failed cases remain missing from scorer-compatible `caseId.json`
+outputs and receive an `.error.txt` record. The scorer remains the authority on
+schema and production-validator behavior.
+When `--references` is supplied to `score`, an additional `.regions.json` file
+reports partial OCR-region, signed-amount, identifier, and anchor metrics against
+the private reference map without changing the existing report schema.
+
+The export and score commands in `PaperlessLlm.Eval` remain offline: they do not use a Paperless client or authentication. The experiment command separately invokes the authenticated local Codex CLI as described above. The harness references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
 
 Keep the real case file, page images, task exports, model outputs, and reports in a private directory outside this repository. Do not commit them. `notes` and all `expected` labels are grader-only: export includes only the production prompt, schema, input payload, case ID, split, and page image paths. Page image paths are references and are not opened or copied by the harness.
 

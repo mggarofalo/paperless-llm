@@ -17,6 +17,7 @@ internal static class EvalCli
                 case "export": await ExportAsync(options); break;
                 case "score": await ScoreAsync(options); break;
                 case "compare": await CompareAsync(options); break;
+                case "experiment": await ExperimentAsync(options); break;
                 default: throw new ArgumentException($"Unknown command '{args[0]}'.");
             }
             return 0;
@@ -26,6 +27,18 @@ internal static class EvalCli
             Console.Error.WriteLine(ex.Message);
             return 2;
         }
+    }
+
+    private static async Task ExperimentAsync(Dictionary<string, string> o)
+    {
+        var cases = Argument(o, "cases", 0);
+        var recipe = Required(o, "recipe");
+        var output = Required(o, "out");
+        var concurrency = int.TryParse(o.GetValueOrDefault("concurrency", "1"), out var parsed) ? parsed : 0;
+        var timeout = int.TryParse(o.GetValueOrDefault("timeout", "300"), out var parsedTimeout) ? parsedTimeout : 0;
+        await ExperimentRunner.RunAsync(new ExperimentOptions(cases, recipe, output, concurrency,
+            o.GetValueOrDefault("model", "gpt-6-luna"), timeout));
+        Console.WriteLine($"Experiment outputs and provenance written to {Path.GetFullPath(output)}");
     }
 
     private static async Task ExportAsync(Dictionary<string, string> o)
@@ -70,6 +83,15 @@ internal static class EvalCli
         var target = Path.GetFullPath(Required(o, "out"));
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         await File.WriteAllTextAsync(target, JsonSerializer.Serialize(report, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+        if (o.TryGetValue("references", out var referencesPath))
+        {
+            var references = EvalJson.Read<Dictionary<string, RichReference>>(await File.ReadAllTextAsync(referencesPath));
+            var richRows = cases.Where(c => c.Split == split && references.ContainsKey(c.CaseId))
+                .Select(c => RegionScorer.Score(c, outputs.GetValueOrDefault(c.CaseId), references[c.CaseId])).ToArray();
+            var regionsPath = Path.Combine(Path.GetDirectoryName(target)!, Path.GetFileNameWithoutExtension(target) + ".regions.json");
+            await File.WriteAllTextAsync(regionsPath, JsonSerializer.Serialize(richRows, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+            Console.WriteLine($"Region and signed-amount report: {regionsPath}");
+        }
         Console.WriteLine($"{report.Version} ({report.Split}): {report.TotalCases} cases, {report.MissingOutputs} missing, {report.SchemaFailures} schema failures, {report.ValidatorFailures} validator failures, {report.CriticalFailures} critical failures. Report: {target}");
     }
 
@@ -234,7 +256,8 @@ internal static class EvalCli
     private static void Usage() => Console.WriteLine("""
         Offline intent evaluation (no network or Paperless access)
           export CASES.jsonl DIR --split train|holdout [--instructions-file FILE]
-          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME]
+          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE]
           compare --baseline report.json --candidate report.json --out comparison.json
+          experiment --cases CASES.jsonl --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
         """);
 }
