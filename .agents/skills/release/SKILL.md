@@ -27,8 +27,9 @@ or require credentials. Check the README/auth/operations/review links and comman
 against the executable.
 
 Open or update a PR around the final behavior. Required checks are
-`Tests (ubuntu-latest, .NET 10)`, `Tests (macos-latest, .NET 10)`,
-`Tests (windows-latest, .NET 10)`, `Container smoke test` and `Container smoke test (arm64)`.
+`Tests (ubuntu-latest, .NET 10)`, `Container smoke test` and `Container smoke test (arm64)`.
+Linux containers are the deployment target; do not add macOS or Windows CI jobs
+without a corresponding supported deployment requirement.
 Merge through normal branch protection after they pass; never bypass protection.
 A user request to release authorizes the necessary PR merge, tag and publication.
 A request only to prepare stops at the ready PR.

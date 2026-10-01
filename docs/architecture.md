@@ -54,6 +54,6 @@ docker build -t ppllm:local .
 bash tests/container/run.sh ppllm:local
 ```
 
-Native inference needs Node 24, the installed bridge and a dedicated auth home. The Docker image bundles these plus Poppler. CI tests .NET on Windows, macOS and Linux, then runs container smoke and synthetic end-to-end tests. Release builds publish amd64 and arm64 images; follow the [release procedure](../.agents/skills/release/SKILL.md).
+Native development needs Node 24, the installed bridge and a dedicated auth home. The supported deployment is a Linux Docker container, which bundles these plus Poppler. CI runs .NET tests on Linux and container smoke and synthetic end-to-end tests on native amd64 and arm64 Linux runners. Release builds publish both architectures; follow the [release procedure](../.agents/skills/release/SKILL.md).
 
 The repair command replaces Pi's shrinkwrapped `brace-expansion` with the exact integrity-locked patched version already installed at the root. It runs offline, verifies versions and paths, and is required after each `npm ci`; upstream shrinkwrap otherwise overrides the nested lock entry. Docker includes this step.
