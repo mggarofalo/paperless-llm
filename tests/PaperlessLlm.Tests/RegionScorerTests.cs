@@ -17,6 +17,15 @@ public sealed class RegionScorerTests
     }
 
     [Fact]
+    public void UnrepresentablyLargeOcrAmountsAreSkippedInsteadOfThrowing()
+    {
+        var text = new string('9', 200) + ".99 and $12.34";
+        var amounts = RegionScorer.ExtractAmounts(text);
+        Assert.Contains("12.34", amounts);
+        Assert.Single(amounts);
+    }
+
+    [Fact]
     public void IdentifiersCannotMatchInsideOtherIdentifiers()
     {
         Assert.False(RegionScorer.ContainsToken("1232079", "3207"));

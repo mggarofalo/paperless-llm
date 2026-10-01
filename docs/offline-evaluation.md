@@ -15,7 +15,8 @@ dotnet run --project src/PaperlessLlm.Eval -- experiment `
   --out C:\private\eval\runs\recipe-id --concurrency 6 --model gpt-6-luna
 dotnet run --project src/PaperlessLlm.Eval -- score `
   C:\private\eval\cases.jsonl C:\private\eval\runs\recipe-id --split train `
-  --version recipe-id --out C:\private\eval\score.json --references C:\private\eval\references.json
+  --version recipe-id --out C:\private\eval\score.json --references C:\private\eval\references.json `
+  --regressions C:\private\eval\manual-regression-references.json
 ```
 
 Recipes require `id` and `promptFile`. Optional fields are `parent`,
@@ -53,6 +54,13 @@ schema and production-validator behavior.
 When `--references` is supplied to `score`, an additional `.regions.json` file
 reports partial OCR-region, signed-amount, identifier, and anchor metrics against
 the private reference map without changing the existing report schema.
+When `--regressions` is supplied, `.regressions.json` runs the post-audit partial
+reference gate on the selected split. It checks validated OCR `set` output on each
+reference page, counts repeated checks independently, and reports zero-based
+`missingCheckIndices` without copying private check text or notes. OCR `keep` is
+reported as a safe abstention; malformed or production-validator-rejected output
+is reported separately as invalid. This gate measures only its reviewed partial
+checks and does not certify complete transcription.
 
 The export and score commands in `PaperlessLlm.Eval` remain offline: they do not use a Paperless client or authentication. The experiment command separately invokes the authenticated local Codex CLI as described above. The harness references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
 

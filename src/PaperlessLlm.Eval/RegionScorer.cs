@@ -96,12 +96,18 @@ public static class RegionScorer
         return Math.Max(0, 1 - (double)prior.Min() / expected.Length);
     }
 
-    public static HashSet<string> ExtractAmounts(string text) => Money.Matches(text).Select(m =>
+    public static HashSet<string> ExtractAmounts(string text)
     {
-        var negative = m.Groups["sign"].Value is "-" or "−" || m.Groups["trailing"].Success || m.Groups["open"].Success && m.Groups["close"].Success;
-        var number = decimal.Parse(m.Groups["number"].Value, NumberStyles.Number, CultureInfo.InvariantCulture);
-        return (negative ? -number : number).ToString("0.00", CultureInfo.InvariantCulture);
-    }).ToHashSet(StringComparer.Ordinal);
+        var amounts = new HashSet<string>(StringComparer.Ordinal);
+        foreach (Match match in Money.Matches(text))
+        {
+            if (!decimal.TryParse(match.Groups["number"].Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+                continue;
+            var negative = match.Groups["sign"].Value is "-" or "−" || match.Groups["trailing"].Success || match.Groups["open"].Success && match.Groups["close"].Success;
+            amounts.Add((negative ? -number : number).ToString("0.00", CultureInfo.InvariantCulture));
+        }
+        return amounts;
+    }
 
     private static string CanonicalAmount(string amount) => decimal.Parse(amount, NumberStyles.Number | NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture).ToString("0.00", CultureInfo.InvariantCulture);
     private static RichTextScore Empty(RichReference reference) => new(0, reference.Regions.Count, 0, reference.Amounts.Count, 0, reference.Identifiers.Count, 0, reference.Anchors.Count);

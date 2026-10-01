@@ -93,6 +93,15 @@ internal static class EvalCli
             await File.WriteAllTextAsync(regionsPath, JsonSerializer.Serialize(richRows, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
             Console.WriteLine($"Region and signed-amount report: {regionsPath}");
         }
+        if (o.TryGetValue("regressions", out var regressionsPath))
+        {
+            var regressions = EvalJson.Read<Dictionary<string, ManualRegressionReference>>(await File.ReadAllTextAsync(regressionsPath));
+            var validIds = report.Cases.Where(c => c.Valid).Select(c => c.CaseId).ToHashSet(StringComparer.Ordinal);
+            var regressionReport = ManualRegressionScorer.Score(split, cases, outputs, validIds, regressions);
+            var regressionPath = Path.Combine(Path.GetDirectoryName(target)!, Path.GetFileNameWithoutExtension(target) + ".regressions.json");
+            await File.WriteAllTextAsync(regressionPath, JsonSerializer.Serialize(regressionReport, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+            Console.WriteLine($"Manual regression report: {regressionPath}");
+        }
         Console.WriteLine($"{report.Version} ({report.Split}): {report.TotalCases} cases, {report.MissingOutputs} missing, {report.SchemaFailures} schema failures, {report.ValidatorFailures} validator failures, {report.CriticalFailures} critical failures. Report: {target}");
     }
 
@@ -257,7 +266,7 @@ internal static class EvalCli
     private static void Usage() => Console.WriteLine("""
         Offline intent evaluation (no network or Paperless access)
           export CASES.jsonl DIR --split train|holdout [--instructions-file FILE]
-          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE]
+          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE] [--regressions FILE]
           compare --baseline report.json --candidate report.json --out comparison.json
           experiment --cases CASES.jsonl --split train|holdout --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
         """);
