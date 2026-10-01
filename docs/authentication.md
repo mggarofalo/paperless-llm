@@ -1,143 +1,58 @@
 # Authentication
 
-[Home](../README.md) · [Operations](operations.md) · [Accuracy reports](review.md)
+[Home](../README.md) · [Operation](operations.md) · [Architecture](architecture.md)
 
-The worker needs two independent credentials: a Paperless token to read documents,
-and a ChatGPT grant to request model reviews. Neither belongs in the Compose file,
-`.env`, source control, or logs.
+Two credentials are needed: a Paperless API token for reading and updating documents, and ChatGPT OAuth credentials for inference. They have separate storage and revocation.
 
-## 1. Create a view-only Paperless account
+## Paperless account
 
-In Paperless, open **Settings → Users & Groups** and create a dedicated account
-such as `paperless-llm`. Leave superuser and admin/staff status disabled. Grant
-only **View** for Documents, Tags, Correspondents and Document Types. If the
-account needs the web interface, also grant the UI Settings view permission.
-Do not grant add, change or delete permissions.
+Create a dedicated non-admin account. Grant view access to documents, tags, correspondents and document types, plus **change access to documents**. Ensure object permissions cover the intended current and future documents. Do not grant document deletion or taxonomy creation. The existing `needs review` tag must be visible to this account.
 
-Global view permission does not automatically expose documents owned by another
-user. Give this account (or a dedicated group) object-level **view** access to the
-documents and metadata you want it to inspect. Ensure future documents receive
-the same view access through your normal Paperless permissions/workflow setup.
-The worker cannot change those permissions itself. See the official
-[Paperless permissions guide](https://docs.paperless-ngx.com/usage/#permissions).
-
-Sign in as this dedicated account and obtain its API token from its profile.
-Paperless also supports requesting a token through `/api/token/`; see its
-[authentication documentation](https://docs.paperless-ngx.com/api/#authorization).
-Save only the token value in `secrets/paperless_token.txt`, with no quotes or
-`Token` prefix. Create the `secrets` directory first. Compose mounts this file
-read-only into the worker.
-
-On a Linux Docker host, the image runs as UID 1654. Make the token readable by that
-UID while protecting the deployment directory from other users. For example,
-after creating the file:
+Create its API token using Paperless and save only the token in `secrets/paperless_token.txt`, beside Compose. The container reads that file as a Docker secret. On a Linux Docker host, make it readable by the image's UID 1654:
 
 ```sh
-chmod 700 secrets
 sudo chown 1654:1654 secrets/paperless_token.txt
-sudo chmod 400 secrets/paperless_token.txt
+sudo chmod 600 secrets/paperless_token.txt
 ```
 
-Rootless Docker and user-namespace remapping may need different host ownership.
-Keep your existing personal/admin token out of this deployment.
+Set `PPLLM_PAPERLESS_URL` in `.env`, using your instance's HTTPS URL. The token is never sent to the model process.
 
-## 2. Sign in with ChatGPT
+## ChatGPT device login
 
-From the deployment directory:
+Run on the machine hosting Docker:
 
 ```sh
 docker compose pull
-docker compose --profile setup run --rm --service-ports auth
+docker compose stop worker
+docker compose --profile setup run --rm auth
 ```
 
-Open the printed authorization URL in your browser. Select the account/workspace
-whose plan you want to use and authorize **Paperless LLM**. The callback returns
-to port 1455 on your computer. Wait for the terminal to confirm success.
+The command prints an OpenAI device-approval URL and a short code. Open that URL on any computer or phone, sign in with ChatGPT and approve the code. Keep the command running until it confirms completion. If your account requires it, enable device-code authentication in ChatGPT security settings first.
 
-The temporary container exits after sign-in. Credentials stay in the `auth`
-Docker volume. Do not use `docker compose down -v`, which deletes that volume.
-Check the grant and available models:
+No callback listener, published port, DNS entry, reverse proxy or SSH tunnel is needed. The pinned Pi SDK's `openai-codex` provider owns the device-code exchange, credential storage and refresh. This uses the Codex subscription authentication flow; the project does not register a separate “Sign in with ChatGPT” application or extract tokens into .NET. See [OpenAI's authentication documentation](https://developers.openai.com/codex/auth/) and the [Pi source](https://github.com/badlogic/pi-mono).
+
+Credentials live under `/data/auth/pi` in Compose's persistent `auth` volume. Keep that volume private. Use one worker per auth volume; stop the worker before login or logout, and do not run cloned copies of rotating credentials concurrently.
+
+## Verify the deployment
 
 ```sh
 docker compose --profile setup run --rm auth auth status
 docker compose --profile setup run --rm auth models
 docker compose --profile setup run --rm auth probe
-```
-
-Set `PPLLM_MODEL` in `.env` to an available model slug. The sample uses
-`gpt-6-luna`; you can select `gpt-6-sol` if your grant exposes it.
-The optional `probe` sends synthetic text only and verifies a completed model
-response without reading any Paperless documents.
-
-### Signing in on a remote Docker server
-
-The browser callback goes to the browser's computer, so forward its localhost
-port to your server. From your laptop, open a terminal and keep this running:
-
-```sh
-ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:1455:127.0.0.1:1455 your-user@your-docker-server
-```
-
-In a second terminal, SSH to the server, enter the deployment directory, and run
-the sign-in command above. Open its authorization URL in your laptop browser.
-The tunnel carries the callback to the temporary auth container. After sign-in,
-close the tunnel. No public callback port or reverse-proxy route is needed.
-
-The temporary auth container listens on all of its **container** interfaces so
-Docker can deliver the forwarded connection. Compose publishes it only on the
-server's loopback address. The authorization callback always remains
-`http://127.0.0.1:1455/auth/callback`; do not replace it with your server's public
-hostname or expose port 1455 publicly.
-
-Only one process may use a credential volume at a time. Stop the worker before
-signing in again. Do not copy the same live refresh token into multiple workers.
-
-## 3. Start the worker
-
-```sh
 docker compose run --rm worker check
-docker compose up -d worker
-docker compose logs -f worker
 ```
 
-`check` verifies both connections and the configured model and review tag without
-enrolling jobs or sending documents to the model. If it reports no visible
-documents when your library is not empty, fix Paperless object permissions before
-starting the worker.
+`auth status` checks for saved OAuth credentials. `models` lists the SDK catalog, which does not prove your account can use each model. `probe` makes a real request with a synthetic one-pixel image and validates the JSON reply; this checks transport and entitlement, not OCR quality. `check` verifies visible Paperless taxonomy, the review tag, document listing and saved auth. It does not write a document or prove change permission.
 
-The app stores the issued client registration and a stable host identifier, and
-renews its access token using its saved refresh token. Restarting the container
-does not normally require another sign-in. Tokens rotate and are saved atomically.
-This follows OpenAI's [session and refresh documentation](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions).
+After these pass, start the worker and inspect a small initial batch and its Paperless history. Confirm OCR, metadata, preserved workflow tags and the review marker. Also verify operation after a token refresh and container restart. Live grant, refresh and model accuracy are deployment acceptance checks; they are not covered by the synthetic CI tests.
 
-“One-time” means initial enrollment, not permanent authorization. Revocation,
-workspace-policy changes or a sufficiently long shutdown can require sign-in
-again. The worker reports an authentication failure and waits instead of switching
-to API-key billing. Stop it and repeat step 2 to recover.
+## Renewal and revocation
 
-### Verification status
-
-The OAuth, signed-token validation, rotating refresh and inference-stream paths
-have synthetic automated tests. A live dedicated Paperless LLM grant has not yet
-been verified for this release. Complete `models` and `probe` above on your
-deployment before starting document reviews. These require your account's grant
-and are intentionally not CI prerequisites. A successful sign-in alone does not
-prove that your selected model is available.
-
-## Sign out or revoke access
-
-Stop the worker before changing its authorization:
+The SDK refreshes credentials in the same volume when needed. Missing, expired or revoked authorization pauses processing without consuming job attempts. Repeat the device-login command, then restart the worker to resume.
 
 ```sh
 docker compose stop worker
 docker compose --profile setup run --rm auth auth logout
 ```
 
-The command attempts remote session revocation before clearing local tokens. If
-it reports that remote revocation was not confirmed, disconnect **Paperless LLM**
-in ChatGPT Settings as well. Its saved client registration and host identifier
-remain available for a later sign-in.
-
-You can also revoke the app's access in your ChatGPT account. Revoke the dedicated
-Paperless token separately if retiring the deployment. Treat backups of the
-`auth` volume as credentials: encrypt them and restrict access.
+Logout removes this deployment's local credentials. Use ChatGPT account settings to revoke access remotely, and revoke the Paperless token separately in Paperless. Keep backups encrypted and avoid restoring an old credential copy while another worker is running.

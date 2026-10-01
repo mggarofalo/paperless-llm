@@ -17,7 +17,7 @@ public sealed class PaperlessClientTests : IDisposable
     };
     private static object Doc(int id, string text = "synthetic OCR") => new { id, title = "Synthetic", content = text, tags = new[] { 2 }, created = "2026-01-01", modified = "2026-01-02" };
     private static HttpResponseMessage Json(object value) => new(HttpStatusCode.OK) { Content = new StringContent(JsonSerializer.Serialize(value), Encoding.UTF8, "application/json") };
-    private static HttpResponseMessage Page(object[] rows, string? next = null) => Json(new { count = rows.Length, next, results = rows });
+    private static HttpResponseMessage Page(object[] rows, string? next = null) => Json(new { count = next is null ? rows.Length : rows.Length * 2, next, results = rows });
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> callback) : HttpMessageHandler
     {
         public List<Uri> Requests { get; } = [];
@@ -174,4 +174,42 @@ public sealed class PaperlessClientTests : IDisposable
         Assert.Equal("synthetic", await File.ReadAllTextAsync(output.Path));
         Assert.Equal(2, Directory.GetFiles(directory).Length);
     }
+    [Fact]
+    public async Task CursorSearchRejectsMaliciousPaginationBeforeFollowingIt()
+    {
+        using var handler = Sequence(Page([Doc(1), Doc(2)], "https://attacker.invalid/api/documents/?page=2"));
+        using var client = new PaperlessClient(Options(), handler);
+        await Assert.ThrowsAsync<PaperlessException>(() => client.ListDocumentsAsync(null, 1, 10000));
+        Assert.Single(handler.Requests);
+    }
+
+    [Fact]
+    public async Task LargeSparseArchiveFindsEveryNewBatchWithinRequestBudget()
+    {
+        var ids = Enumerable.Range(1, 10250).Select(x => x * 3).ToList();
+        using var handler = new Handler((request, _) =>
+        {
+            var query = request.RequestUri!.Query.TrimStart('?').Split('&').Select(x => x.Split('=')).ToDictionary(x => x[0], x => x[1]);
+            Assert.False(query.ContainsKey("id__gt")); Assert.Equal("id", query["ordering"]);
+            int page = int.Parse(query["page"]), size = int.Parse(query["page_size"]);
+            var rows = ids.Skip((page - 1) * size).Take(size).Select(x => Doc(x)).ToArray();
+            return Task.FromResult(Json(new { count = ids.Count, next = page * size < ids.Count ? $"?page={page + 1}" : null, results = rows }));
+        });
+        using var client = new PaperlessClient(Options(size: 100, maxPages: 12), handler);
+        int cursor = 30000; var discovered = new List<int>();
+        while (true)
+        {
+            int startRequests = handler.Requests.Count;
+            var batch = await client.ListDocumentsAsync(null, 100, cursor);
+            Assert.InRange(handler.Requests.Count - startRequests, 1, 12);
+            if (batch.Count == 0) break;
+            discovered.AddRange(batch.Select(x => x.Id)); cursor = batch.Max(x => x.Id);
+        }
+        Assert.Equal(ids.Where(x => x > 30000), discovered);
+        // Rotation to the original baseline finds a newly visible ID without relying on modified/tags.
+        ids.Add(30001); ids.Sort();
+        var rotated = await client.ListDocumentsAsync(null, 100, 30000);
+        Assert.Equal(30001, rotated[0].Id);
+    }
 }
+

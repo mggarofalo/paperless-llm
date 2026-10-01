@@ -1,122 +1,63 @@
-# Operations
+# Operation
 
-[Home](../README.md) · [Authentication](authentication.md) · [Accuracy reports](review.md)
+[Home](../README.md) · [Authentication](authentication.md) · [Review](review.md)
 
-## Document enrollment
+## Discovery and jobs
 
-The worker polls Paperless; no webhook, message broker or Paperless workflow
-change is required. The `needs review` tag selects candidates. Paperless does not
-store job status, and the worker never adds or removes a tag to mark completion.
+The worker runs one bounded cycle on startup, then waits the configured interval after each cycle. A filesystem lock allows one worker per state directory. Processing is serial in this release.
 
-On its first run, the worker persists the highest visible document ID as its
-baseline. With `PPLLM_BACKFILL_LIMIT=0`, documents at or below that baseline stay
-out of scope. Newer eligible documents become durable local jobs. Discovery
-revisits the eligible set, so a new document tagged after an earlier poll is still
-found. Removing the tag before processing makes the job ineligible.
+The first cycle records the highest visible document ID as its baseline. Newer documents are enrolled regardless of tags. A rotating discovery scan catches documents above that baseline which become visible later. Documents at or below the baseline are only included by the optional bounded initial backfill. Changing backfill after initialization does not enroll more history.
 
-To review a small existing sample, set `PPLLM_BACKFILL_LIMIT` before the first run.
-That many existing eligible document IDs are saved for backfill. Increasing this
-value after enrollment does not silently expand the original baseline. Keep the
-state volume: deleting it loses deduplication and changes enrollment behavior.
+Jobs are JSON files under `/data/state/jobs`, with durable status fields, attempts, source metadata, proposal, timing and outcome. Files are replaced atomically. A completed document is not automatically rerun after a metadata or policy change; use explicit `reprocess` when needed. Clearing `needs review` is never a discovery signal.
 
-A job records the document ID, source revision and review-policy fingerprint.
-Unchanged completed work is skipped. A changed source or model/policy can require
-a fresh review for enrolled documents. The worker rechecks the source after
-inference and rejects stale results. It does not promise exactly-once model
-billing: a crash after an OpenAI response but before local completion can require
-a repeated request.
+Once a valid proposal has been saved, sync retries reuse it. A crash before that save may repeat inference. The [operation journal](review.md) reconciles an ambiguous write before allowing another PATCH.
 
-## Observe jobs
+## Configuration
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `PPLLM_PAPERLESS_URL` | required | Paperless instance URL |
+| `PPLLM_MODEL` | `gpt-6-luna` | Explicit model; no fallback |
+| `PPLLM_TAG` | `needs review` | Existing marker added after actual changes |
+| `PPLLM_POLL_SECONDS` | `3600` | Delay between cycles, 60–86400 seconds |
+| `PPLLM_BATCH_SIZE` | `5` | Maximum jobs processed per cycle, at most 100 |
+| `PPLLM_BACKFILL_LIMIT` | `0` | Oldest visible historical documents enrolled on first initialization, at most 100 |
+| `PPLLM_DRY_RUN` | `false` | Validate proposals without writing Paperless |
+| `PPLLM_MAX_STATE_MIB` | `2048` | Soft state-directory cap before another attempt starts |
+
+Compose mounts `PPLLM_PAPERLESS_TOKEN_FILE` from its secret. Native deployments can also set `PPLLM_STATE_DIRECTORY`, `PPLLM_AUDIT_DIRECTORY`, `PPLLM_AUTH_DIRECTORY`, `PPLLM_RUNNER_HOME`, `PPLLM_RUNNER_BRIDGE` and `PPLLM_NODE`. The bridge path must identify the installed bridge and locked dependencies.
+
+Dry-run jobs finish as completed. Use a separate state volume for a trial, or explicitly reprocess those documents when enabling writes. Switching `PPLLM_DRY_RUN` alone does not replay completed jobs.
+
+## Observe and recover
 
 ```sh
-docker compose logs --tail 100 -f worker
+docker compose logs -f worker
 docker compose exec worker dotnet PaperlessLlm.dll status
+docker compose ps
 ```
 
-Logs are structured JSON with document IDs, outcomes and retry/authentication
-signals. They exclude source text, model responses and credentials. Compose keeps
-three 10 MB log files. The status command reads saved state and reports job counts,
-individual states and failure codes. It does not call Paperless or OpenAI.
+Structured logs contain document/job IDs, state transitions, fixed error codes and inference/sync durations, without OCR, document titles, prompts or credential values. `status` reads durable job counts and schedule timestamps without contacting external services. Health fails on a recorded authorization pause or when the last activity is older than the poll interval plus 15 minutes. An uninitialized worker is not healthy. The model request deadline is five minutes.
 
-`docker compose ps` also shows a health check based on a recent poll and the
-absence of a global pause. This is a liveness signal, not a quality score:
-individual failed jobs still need inspection through `status`.
+Jobs get up to three attempts, with exponential delay serviced on subsequent cycles. Authorization failures and provider rate limits pause the batch without consuming an attempt. Rate limits are retried at the next poll. Source conflicts become failed jobs. Invalid output can trigger another bounded inference attempt.
 
-The job lifecycle is `Pending → Processing → Ready`. `Ready` means a proposal is
-saved for inspection, not that it is correct or applied. Other states are
-`RetryWaiting`, `Failed`, `AuthPaused` and `NotEligible`. Interrupted processing is
-recoverable. Transient failures use delayed retries; after three attempts a job
-is failed instead of retried forever. Authentication failures pause model work
-without consuming the normal retry budget.
-
-After fixing a terminal failure, explicitly requeue that document locally:
+Stop the worker before manual commands so they can acquire its state lock:
 
 ```sh
 docker compose stop worker
 docker compose run --rm worker retry 123
+docker compose run --rm worker once
 docker compose up -d worker
 ```
 
-Replace `123` with the document ID shown by status. This preserves the enrollment
-baseline and does not edit Paperless. It only accepts jobs in `Failed` state.
+`retry 123` reuses saved intent. Use `reprocess 123` instead to create a new job identity and infer from current source state. Reprocessing is deliberate: it can propose changes to fields a person previously edited. Both commands require an already enrolled document.
 
-The private [accuracy reports](review.md) contain the evidence behind each
-completed or rejected proposal. Keep Docker logs for operational diagnosis and
-reports for judging model quality.
+Private state contains document metadata, originals, rendered pages, prompts and results. The soft size cap may be exceeded by one in-flight attempt; the operation journal is in the separate audit volume. There is no automatic evidence-retention policy yet. Monitor both volumes and available disk space, keep encrypted backups, and do not delete pending jobs or journals. Docker console logs rotate at three 10 MiB files in the sample Compose.
 
-## Configuration
+This initial filesystem implementation is intended for a personal library. It retains at most 10,000 enrolled jobs; reaching that cap pauses processing until capacity is addressed in a later version. Status and polls load full job records, so memory use grows with retained OCR. Do not discard completed-job indexes to reclaim space: they prevent duplicate processing. Capacity errors are exposed through the health pause reason.
 
-Copy [.env.example](../.env.example) to `.env`. Recreate the service after changes
-with `docker compose up -d worker`.
+## Upgrade from v0.1.0
 
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `PPLLM_PAPERLESS_URL` | required | Instance URL, including a deployment subpath if needed |
-| `PPLLM_PAPERLESS_TOKEN_FILE` | `/run/secrets/paperless_token` in Compose | Dedicated view-only token file |
-| `PPLLM_MODEL` | `gpt-6-luna` | Available model slug; `gpt-6-sol` is another supported choice |
-| `PPLLM_TAG` | `needs review` | Eligibility tag; must exist and be visible |
-| `PPLLM_BATCH_SIZE` | `5` | Maximum jobs processed per poll, 1–100 |
-| `PPLLM_POLL_SECONDS` | `300` | Delay between polling cycles, 10–86400 |
-| `PPLLM_BACKFILL_LIMIT` | `0` | Initial existing-document enrollment, 0–100 |
-| `PPLLM_MAX_AUDIT_MIB` | `2048` | Audit storage cap; pause rather than delete evidence |
-| `PPLLM_AUTH_DIRECTORY` | `/data/auth` | Protected renewable ChatGPT credentials |
-| `PPLLM_STATE_DIRECTORY` | `/data/state` | Durable jobs and enrollment baseline |
-| `PPLLM_AUDIT_DIRECTORY` | `/data/audit` | Private reports and retained source evidence |
+v0.1.0 generated read-only proposals. This release applies validated updates automatically. Stop the old worker and back up its volumes first. Update Compose and `.env`; the new `organizer-state` volume preserves the old state volume for reference. Legacy checkpoint files are rejected instead of silently reused.
 
-The sample Compose exposes common settings. Add an optional variable to its
-`environment` section to override it. Use one worker per state/auth volume;
-horizontal scaling is not supported in this release.
-
-## Storage, recovery and upgrades
-
-The image runs as non-root with a read-only root filesystem. Only the auth, state
-and audit volumes and temporary rendering directory are writable. It uses no
-public web interface. Original documents and rendered pages remain in audit
-storage so reports can be checked later.
-
-The audit limit is checked before each attempt and can be exceeded by that final
-attempt; leave free space for downloading, rendering and report copies. The local
-queue is capped at 10,000 jobs in this release and pauses visibly at capacity.
-
-Back up all three volumes together while the worker is stopped. Protect backups
-as sensitive data. At the audit cap, archive or remove selected old audit folders
-after review, or raise the cap. Reports are not automatically deleted. The state
-volume remains necessary even when older reports are archived.
-
-For a new release, update both image references through the shared `x-runtime`
-image in [compose.yaml](../compose.yaml), then:
-
-```sh
-docker compose pull
-docker compose up -d worker
-docker compose exec worker dotnet PaperlessLlm.dll --version
-```
-
-Stable images use `ghcr.io/mggarofalo/paperless-llm:vX.Y.Z`. Each GitHub release
-also includes `image-digest.txt` for an immutable image reference. Named volumes
-survive normal recreation and `docker compose down`; **`down -v` deletes them**.
-
-If authorization is rejected, stop the worker and repeat the
-[sign-in procedure](authentication.md). For Paperless 401/403 errors, check the
-dedicated token, global view permissions and object-level visibility. A running
-container alone does not prove that jobs are progressing: inspect status and logs.
+Grant the dedicated Paperless account document-change permission and complete device login into the new Pi auth subdirectory. Run `check`, `probe`, and a bounded initial batch before leaving the worker unattended. Existing history is excluded by default. Keep old proposal evidence as long as you need it. Do not run `docker compose down -v` during an upgrade: it deletes deployment volumes.

@@ -6,3 +6,8 @@
 !src/PaperlessLlm/**
 src/PaperlessLlm/bin/
 src/PaperlessLlm/obj/
+!runner/
+!runner/package.json
+!runner/package-lock.json
+!runner/bridge.mjs
+!runner/repair-shrinkwrap.mjs
