@@ -26,7 +26,7 @@ internal sealed class OrganizerStore(string directory)
     public async Task<T?> ReadAsync<T>(string path, CancellationToken ct)
     {
         if (!File.Exists(path)) return default;
-        if (new FileInfo(path).Length > 16 * 1024 * 1024) throw new InvalidOperationException("state_file_too_large");
+        if (new FileInfo(path).Length > 64 * 1024 * 1024) throw new InvalidOperationException("state_file_too_large");
         await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         return await JsonSerializer.DeserializeAsync<T>(file, cancellationToken: ct) ?? throw new InvalidOperationException("invalid_organizer_state");
     }
@@ -67,6 +67,5 @@ public static class OrganizerStatusReader
             jobs.Select(j => new OrganizerJobSummary(j.DocumentId, j.JobId, j.State, j.Attempts, j.ErrorCode, j.NextAttemptAt, j.Outcome)).ToArray(), state?.LastActivityAt, state?.NextRunAt, state?.PauseReason);
     }
 }
-
 
 

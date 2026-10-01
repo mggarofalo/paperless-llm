@@ -56,8 +56,12 @@ public sealed class OrganizerJob
     public IReadOnlyList<RenderedPage>? RenderedPages { get; set; }
     public string? Outcome { get; set; }
     public PaperlessDocument? After { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
+    public long? InferenceMilliseconds { get; set; }
+    public long? SyncMilliseconds { get; set; }
 }
 public sealed record OrganizerPollResult(int Completed, int Failed, bool Initialized);
 public sealed record OrganizerJobSummary(int DocumentId, string JobId, OrganizerJobState State, int Attempts, string? ErrorCode, DateTimeOffset? NextAttemptAt, string? Outcome);
 public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null);
-

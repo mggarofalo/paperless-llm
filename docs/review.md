@@ -1,49 +1,21 @@
-# Reviewing accuracy
+# Review and recovery
 
-[Home](../README.md) · [Operations](operations.md) · [Architecture](architecture.md)
+[Home](../README.md) · [Operation](operations.md) · [Architecture](architecture.md)
 
-The worker saves private evidence for each review attempt. It never writes the
-proposal back to Paperless. A valid schema is a structural check, not proof that
-an OCR transcription or classification is correct.
+The worker applies validated changes and adds `needs review` in the same PATCH. Review those documents in Paperless, then remove the marker when satisfied. A no-op never adds it, and clearing it does not trigger inference or restore it. Receipt-tracker `inbox` and `receipt to log` remain independent workflow state.
 
-## Open the reports
+## What can change
 
-Copy the audit directory from the running worker to a private local folder:
+Each proposed title, date, correspondent, document type and descriptive tag needs document-specific evidence. Referenced taxonomy IDs must already exist. OCR replacement requires nonempty text for every rendered page, each marked complete without uncertainty. Ambiguous fields can stay unchanged while other supported fields are updated.
 
-```sh
-mkdir -p review
-docker compose cp worker:/data/audit/. ./review/
-```
+The model cannot remove tags, clear correspondent/type assignments, create taxonomy, change ownership or permissions, replace originals, delete documents or import receipts. The [prompt](../src/PaperlessLlm/Intent/IntentPrompt.cs) explains these boundaries, and deterministic validation enforces the allowed shape and references. Schema and evidence checks do not prove semantic correctness; an OCR completeness declaration does not establish character accuracy.
 
-Open an attempt's `review.html` in your browser. Keep the entire attempt directory
-so its page images and original source remain available. If Docker runs remotely,
-copy the folder to your laptop over SSH rather than exposing an unauthenticated
-web server. These files contain your documents, existing OCR, proposed OCR and
-metadata; do not put them in a public directory or repository.
+## History and journals
 
-Each attempt includes a machine-readable JSON record and a readable HTML report,
-with the source revision, model/prompt information, current metadata and OCR,
-proposed fields, evidence and uncertainty. Originals and rendered pages are
-retained with hashes. Rejected output is retained as evidence but is not marked
-as an accepted proposal. HTML text is escaped and external content is blocked.
+Use Paperless's document history to inspect original and updated values, with audit history enabled and retained on your instance. Restore fields through Paperless as needed, taking later human edits into account. This release does not provide automatic undo.
 
-## What to check
+Each job retains private source and proposal evidence. `/data/audit/operations` holds a journal with the before state, intended patch and verified result. The worker writes pending intent before PATCH and reads back afterward. If the connection fails after Paperless accepts the write, a retry first checks whether the intended state is already present. It confirms that result without sending a duplicate write. It refuses to replay against a changed source and revalidates taxonomy before a pending replay.
 
-Compare the proposed OCR directly with every source page. Pay particular attention
-to names, dates, totals, signs, account numbers and handwriting. Check the
-correspondent and document type against the document itself, not an incidental
-logo or address. `null` means the model abstained; it does not mean delete the
-existing field.
+Sync makes a final source revision check immediately before PATCH. These are separate HTTP requests, not an atomic compare-and-swap. A concurrent edit in that gap can race with the update. Unexpected readback becomes a visible failure, but cannot retroactively prevent that race. Avoid manually editing a document while its job is running.
 
-The validator rejects unknown taxonomy IDs, malformed dates, unsupported fields,
-protected workflow-tag additions and OCR without visual evidence. It cannot prove
-that cited evidence is true. Review tags, receipt logging, HSA status, expense and
-property assignments stay under your control.
-
-For an initial pilot, review a small explicit backfill and record accept/reject
-judgments separately. Measure accepted suggestions divided by reviewed suggestions,
-with a separate count of abstentions and failures. Do not count unreviewed jobs as
-accurate or treat a model's expressed confidence as an accuracy metric.
-
-This release has no annotation dashboard or automatic accuracy score. The saved
-JSON is the basis for later evaluation tooling; the HTML is for manual review.
+The synthetic test suite exercises these recovery paths. A representative document accuracy evaluation and live authorization-renewal check remain separate deployment acceptance work.

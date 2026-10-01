@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using PaperlessLlm.Auth;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -102,17 +103,23 @@ public sealed class OrganizerWorker : BackgroundService
                 if (job.Intent is null)
                 {
                     job.Source = await paperless.GetDocumentAsync(job.DocumentId, ct);
-                    var attemptPath = Path.Combine(store.DirectoryPath, "evidence", job.JobId, job.Attempts.ToString());
+                    var attemptPath = Path.Combine(store.DirectoryPath, "evidence", job.JobId,
+                        job.Attempts + "-" + Guid.NewGuid().ToString("N"));
                     AuditWriter.PrivateDirectory(attemptPath);
                     var original = await paperless.DownloadOriginalAsync(job.DocumentId, Path.Combine(attemptPath, "original"), ct);
                     var pages = await renderer.RenderAsync(original, Path.Combine(attemptPath, "pages"), ct);
                     if (pages.Count is < 1 or > 100) throw new InvalidOperationException("invalid_rendered_pages");
                     await HeartbeatAsync(state, ct);
                     var input = await context.BuildAsync(job.Source, taxonomy, pages.Count, ct);
+                    await AuditWriter.WritePrivateAsync(Path.Combine(attemptPath, "request.json"),
+                        JsonSerializer.Serialize(new { Model = options.Model, Context = input, Source = job.Source,
+                            Taxonomy = taxonomy, OriginalSha256 = original.Sha256, Pages = pages }), ct);
                     var images = new List<string>();
                     foreach (var page in pages)
                         images.Add($"data:{page.MediaType};base64,{Convert.ToBase64String(await File.ReadAllBytesAsync(page.Path, ct))}");
+                    var inferenceTimer = Stopwatch.StartNew();
                     var raw = await runner.GenerateAsync(options.Model, input.Instructions, input.Prompt, images, input.Schema, ct);
+                    job.InferenceMilliseconds = inferenceTimer.ElapsedMilliseconds;
                     if (raw.Length > 2 * 1024 * 1024) throw new InvalidOperationException("intent_too_large");
                     using var parsed = JsonDocument.Parse(raw);
                     job.Intent = parsed.RootElement.Clone(); job.PolicyVersion = input.PolicyVersion;
@@ -121,11 +128,15 @@ public sealed class OrganizerWorker : BackgroundService
                     await SaveAsync(job, ct); // Never repeat inference merely because sync was interrupted.
                 }
                 await HeartbeatAsync(state, ct);
+                var syncTimer = Stopwatch.StartNew();
                 var result = await synchronizer.ApplyAsync(job.JobId, job.Source!, job.Intent.Value, job.PageCount, ct);
+                job.SyncMilliseconds = syncTimer.ElapsedMilliseconds;
                 job.After = result.Document; job.Outcome = result.Outcome; job.State = OrganizerJobState.Completed;
+                job.CompletedAt = clock.GetUtcNow();
                 job.NextAttemptAt = null;
                 await SaveAsync(job, ct); completed++;
-                logger.LogInformation("Organizer job {JobId} document {DocumentId} completed", job.JobId, job.DocumentId);
+                logger.LogInformation("Organizer job {JobId} document {DocumentId} completed with {Outcome}; inference {InferenceMilliseconds}ms sync {SyncMilliseconds}ms",
+                    job.JobId, job.DocumentId, job.Outcome, job.InferenceMilliseconds, job.SyncMilliseconds);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (AuthException exception)
@@ -159,7 +170,16 @@ public sealed class OrganizerWorker : BackgroundService
     {
         using var stateLock = store.Lock();
         var job = await store.ReadAsync<OrganizerJob>(store.JobPath(documentId), ct) ?? throw new InvalidOperationException("job_not_found");
-        if (regenerate) { job.Intent = null; job.Source = null; job.After = null; job.JobId = Guid.NewGuid().ToString("N"); }
+        if (regenerate)
+        {
+            // Preserve the previous job's evidence before replacing its current index entry.
+            var history = Path.Combine(store.DirectoryPath, "history");
+            AuditWriter.PrivateDirectory(history);
+            await store.SaveAsync(Path.Combine(history, job.JobId + ".json"), job, ct);
+            job.Intent = null; job.Source = null; job.After = null; job.JobId = Guid.NewGuid().ToString("N");
+            job.CreatedAt = clock.GetUtcNow(); job.CompletedAt = null; job.Outcome = null;
+            job.InferenceMilliseconds = null; job.SyncMilliseconds = null;
+        }
         job.State = OrganizerJobState.Pending; job.Attempts = 0; job.ErrorCode = null; job.NextAttemptAt = null;
         await SaveAsync(job, ct);
     }
@@ -168,7 +188,11 @@ public sealed class OrganizerWorker : BackgroundService
         state.LastActivityAt = clock.GetUtcNow();
         return store.SaveAsync(store.CheckpointPath, state, ct);
     }
-    private Task SaveAsync(OrganizerJob job, CancellationToken ct) => store.SaveAsync(store.JobPath(job.DocumentId), job, ct);
+    private Task SaveAsync(OrganizerJob job, CancellationToken ct)
+    {
+        job.UpdatedAt = clock.GetUtcNow();
+        return store.SaveAsync(store.JobPath(job.DocumentId), job, ct);
+    }
     private async Task EnrollAsync(int id, List<OrganizerJob> jobs, CancellationToken ct)
     {
         if (jobs.Any(j => j.DocumentId == id)) return;
@@ -183,5 +207,3 @@ public sealed class OrganizerWorker : BackgroundService
             throw new InvalidOperationException("organizer_storage_capacity");
     }
 }
-
-

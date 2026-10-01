@@ -88,7 +88,8 @@ jobs:
           cp .env.example release/env.example
           printf '%s\n' "$image" > release/image-digest.txt
           sha256sum release/compose.yaml release/env.example release/image-digest.txt | sed 's|release/||' > release/SHA256SUMS
-          printf 'Docker image: `%s`\n\nPinned digest: `%s`\n\nSee the [quick start](https://github.com/mggarofalo/paperless-llm/tree/%s#quick-start) and [authentication guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/authentication.md).\n\nRead-only proposals: no Paperless changes are applied.\n' "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" "$image" "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > release/notes.md
+          printf 'Docker image: `%s`\n\nPinned digest: `%s`\n\nSee the [quick start](https://github.com/mggarofalo/paperless-llm/tree/%s#quick-start) and [authentication guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/authentication.md).\n\nAutomatic validated updates with a needs review marker. Device-code ChatGPT login; no callback ports. Live authorization renewal and document accuracy require deployment acceptance.\n' "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" "$image" "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > release/notes.md
           gh release create "$GITHUB_REF_NAME" release/compose.yaml release/env.example release/image-digest.txt release/SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes-file release/notes.md
           gh release download "$GITHUB_REF_NAME" --dir downloaded
           (cd downloaded && sha256sum --check SHA256SUMS)
+

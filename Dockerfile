@@ -15,10 +15,10 @@ RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund
 COPY runner/bridge.mjs ./
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0.12-noble@sha256:ff17a18b639a0327e52c7c296fa2e1abe6e03eb61d8121a8ef67cc6aa430a27e AS runtime
-ARG VERSION=0.1.0
+ARG VERSION=0.1.1
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/mggarofalo/paperless-llm" \
-      org.opencontainers.image.description="Read-only Paperless OCR and metadata review worker" \
+      org.opencontainers.image.description="Scheduled Paperless document organization with retrospective review" \
       org.opencontainers.image.version=$VERSION \
       org.opencontainers.image.revision=$REVISION
 USER root

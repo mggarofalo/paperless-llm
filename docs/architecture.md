@@ -1,71 +1,56 @@
-# Architecture and development
+# Architecture
 
-[Home](../README.md) · [Operations](operations.md) · [Authentication](authentication.md)
-
-## Boundaries
-
-Paperless owns documents, taxonomy and eligibility tags. The worker reads those
-through a GET-only connector; it owns its own durable jobs and audit files.
-OpenAI receives selected source evidence and returns a structured proposal. No
-model tools, Paperless write endpoints or automatic application path exist.
+[Home](../README.md) · [Operation](operations.md) · [Authentication](authentication.md) · [Connector](connector.md)
 
 ```mermaid
 flowchart LR
-  P[Paperless API] -->|poll eligible documents| Q[Local durable jobs]
-  Q --> R[Download and render pages]
-  R --> M[Tool-free ChatGPT review]
-  M --> V[Validate proposal and source revision]
-  V --> A[Private JSON and HTML reports]
-  V --> S[Durable job result]
-  Q --> L[Operational JSON logs]
+  P[Paperless API] --> D[Scheduled discovery]
+  D --> J[Durable filesystem jobs]
+  J --> C[Original pages and current taxonomy]
+  C --> L[Pi provider SDK / Luna]
+  L --> V[.NET intent validation]
+  V --> S[Journal and minimal PATCH]
+  S --> R[Readback verification]
+  R --> H[Paperless needs review and history]
 ```
 
-A job is tied to its source revision and review policy, rather than a mutable
-Paperless status tag. `needs review` is eligibility; `receipt to log` belongs to
-the receipts workflow and is not a worker completion marker. See
-[enrollment](operations.md#document-enrollment) and [review](review.md).
+## Boundaries
 
-## Code map
+.NET owns scheduling, enrollment, durable state, source rendering, prompt construction, validation, retries, Paperless writes and operational records. The inference process receives only its dedicated OAuth home, model request and a minimal environment. It does not receive the Paperless token or access to the parent process's personal configuration.
 
-| Directory | Responsibility |
+The small JavaScript bridge uses **Pi 0.99.2 ModelRuntime**, `openai-codex`, `gpt-6-luna`, medium reasoning and a 16,000-token output bound. It invokes one completion with an empty tool list. It does not instantiate an AgentSession, tool dispatcher or extension loader. Provider output is parsed and strictly validated locally; this is not a claim of provider-enforced Structured Outputs.
+
+Pi's provider layer was selected over running a general coding-agent session because this task needs an image-to-JSON request, with no file editing or command tools. Disabling a coding harness's shell alone does not necessarily disable its independent patch tool. OAuth and renewal remain SDK responsibilities, while the maintainable application code stays in .NET.
+
+The current runner uses the provider catalog to validate the configured model and fails rather than silently choosing another model or a separately billed API. Catalog presence does not prove account entitlement. Upgrade the pinned SDK deliberately and retest device login, renewal, image transport and isolation.
+
+## Durable flow
+
+A whole-worker filesystem lock serializes processing. Atomic JSON replacements record job state and checkpoints. The saved intent separates model work from sync retries; the write-ahead operation journal handles uncertain PATCH responses. Completed IDs remain complete until explicit reprocessing. See [discovery semantics](operations.md#discovery-and-jobs).
+
+Prompt fingerprints cover instructions, schema and inference/render settings. Jobs retain source revision, taxonomy context, original/rendered evidence and proposal. Validation checks the current taxonomy before sync and before replay. The final GET/PATCH race remains a documented [limitation](review.md#history-and-journals).
+
+## Code map and development
+
+| Location | Responsibility |
 | --- | --- |
-| `src/PaperlessLlm/Auth` | PKCE browser sign-in, JWT validation, private credential storage and refresh |
-| `src/PaperlessLlm/Paperless` | Bounded GET-only API access and PDF/image rendering |
-| `src/PaperlessLlm/Inference` | Official OAuth Responses endpoint, streamed completion, no tools |
-| `src/PaperlessLlm/Review` | Prompt, strict local validation, escaped private evidence reports |
-| `src/PaperlessLlm/Worker` | Enrollment, polling, durable job lifecycle and retries |
-| `src/PaperlessLlm/Program.cs` | Commands, environment configuration and Generic Host wiring |
-| `tests/PaperlessLlm.Tests` | Synthetic failure-mode and invariant tests |
+| `src/PaperlessLlm/Organizer` | Discovery, files, jobs, schedule and retries |
+| `src/PaperlessLlm/Intent` | Desired-state schema, prompt and validation |
+| `src/PaperlessLlm/Runner`, `runner/` | Isolated subprocess and pinned provider SDK bridge |
+| `src/PaperlessLlm/Sync` | Minimal writes, conflict checks and reconciliation |
+| `src/PaperlessLlm/Paperless` | Bounded reads and downloads |
+| `src/PaperlessLlm/OrganizerCli.cs` | Current CLI wiring |
+| `tests/container` | Isolated synthetic end-to-end acceptance |
 
-The product has no Python dependency. PDF rendering uses Poppler bundled in the
-image. Native development requires Poppler only when testing real PDF rendering.
-
-## Develop
-
-Install the .NET SDK specified in [global.json](../global.json), then:
+The old `Auth`, `Inference`, `Review` and `Worker` foundations remain for regression coverage and shared components. The current CLI does not invoke the old loopback authentication flow or read-only worker.
 
 ```sh
 dotnet restore --locked-mode
-dotnet test -c Release --no-restore --tl:off
+dotnet test --configuration Release --no-restore
+npm ci --prefix runner --ignore-scripts
 dotnet run --project src/PaperlessLlm -- --help
 docker build -t ppllm:local .
-docker run --rm --read-only --tmpfs /tmp ppllm:local --version
+bash tests/container/run.sh ppllm:local
 ```
 
-CI runs tests on Windows, macOS and Linux, and builds/smoke-tests the Linux
-container. Releases add both amd64 and arm64 images. See the
-[release skill](../.agents/skills/release/SKILL.md) for publication and anonymous
-pull verification.
-
-## Security and consistency
-
-Documents, OCR, taxonomy names and model output are untrusted. Model requests
-have no executable tools. Proposals must conform to the schema and known taxonomy;
-protected workflow tags cannot be proposed. The connector validates pagination
-boundaries and does not follow redirects with credentials. Source changes during
-inference invalidate the result. Audit output is committed before job completion.
-
-Credential, state and audit volumes are private and separate. Container stdout
-contains operational events rather than document bodies. This reduces accidental
-logging exposure; it does not make model proposals factually reliable. Human
-review remains the accuracy check.
+Native inference needs Node 24, the installed bridge and a dedicated auth home. The Docker image bundles these plus Poppler. CI tests .NET on Windows, macOS and Linux, then runs container smoke and synthetic end-to-end tests. Release builds publish amd64 and arm64 images; follow the [release procedure](../.agents/skills/release/SKILL.md).

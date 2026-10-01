@@ -84,5 +84,7 @@ public static class IntentPrompt
 
     public static string Fingerprint(string model) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
         JsonSerializer.Serialize(new { model, PolicyVersion, Instructions, schema = DocumentIntent.Schema,
-            MaxOcrCharacters, MaxEntities, MaxPages, validator = "intent-validator-1" }))));
+            MaxOcrCharacters, MaxEntities, MaxPages, validator = "intent-validator-1",
+            runner = "pi-0.99.2", reasoning = "medium", maxOutputTokens = 16000,
+            rendering = "poppler-all-pages-max10-2000px-v1" }))));
 }
