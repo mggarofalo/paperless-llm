@@ -80,7 +80,7 @@ public sealed class ExperimentRunnerTests
     {
         var page1 = ExperimentRunner.ParsePageTranscription("{\"page\":1,\"text\":\"First-page text\",\"complete\":true,\"uncertainty\":[]}", 1);
         var page2 = ExperimentRunner.ParsePageTranscription("{\"page\":2,\"text\":\"Second-page footer\",\"complete\":true,\"uncertainty\":[]}", 2);
-        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{\"action\":\"set\",\"pages\":[{\"page\":99,\"text\":\"rewritten by final model\",\"complete\":true,\"uncertainty\":[]}],\"evidence\":[]},\"uncertainty\":[]}", [page1, page2]);
+        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{\"action\":\"set\",\"pages\":[{\"page\":99,\"text\":\"rewritten by final model\",\"complete\":true,\"uncertainty\":[]}],\"evidence\":[]},\"uncertainty\":[\"metadata date unclear\"]}", [page1, page2]);
         using var doc = JsonDocument.Parse(composed);
         var ocr = doc.RootElement.GetProperty("ocr");
         Assert.Equal("set", ocr.GetProperty("action").GetString());
@@ -89,6 +89,7 @@ public sealed class ExperimentRunnerTests
         Assert.Equal("First-page text", ocr.GetProperty("pages")[0].GetProperty("text").GetString());
         Assert.Equal(2, ocr.GetProperty("pages")[1].GetProperty("page").GetInt32());
         Assert.Equal("Second-page footer", ocr.GetProperty("pages")[1].GetProperty("text").GetString());
+        Assert.Contains("metadata date unclear", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
     }
 
     [Fact]
@@ -96,10 +97,12 @@ public sealed class ExperimentRunnerTests
     {
         var page1 = ExperimentRunner.ParsePageTranscription("{\"page\":1,\"text\":\"part\",\"complete\":true,\"uncertainty\":[]}", 1);
         var page2 = ExperimentRunner.ParsePageTranscription("{\"page\":2,\"text\":\"partial\",\"complete\":false,\"uncertainty\":[\"footer clipped\"]}", 2);
-        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{},\"uncertainty\":[]}", [page1, page2]);
+        var composed = ExperimentRunner.ApplyPagewiseComposition("{\"ocr\":{},\"uncertainty\":[\"metadata unclear\"]}", [page1, page2]);
         using var doc = JsonDocument.Parse(composed);
         Assert.Equal("keep", doc.RootElement.GetProperty("ocr").GetProperty("action").GetString());
         Assert.Empty(doc.RootElement.GetProperty("ocr").GetProperty("pages").EnumerateArray());
+        Assert.Empty(doc.RootElement.GetProperty("ocr").GetProperty("evidence").EnumerateArray());
+        Assert.Contains("metadata unclear", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
         Assert.Contains("Page 2: footer clipped", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
         Assert.Contains("Page 2: source transcription marked incomplete.", doc.RootElement.GetProperty("uncertainty").EnumerateArray().Select(x => x.GetString()));
     }
