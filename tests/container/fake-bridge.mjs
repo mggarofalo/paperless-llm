@@ -1,0 +1,7 @@
+// Exercises process transport; deliberately does not use credentials or a real model.
+let raw=''; for await (const chunk of process.stdin) raw+=chunk;
+if(process.argv[2]!=='infer') throw Error('unexpected command');
+const input=JSON.parse(raw);
+if(!input.images?.length || !input.schema || !input.instructions || !input.prompt) throw Error('missing inference input');
+const response=await fetch('http://paperless:8080/test/infer');
+console.log(JSON.stringify({type:'result',text:JSON.stringify(await response.json())}));
