@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/api/documents/1/') return json(document);
   let rows;
   if(url.pathname==='/api/documents/') rows=Number(url.searchParams.get('id__gt')||0)<1?[document]:[];
-  else if(url.pathname==='/api/tags/') rows=tagVisible?[{id:1,name:'inbox',is_inbox_tag:true},{id:2,name:'needs review'},{id:3,name:'receipt'}]:[];
+  else if(url.pathname==='/api/tags/') rows=tagVisible?[{id:3,name:'receipt'},{id:1,name:'inbox',is_inbox_tag:true},{id:2,name:'needs review'}]:[];
   else if(['/api/correspondents/','/api/document_types/'].includes(url.pathname)) rows=[];
   else return json({error:'unexpected route'},404);
   return json({count:rows.length,next:null,previous:null,results:rows});

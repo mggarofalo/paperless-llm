@@ -50,6 +50,37 @@ public sealed class PaperlessClientTests : IDisposable
         Assert.All(result, d => Assert.Equal(64, d.RevisionHash.Length));
     }
 
+    [Fact]
+    public async Task TaxonomyAcceptsServerOrderAcrossPages()
+    {
+        using var handler = Sequence(
+            Page([new { id = 9, name = "A" }, new { id = 2, name = "B" }], "?page=2"),
+            Page([new { id = 1, name = "C" }]),
+            Page([new { id = 7, name = "D" }, new { id = 3, name = "E" }]),
+            Page([new { id = 8, name = "F" }, new { id = 4, name = "G" }]));
+        using var client = new PaperlessClient(Options(), handler);
+        var taxonomy = await client.GetTaxonomyAsync();
+        Assert.Equal(new[] { 9, 2, 1 }, taxonomy.Tags.Select(t => t.Id));
+        Assert.Equal(new[] { 7, 3 }, taxonomy.Correspondents.Select(t => t.Id));
+        Assert.Equal(new[] { 8, 4 }, taxonomy.DocumentTypes.Select(t => t.Id));
+    }
+
+    [Fact]
+    public async Task TaxonomyStillRejectsDuplicateIdsAcrossPages()
+    {
+        using var handler = Sequence(Page([new { id = 9, name = "A" }], "?page=2"),
+            Page([new { id = 9, name = "A" }]));
+        using var client = new PaperlessClient(Options(), handler);
+        await Assert.ThrowsAsync<PaperlessException>(() => client.GetTaxonomyAsync());
+    }
+
+    [Fact]
+    public async Task DocumentsStillRejectMisorderedIds()
+    {
+        using var client = new PaperlessClient(Options(), Sequence(Page([Doc(2), Doc(1)])));
+        await Assert.ThrowsAsync<PaperlessException>(() => client.ListDocumentsAsync(null));
+    }
+
     [Theory]
     [InlineData("https://attacker.invalid/prefix/api/documents/?page=2")]
     [InlineData("https://paperless.example/other/api/documents/?page=2")]
@@ -212,4 +243,3 @@ public sealed class PaperlessClientTests : IDisposable
         Assert.Equal(30001, rotated[0].Id);
     }
 }
-
