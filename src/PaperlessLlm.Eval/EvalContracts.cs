@@ -41,7 +41,7 @@ public sealed record EvalTaxonomy
     public List<EvalNamedEntity> DocumentTypes { get; init; } = [];
 }
 
-public sealed record EvalNamedEntity(int Id, string Name, bool IsInboxTag = false);
+public sealed record EvalNamedEntity(int Id, string Name, bool IsInboxTag = false) { }
 
 public sealed record EvalExpected
 {
@@ -74,9 +74,9 @@ public sealed record CandidateOutput
     public required JsonElement Intent { get; init; }
 }
 
-public sealed record FieldScore(int Passed, int Total);
+public sealed record FieldScore(int Passed, int Total) { }
 public sealed record CaseScore(string CaseId, string Split, bool Critical, bool Valid, string? Failure,
-    int OcrKeyFactsMatched, int OcrKeyFactsTotal, Dictionary<string, bool> Checks);
+    int OcrKeyFactsMatched, int OcrKeyFactsTotal, Dictionary<string, bool> Checks) { }
 
 public sealed record EvalReport
 {

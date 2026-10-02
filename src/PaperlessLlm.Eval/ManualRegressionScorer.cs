@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 
 namespace PaperlessLlm.Eval;
 
-public sealed record ManualRegressionCheck(int Page, string Text, string Kind, string? Note = null);
+public sealed record ManualRegressionCheck(int Page, string Text, string Kind, string? Note = null) { }
 
 public sealed record ManualRegressionReference
 {
@@ -12,7 +12,7 @@ public sealed record ManualRegressionReference
     public string? AcceptanceRule { get; init; }
 }
 
-public sealed record ManualRegressionCaseResult(string CaseId, string Outcome, int Matched, int Total, IReadOnlyList<int> MissingCheckIndices);
+public sealed record ManualRegressionCaseResult(string CaseId, string Outcome, int Matched, int Total, IReadOnlyList<int> MissingCheckIndices) { }
 
 public sealed record ManualRegressionReport
 {
@@ -30,7 +30,7 @@ public sealed record ManualRegressionReport
 /// <summary>Partial post-audit reference gate. A pass is not proof of complete transcription.</summary>
 public static class ManualRegressionScorer
 {
-    private sealed record CheckGroup(int Page, string Kind, string NormalizedText, List<int> Indices);
+    private sealed record CheckGroup(int Page, string Kind, string NormalizedText, List<int> Indices) { }
 
     public static ManualRegressionReport Score(string split, IReadOnlyList<EvalCase> cases,
         IReadOnlyDictionary<string, string> outputs, IReadOnlySet<string> validCaseIds,

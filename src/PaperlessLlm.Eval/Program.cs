@@ -18,16 +18,9 @@ internal static class EvalCli
         }
         try
         {
-            if (args.Length == 0 || args[0] is "help" or "--help" or "-h") { Usage(); return args.Length == 0 ? 2 : 0; }
+            if (IsHelp(args)) { Usage(); return args.Length == 0 ? 2 : 0; }
             var options = Parse(args.Skip(1).ToArray());
-            switch (args[0])
-            {
-                case "export": await ExportAsync(options); break;
-                case "score": await ScoreAsync(options); break;
-                case "compare": await CompareAsync(options); break;
-                case "experiment": await ExperimentAsync(options, cancellation.Token); break;
-                default: throw new ArgumentException($"Unknown command '{args[0]}'.");
-            }
+            await DispatchAsync(args[0], options, cancellation.Token);
             return 0;
         }
         catch (OperationCanceledException) when (isExperiment && cancellation.IsCancellationRequested)
@@ -43,6 +36,20 @@ internal static class EvalCli
         finally
         {
             if (cancelHandler is not null) Console.CancelKeyPress -= cancelHandler;
+        }
+    }
+
+    private static bool IsHelp(string[] args) => args.Length == 0 || args[0] is "help" or "--help" or "-h";
+
+    private static async Task DispatchAsync(string command, Dictionary<string, string> options, CancellationToken cancellationToken)
+    {
+        switch (command)
+        {
+            case "export": await ExportAsync(options); break;
+            case "score": await ScoreAsync(options); break;
+            case "compare": await CompareAsync(options); break;
+            case "experiment": await ExperimentAsync(options, cancellationToken); break;
+            default: throw new ArgumentException($"Unknown command '{command}'.");
         }
     }
 
@@ -140,10 +147,14 @@ internal static class EvalCli
         });
         var comparison = new
         {
-            split = baseline.Split, baseline_version = baseline.Version, candidate_version = candidate.Version,
-            baseline_critical_failures = baseline.CriticalFailures, candidate_critical_failures = candidate.CriticalFailures,
+            split = baseline.Split,
+            baseline_version = baseline.Version,
+            candidate_version = candidate.Version,
+            baseline_critical_failures = baseline.CriticalFailures,
+            candidate_critical_failures = candidate.CriticalFailures,
             critical_failure_delta = candidate.CriticalFailures - baseline.CriticalFailures,
-            baseline_schema_failures = baseline.SchemaFailures, candidate_schema_failures = candidate.SchemaFailures,
+            baseline_schema_failures = baseline.SchemaFailures,
+            candidate_schema_failures = candidate.SchemaFailures,
             baseline_ocr_key_facts_matched = baseline.OcrKeyFactsMatched,
             baseline_ocr_key_facts_total = baseline.OcrKeyFactsTotal,
             candidate_ocr_key_facts_matched = candidate.OcrKeyFactsMatched,
@@ -171,11 +182,7 @@ internal static class EvalCli
             try { c = EvalJson.Read<EvalCase>(line); }
             catch (JsonException ex) { throw new InvalidDataException($"Invalid case JSON at line {number}: {ex.Message}"); }
             if (string.IsNullOrWhiteSpace(c.CaseId) || !ids.Add(c.CaseId)) throw new InvalidDataException($"Case IDs must be nonempty and unique (line {number}).");
-            if (c.Split is not ("train" or "holdout")) throw new InvalidDataException($"Case '{c.CaseId}' has invalid split.");
-            if (c.PageCount is < 0 or > IntentPrompt.MaxPages) throw new InvalidDataException($"Case '{c.CaseId}' has invalid page_count.");
-            if (c.Expected.Title.Action is not ("keep" or "set" or "preserve" or "ignore") || c.Expected.Date.Action is not ("keep" or "set" or "ignore") ||
-                c.Expected.Correspondent.Action is not ("keep" or "set" or "ignore") || c.Expected.DocumentType.Action is not ("keep" or "set" or "ignore"))
-                throw new InvalidDataException($"Case '{c.CaseId}' expected field action must be keep, set, preserve, or ignore as allowed for that field.");
+            ValidateCase(c);
             ValidateExpected(c);
             cases.Add(c);
         }
@@ -183,13 +190,19 @@ internal static class EvalCli
         return cases;
     }
 
+    private static void ValidateCase(EvalCase c)
+    {
+        if (c.Split is not ("train" or "holdout")) throw new InvalidDataException($"Case '{c.CaseId}' has invalid split.");
+        if (c.PageCount is < 0 or > IntentPrompt.MaxPages) throw new InvalidDataException($"Case '{c.CaseId}' has invalid page_count.");
+        if (c.Expected.Title.Action is not ("keep" or "set" or "preserve" or "ignore") || c.Expected.Date.Action is not ("keep" or "set" or "ignore") ||
+            c.Expected.Correspondent.Action is not ("keep" or "set" or "ignore") || c.Expected.DocumentType.Action is not ("keep" or "set" or "ignore"))
+            throw new InvalidDataException($"Case '{c.CaseId}' expected field action must be keep, set, preserve, or ignore as allowed for that field.");
+    }
+
     private static void ValidateExpected(EvalCase c)
     {
-        static bool HasValue(ExpectedField field) => field.Value is not null;
-        if (c.Expected.Title.Action == "set" && !HasValue(c.Expected.Title) ||
-            c.Expected.Date.Action == "set" && !HasValue(c.Expected.Date) ||
-            c.Expected.Correspondent.Action == "set" && !HasValue(c.Expected.Correspondent) ||
-            c.Expected.DocumentType.Action == "set" && !HasValue(c.Expected.DocumentType))
+        var fields = new[] { c.Expected.Title, c.Expected.Date, c.Expected.Correspondent, c.Expected.DocumentType };
+        if (fields.Any(field => field.Action == "set" && field.Value is null))
             throw new InvalidDataException($"Case '{c.CaseId}' set references require a value.");
         if (c.Expected.Ocr.MustReplace && c.PageCount == 0)
             throw new InvalidDataException($"Case '{c.CaseId}' requires OCR replacement but has no pages.");
@@ -200,10 +213,12 @@ internal static class EvalCli
             throw new InvalidDataException($"Case '{c.CaseId}' reference tag IDs must exist in its taxonomy.");
         if (c.Expected.ProtectedTagIds.Any(id => !c.Document.Tags.Contains(id)))
             throw new InvalidDataException($"Case '{c.CaseId}' protected tag IDs must be present in the input document.");
-        if (c.Expected.Correspondent.Action == "set" && (!TryExpectedId(c.Expected.Correspondent.Value, out var correspondentId) || !correspondentIds.Contains(correspondentId)) ||
-            c.Expected.DocumentType.Action == "set" && (!TryExpectedId(c.Expected.DocumentType.Value, out var typeId) || !typeIds.Contains(typeId)))
+        if (!ValidMetadataReference(c.Expected.Correspondent, correspondentIds) || !ValidMetadataReference(c.Expected.DocumentType, typeIds))
             throw new InvalidDataException($"Case '{c.CaseId}' metadata reference IDs must exist in its taxonomy.");
     }
+
+    private static bool ValidMetadataReference(ExpectedField field, HashSet<int> ids) =>
+        field.Action != "set" || (TryExpectedId(field.Value, out var id) && ids.Contains(id));
 
     private static bool TryExpectedId(object? value, out int id)
     {
@@ -218,16 +233,7 @@ internal static class EvalCli
     {
         var outputs = new Dictionary<string, string>(StringComparer.Ordinal);
         var invalid = 0;
-        if (Directory.Exists(path))
-        {
-            foreach (var file in Directory.EnumerateFiles(path, "*.json").Order(StringComparer.Ordinal))
-            {
-                var id = Path.GetFileNameWithoutExtension(file);
-                if (id.Equals("provenance", StringComparison.OrdinalIgnoreCase) || !caseIds.Contains(id)) continue;
-                if (!outputs.TryAdd(id, await File.ReadAllTextAsync(file))) invalid++;
-            }
-            return (outputs, invalid);
-        }
+        if (Directory.Exists(path)) return await ReadOutputDirectory(path, caseIds);
         var lines = await File.ReadAllLinesAsync(path);
         for (var i = 0; i < lines.Length; i++)
         {
@@ -239,13 +245,31 @@ internal static class EvalCli
                 var id = root.GetProperty("case_id").GetString();
                 if (string.IsNullOrWhiteSpace(id)) { invalid++; continue; }
                 if (!caseIds.Contains(id)) continue;
-                string raw;
-                if (root.TryGetProperty("intent", out var intent)) raw = intent.GetRawText();
-                else if (root.TryGetProperty("intent_json", out var intentJson) && intentJson.ValueKind == JsonValueKind.String) raw = intentJson.GetString()!;
-                else { invalid++; continue; }
+                var raw = ReadIntent(root);
+                if (raw is null) { invalid++; continue; }
                 if (!outputs.TryAdd(id, raw)) invalid++;
             }
             catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException) { invalid++; }
+        }
+        return (outputs, invalid);
+    }
+
+    private static string? ReadIntent(JsonElement root)
+    {
+        if (root.TryGetProperty("intent", out var intent)) return intent.GetRawText();
+        return root.TryGetProperty("intent_json", out var intentJson) && intentJson.ValueKind == JsonValueKind.String
+            ? intentJson.GetString() : null;
+    }
+
+    private static async Task<(Dictionary<string, string> Outputs, int Invalid)> ReadOutputDirectory(string path, HashSet<string> caseIds)
+    {
+        var outputs = new Dictionary<string, string>(StringComparer.Ordinal);
+        var invalid = 0;
+        foreach (var file in Directory.EnumerateFiles(path, "*.json").Order(StringComparer.Ordinal))
+        {
+            var id = Path.GetFileNameWithoutExtension(file);
+            if (id.Equals("provenance", StringComparison.OrdinalIgnoreCase) || !caseIds.Contains(id)) continue;
+            if (!outputs.TryAdd(id, await File.ReadAllTextAsync(file))) invalid++;
         }
         return (outputs, invalid);
     }
