@@ -178,6 +178,48 @@ public sealed class ExperimentRunnerTests
         Assert.Equal(6, selected.Count);
     }
 
+    [Fact]
+    public void HighImageMappingsRequireAndCrossCheckPerPageVariants()
+    {
+        var c = CaseWithPages();
+        var mappedPages = new[]
+        {
+            RegionPage(1, 3) with { High = "p1-high.png" },
+            RegionPage(2, 3) with { High = "p2-high.png" }
+        };
+        var variants = RegionVariants(3) with
+        {
+            High = ["p1-high.png", "p2-high.png"], Pages = mappedPages.ToList()
+        };
+        var map = new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = variants };
+        var recipe = Recipe("pagewise") with { ImageMode = "high" };
+
+        var selected = ExperimentRunner.SelectImages(c, recipe, map, Path.GetTempPath());
+        Assert.Equal(new[] { "p1-high.png", "p2-high.png" }, selected.Select(Path.GetFileName));
+        var pageGroups = ExperimentRunner.SelectPageImages(c, recipe, map, Path.GetTempPath());
+        Assert.Equal("p2-high.png", Path.GetFileName(pageGroups[1][0]));
+
+        var globalDrift = variants with { High = ["wrong.png", "p2-high.png"] };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectImages(c, recipe,
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = globalDrift }, Path.GetTempPath()));
+        var missingPerPage = variants with { Pages = [mappedPages[0], mappedPages[1] with { High = null }] };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectImages(c, recipe,
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = missingPerPage }, Path.GetTempPath()));
+    }
+
+    [Fact]
+    public void OutputCaseIdsAreValidatedBeforeInferenceAndOnlyForSelectedSplit()
+    {
+        var train = SyntheticCase();
+        var unsafeHoldout = train with { CaseId = "../holdout", Split = "holdout" };
+        var selectedTrain = ExperimentRunner.SelectCasesForSplit([train, unsafeHoldout], "train");
+        ExperimentRunner.ValidateOutputCaseIds(selectedTrain);
+
+        var unsafeTrain = train with { CaseId = "bad:name" };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateOutputCaseIds([unsafeTrain]));
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.ValidateOutputCaseIds([train with { CaseId = "NUL" }]));
+    }
+
     private static EvalCase CaseWithPages() => SyntheticCase() with
     {
         CaseId = "synthetic-images", PageCount = 2,

@@ -39,6 +39,7 @@ public static class ExperimentRunner
         if (options.TimeoutSeconds is < 10 or > 1800) throw new ArgumentException("Timeout must be 10..1800 seconds.");
         var allCases = await ReadCasesAsync(options.Cases, cancellationToken);
         var cases = SelectCasesForSplit(allCases, options.Split);
+        ValidateOutputCaseIds(cases);
         var recipePath = Path.GetFullPath(options.Recipe);
         var recipe = EvalJson.Read<ExperimentRecipe>(await File.ReadAllTextAsync(recipePath, cancellationToken));
         ValidateRecipe(recipe);
@@ -96,6 +97,11 @@ public static class ExperimentRunner
         var selected = cases.Where(c => string.Equals(c.Split, split, StringComparison.OrdinalIgnoreCase)).ToList();
         if (selected.Count == 0) throw new InvalidDataException($"Case file contains no cases for split '{split}'.");
         return selected;
+    }
+
+    public static void ValidateOutputCaseIds(IEnumerable<EvalCase> cases)
+    {
+        foreach (var c in cases) _ = OutputName(c.CaseId);
     }
 
     public static void EnsureFreshOutputDirectory(string output)
@@ -367,11 +373,12 @@ public static class ExperimentRunner
         if (r.ImageMode == "full") return c.Document.PageImages.Select(Path.GetFullPath).ToArray();
         if (variants is null || !variants.TryGetValue(c.CaseId, out var set)) throw new InvalidDataException($"Case '{c.CaseId}' requires imageVariants mapping for imageMode '{r.ImageMode}'.");
         var paths = r.ImageMode switch { "high" => set.High, "regions" => set.Regions, "full-and-regions" => set.FullAndRegions, _ => [] };
-        if ((r.ImageMode is "regions" or "full-and-regions") && set.Pages.Count > 0)
+        if ((r.ImageMode is "high" or "regions" or "full-and-regions") && set.Pages.Count > 0)
         {
             var pages = ValidatePageMappings(c, r, set, baseDir);
             var pageRegions = pages.SelectMany(p => p.Regions).ToArray();
-            if (r.ImageMode == "regions") paths = pageRegions.ToList();
+            if (r.ImageMode == "high") paths = pages.Select(p => p.High!).ToList();
+            else if (r.ImageMode == "regions") paths = pageRegions.ToList();
             else
             {
                 var full = pages.Select(p => p.Full).ToArray();
@@ -435,6 +442,14 @@ public static class ExperimentRunner
                 if (set.FullAndRegions.Count > 0 && !SameResolvedPaths(set.FullAndRegions, ordered, baseDir))
                     throw new InvalidDataException($"Case '{c.CaseId}' top-level and per-page full-and-regions mappings disagree.");
             }
+        }
+        if (r.ImageMode == "high")
+        {
+            if (pages.Any(p => string.IsNullOrWhiteSpace(p.High)))
+                throw new InvalidDataException($"Case '{c.CaseId}' high mode requires a high image for every page.");
+            var highs = pages.Select(p => p.High!).ToArray();
+            if (set.High.Count > 0 && !SameResolvedPaths(set.High, highs, baseDir))
+                throw new InvalidDataException($"Case '{c.CaseId}' top-level and per-page high-image mappings disagree.");
         }
         return pages;
     }
@@ -604,7 +619,18 @@ public static class ExperimentRunner
     private static string SafeName(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..16];
     private static string OutputName(string value)
     {
-        if (string.IsNullOrWhiteSpace(value) || value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || value.Contains('/') || value.Contains('\\') || value is "." or "..")
+        if (string.IsNullOrWhiteSpace(value))
+            throw new InvalidDataException($"Case ID '{value}' cannot be represented as an output filename.");
+        const string crossPlatformInvalid = "<>:\"|?*";
+        var stem = value.TrimEnd(' ', '.').Split('.')[0];
+        var reservedWindowsName = stem.Equals("CON", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("PRN", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("AUX", StringComparison.OrdinalIgnoreCase) ||
+            stem.Equals("NUL", StringComparison.OrdinalIgnoreCase) ||
+            System.Text.RegularExpressions.Regex.IsMatch(stem, @"^(COM|LPT)[1-9¹²³]$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            value.IndexOfAny(crossPlatformInvalid.ToCharArray()) >= 0 || value.Contains('/') || value.Contains('\\') ||
+            value.EndsWith(' ') || value.EndsWith('.') || value is "." or ".." || reservedWindowsName)
             throw new InvalidDataException($"Case ID '{value}' cannot be represented as an output filename.");
         return value;
     }
