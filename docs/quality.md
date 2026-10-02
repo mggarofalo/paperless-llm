@@ -1,6 +1,6 @@
 # Quality gates and refactoring evidence
 
-[Documentation index](README.md) · [Architecture](architecture.md) · [Offline evaluation](offline-evaluation.md)
+[Documentation index](index.md) Â· [Architecture](architecture.md) Â· [Offline evaluation](offline-evaluation.md)
 
 The 0.2.0 refactor keeps the organizer behavior and on-disk job format. It separates discovery, inference, synchronization, retry/pause handling, CLI commands, pagination validation, image validation, and evaluation pipelines. These boundaries allow tests to exercise failures without accessing Paperless or signing in to a model provider.
 
