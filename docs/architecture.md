@@ -6,8 +6,8 @@
 flowchart LR
   P[Paperless API] --> D[Scheduled discovery]
   D --> J[Durable filesystem jobs]
-  J --> C[Original pages and current taxonomy]
-  C --> L[Pi provider SDK / Luna]
+  J --> C[Existing OCR and current taxonomy]
+  C --> L[Pi provider SDK / Sol 6 low]
   L --> V[.NET intent validation]
   V --> S[Journal and minimal PATCH]
   S --> R[Readback verification]
@@ -16,19 +16,21 @@ flowchart LR
 
 ## Boundaries
 
-.NET owns scheduling, enrollment, durable state, source rendering, prompt construction, validation, retries, Paperless writes and operational records. The inference process receives only its dedicated OAuth home, model request and a minimal environment. It does not receive the Paperless token or access to the parent process's personal configuration.
+.NET owns scheduling, enrollment, durable state, prompt loading, context construction, validation, retries, Paperless writes and operational records. The inference process receives only its dedicated OAuth home, model request and a minimal environment. It does not receive the Paperless token or access to the parent process's personal configuration.
 
-The small JavaScript bridge uses **Pi 0.99.2 ModelRuntime**, `openai-codex`, `gpt-6-luna`, medium reasoning and a 16,000-token output bound. It invokes one completion with an empty tool list. It does not instantiate an AgentSession, tool dispatcher or extension loader. Provider output is parsed and strictly validated locally; this is not a claim of provider-enforced Structured Outputs.
+The small JavaScript bridge uses **Pi 0.99.2 ModelRuntime**, `openai-codex`, `gpt-6-sol`, low reasoning and a 16,000-token output bound. It invokes one completion with an empty tool list. It does not instantiate an AgentSession, tool dispatcher or extension loader. Provider output is parsed and strictly validated locally; this is not a claim of provider-enforced Structured Outputs.
 
-Pi's provider layer was selected over running a general coding-agent session because this task needs an image-to-JSON request, with no file editing or command tools. Disabling a coding harness's shell alone does not necessarily disable its independent patch tool. OAuth and renewal remain SDK responsibilities, while the maintainable application code stays in .NET.
+Pi's provider layer was selected over running a general coding-agent session because this task needs a bounded text-to-JSON request, with no file editing or command tools. Disabling a coding harness's shell alone does not necessarily disable its independent patch tool. OAuth and renewal remain SDK responsibilities, while the maintainable application code stays in .NET.
 
 The current runner uses the provider catalog to validate the configured model and fails rather than silently choosing another model or a separately billed API. Catalog presence does not prove account entitlement. Upgrade the pinned SDK deliberately and retest device login, renewal, image transport and isolation.
+
+The [prompt file](prompts.md) reloads before each inference. Exact taxonomy names are resolved to IDs in .NET before the existing validator and synchronizer. The worker does not render scans or replace OCR.
 
 ## Durable flow
 
 A whole-worker filesystem lock serializes processing. Atomic JSON replacements record job state and checkpoints. The saved intent separates model work from sync retries; the write-ahead operation journal handles uncertain PATCH responses. Completed IDs remain complete until explicit reprocessing. See [discovery semantics](operations.md#discovery-and-jobs).
 
-Prompt fingerprints cover instructions, schema and inference/render settings. Jobs retain source revision, taxonomy context, original/rendered evidence and proposal. Validation checks the current taxonomy before sync and before replay. The final GET/PATCH race remains a documented [limitation](review.md#history-and-journals).
+Prompt fingerprints cover instructions, schema and inference settings. Jobs retain source revision, taxonomy context, prompt text and hash and proposal. Validation checks the current taxonomy before sync and before replay. The final GET/PATCH race remains a documented [limitation](review.md#history-and-journals).
 
 ## Code map and development
 

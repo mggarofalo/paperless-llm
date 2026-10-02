@@ -2,9 +2,9 @@ using System.Text.Json.Nodes;
 using PaperlessLlm.Intent;
 using PaperlessLlm.Paperless;
 
-namespace PaperlessLlm.Eval;
+namespace PaperlessLlm.Intent;
 
-/// <summary>Offline experiment only: models select exact names; code binds IDs.</summary>
+/// <summary>Models select exact names; code binds IDs and validates before synchronization.</summary>
 public static class NamedIntentContract
 {
     public static string Schema()

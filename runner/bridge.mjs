@@ -64,7 +64,7 @@ try {
         systemPrompt: request.instructions + '\nReturn exactly one JSON object conforming to this schema. No Markdown.\n' + JSON.stringify(request.schema),
         messages: [{ role: 'user', content: [{ type: 'text', text: request.prompt }, ...images], timestamp: Date.now() }],
         tools: [],
-      }, { reasoning: 'medium', maxTokens: 16000 });
+      }, { reasoning: request.reasoning, maxTokens: 16000 });
       if (result.stopReason === 'error' || result.stopReason === 'aborted') {
         // Provider error text can contain request/credential details. Never forward it.
         const code = classifyError(result.errorMessage);

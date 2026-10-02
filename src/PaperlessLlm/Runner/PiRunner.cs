@@ -7,7 +7,7 @@ using PaperlessLlm.Review;
 
 namespace PaperlessLlm.Runner;
 
-public sealed record PiRunnerOptions(string HomeDirectory, string BridgePath, string NodeExecutable = "node", TimeSpan? Timeout = null);
+public sealed record PiRunnerOptions(string HomeDirectory, string BridgePath, string NodeExecutable = "node", TimeSpan? Timeout = null, string Reasoning = "medium");
 public sealed record DeviceLogin(string Url, string Code);
 public sealed class RunnerRateLimitException() : Exception("runner_rate_limited");
 
@@ -20,7 +20,7 @@ public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
 
     public async Task<string> RunAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(model) || imageDataUrls.Count is < 1 or > 10 || prompt.Length > 2_000_000)
+        if (string.IsNullOrWhiteSpace(model) || imageDataUrls.Count > 10 || prompt.Length > 2_000_000)
             throw new InferenceException("runner_input_invalid");
         long total = 0;
         foreach (var url in imageDataUrls)
@@ -30,7 +30,8 @@ public sealed class PiRunner(PiRunnerOptions options) : IProposalGenerator
             total += url.Length;
         }
         if (total > 42 * 1024 * 1024) throw new InferenceException("runner_input_limit");
-        var request = JsonSerializer.Serialize(new { model, instructions, prompt, images = imageDataUrls, schema });
+        if (options.Reasoning is not ("low" or "medium" or "high")) throw new InferenceException("runner_reasoning_invalid");
+        var request = JsonSerializer.Serialize(new { model, instructions, prompt, images = imageDataUrls, schema, reasoning = options.Reasoning });
         var result = await ExecuteAsync("infer", request, null, cancellationToken);
         var message = result.LastOrDefault(x => x.GetProperty("type").GetString() == "result");
         if (message.ValueKind == JsonValueKind.Undefined) throw new InferenceException("runner_missing_result");

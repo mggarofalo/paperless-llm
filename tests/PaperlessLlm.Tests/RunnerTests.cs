@@ -19,6 +19,19 @@ public sealed class RunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task TransportsTextOnlyRequestAndLowReasoning()
+    {
+        Runner("""
+            let input=''; for await(const c of process.stdin) input+=c;
+            const r=JSON.parse(input);
+            if(r.images.length!==0||r.reasoning!=='low') process.exit(21);
+            console.log(JSON.stringify({type:'result',text:'{}'}));
+            """);
+        var runner = new PiRunner(new(Path.Combine(directory, "home"), Path.Combine(directory, "fake.mjs"), Reasoning: "low"));
+        Assert.Equal("{}", await runner.RunAsync("gpt-6-sol", "policy", "OCR", [], Schema));
+    }
+
+    [Fact]
     public async Task TransportsImagesSchemaAndPromptThroughStdinAndCleansWork()
     {
         var runner = Runner("""

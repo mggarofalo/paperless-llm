@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using PaperlessLlm.Paperless;
 using PaperlessLlm.Review;
 using PaperlessLlm.Runner;
+using PaperlessLlm.Intent;
 namespace PaperlessLlm.Organizer;
 /// <summary>One durable job per discovered document. Completed documents are never automatically overwritten.</summary>
 public sealed class OrganizerWorker : BackgroundService
@@ -126,14 +127,22 @@ public sealed class OrganizerWorker : BackgroundService
                     var attemptPath = Path.Combine(store.DirectoryPath, "evidence", job.JobId,
                         job.Attempts + "-" + Guid.NewGuid().ToString("N"));
                     AuditWriter.PrivateDirectory(attemptPath);
-                    var original = await paperless.DownloadOriginalAsync(job.DocumentId, Path.Combine(attemptPath, "original"), ct);
-                    var pages = await renderer.RenderAsync(original, Path.Combine(attemptPath, "pages"), ct);
-                    if (pages.Count is < 1 or > 100) throw new InvalidOperationException("invalid_rendered_pages");
+                    string? originalHash = null;
+                    IReadOnlyList<RenderedPage> pages = [];
+                    if (!options.UseExistingOcr)
+                    {
+                        var original = await paperless.DownloadOriginalAsync(job.DocumentId, Path.Combine(attemptPath, "original"), ct);
+                        pages = await renderer.RenderAsync(original, Path.Combine(attemptPath, "pages"), ct);
+                        originalHash = original.Sha256;
+                        if (pages.Count is < 1 or > 100) throw new InvalidOperationException("invalid_rendered_pages");
+                    }
                     await HeartbeatAsync(state, ct);
                     var input = await context.BuildAsync(job.Source, taxonomy, pages.Count, ct);
                     await AuditWriter.WritePrivateAsync(Path.Combine(attemptPath, "request.json"),
                         JsonSerializer.Serialize(new { Model = options.Model, Context = input, Source = job.Source,
-                            Taxonomy = taxonomy, OriginalSha256 = original.Sha256, Pages = pages }), ct);
+                            Taxonomy = taxonomy, OriginalSha256 = originalHash, Pages = pages }), ct);
+                    logger.LogInformation("Organizer job {JobId} policy {PolicyVersion} prompt {PromptSha256}",
+                        job.JobId, input.PolicyVersion, input.PromptSha256);
                     var images = new List<string>();
                     foreach (var page in pages)
                         images.Add($"data:{page.MediaType};base64,{Convert.ToBase64String(await File.ReadAllBytesAsync(page.Path, ct))}");
@@ -142,14 +151,19 @@ public sealed class OrganizerWorker : BackgroundService
                     job.InferenceMilliseconds = inferenceTimer.ElapsedMilliseconds;
                     if (raw.Length > 2 * 1024 * 1024) throw new InvalidOperationException("intent_too_large");
                     await AuditWriter.WritePrivateAsync(Path.Combine(attemptPath, "response.txt"), raw, ct);
-                    using var parsed = JsonDocument.Parse(raw);
+                    using var parsed = JsonDocument.Parse(input.NamedOutput
+                        ? NamedIntentContract.Resolve(raw, job.Source, taxonomy, pages.Count) : raw);
                     job.Intent = parsed.RootElement.Clone(); job.PolicyVersion = input.PolicyVersion;
-                    job.PageCount = pages.Count; job.OriginalSha256 = original.Sha256;
+                    job.PageCount = pages.Count; job.OriginalSha256 = originalHash;
                     job.Model = options.Model; job.RenderedPages = pages;
                     await SaveAsync(job, ct); // Never repeat inference merely because sync was interrupted.
                 }
                 await HeartbeatAsync(state, ct);
                 var syncTimer = Stopwatch.StartNew();
+                // Do not replay legacy OCR writes under the metadata-only policy. Preserve their
+                // journal and intent for inspection; never alter an existing operation's identity.
+                if (options.UseExistingOcr && job.Intent.Value.GetProperty("ocr").GetProperty("action").GetString() != "keep")
+                    throw new SyncConflictException("legacy_ocr_intent_requires_inspection");
                 var result = await synchronizer.ApplyAsync(job.JobId, job.Source!, job.Intent.Value, job.PageCount, ct);
                 job.SyncMilliseconds = syncTimer.ElapsedMilliseconds;
                 job.After = result.Document; job.Outcome = result.Outcome; job.State = OrganizerJobState.Completed;
@@ -177,6 +191,16 @@ public sealed class OrganizerWorker : BackgroundService
                 state.PauseReason = job.ErrorCode;
                 await SaveAsync(job, ct);
                 logger.LogWarning("Organizer paused until next poll: {Code}", job.ErrorCode);
+                break;
+            }
+            catch (OrganizationPromptException)
+            {
+                job.Attempts--; job.State = OrganizerJobState.RetryWaiting;
+                job.ErrorCode = "organization_prompt_unreadable_or_invalid";
+                job.NextAttemptAt = clock.GetUtcNow() + options.PollInterval;
+                state.PauseReason = job.ErrorCode;
+                await SaveAsync(job, ct);
+                logger.LogWarning("Organizer paused until prompt file is corrected: {Code}", job.ErrorCode);
                 break;
             }
             catch (RunnerRateLimitException)

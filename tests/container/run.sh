@@ -48,4 +48,4 @@ control "await fetch('http://localhost:8080/test/clear')"
 run once
 control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.patches!==1||s.inferences!==1||s.document.tags.includes(2)||!s.document.tags.includes(1))throw Error(JSON.stringify(s));"
 run status
-printf '%s\n' 'Synthetic container E2E passed: rendering, proposal, validated PATCH, ambiguous-write recovery, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'
+printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH, ambiguous-write recovery, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'

@@ -1,8 +1,8 @@
 # Paperless LLM
 
-A .NET 10 worker that checks Paperless for new documents, asks Luna to infer their metadata and OCR, and applies validated changes automatically. Changed documents receive `needs review` so you can inspect them later in Paperless. There is no approval queue before updates.
+A .NET 10 worker that checks Paperless for new documents, asks Sol 6 low to infer organization from existing OCR, and applies validated changes automatically. Changed documents receive `needs review` so you can inspect them later in Paperless. There is no approval queue before updates.
 
-.NET owns discovery, durable jobs, validation and sync. A small JavaScript bridge uses the pinned Pi provider SDK for ChatGPT device login and inference, without an agent session or tool executor. Document images, existing OCR and visible taxonomy are sent to OpenAI through your ChatGPT subscription; there is no API-key fallback.
+.NET owns discovery, durable jobs, validation and sync. A small JavaScript bridge uses the pinned Pi provider SDK for ChatGPT device login and inference, without an agent session or tool executor. Existing OCR, document metadata and visible taxonomy are sent to OpenAI through your ChatGPT subscription; there is no API-key fallback.
 
 ## Quick start
 
@@ -17,11 +17,12 @@ docker compose logs -f worker
 
 The default interval is one hour; set `PPLLM_POLL_SECONDS=10800` for three hours. The first run records a baseline and processes newer documents. Existing documents require a bounded initial backfill. **Updates are enabled by default**; see [configuration and migration](docs/operations.md) for dry-run mode and upgrading from v0.1.0.
 
-The worker can change titles, document dates, existing correspondents and types, add descriptive tags, and replace searchable OCR when every rendered page has a complete transcription. It preserves originals, permissions, ownership and workflow tags such as receipt-tracker `inbox`. It cannot delete documents, remove tags, create taxonomy or import receipts.
+The worker can change titles, document dates, existing correspondents and types, add descriptive tags, while keeping searchable OCR unchanged. It preserves originals, permissions, ownership and workflow tags such as receipt-tracker `inbox`. It cannot delete documents, remove tags, create taxonomy or import receipts.
 
 ## Guides
 
 - [Authentication](docs/authentication.md): Paperless permissions, device login, persistent credentials and renewal.
+- [Prompts](docs/prompts.md): editable policy files, audit hashes and v0.1.3 upgrade instructions.
 - [Operation](docs/operations.md): discovery, jobs, retries, logs, health, storage and migration.
 - [Review and recovery](docs/review.md): `needs review`, Paperless history and sync records.
 - [Architecture](docs/architecture.md): boundaries, runner choice and contributor commands.

@@ -1,7 +1,7 @@
 name: paperless-llm
 
 x-runtime: &runtime
-  image: ghcr.io/mggarofalo/paperless-llm:v0.1.2
+  image: ghcr.io/mggarofalo/paperless-llm:v0.1.3
   read_only: true
   cap_drop: [ALL]
   security_opt: [no-new-privileges:true]
@@ -21,7 +21,8 @@ services:
     environment:
       PPLLM_PAPERLESS_URL: ${PPLLM_PAPERLESS_URL:?Set the Paperless URL in .env}
       PPLLM_PAPERLESS_TOKEN_FILE: /run/secrets/paperless_token
-      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-luna}
+      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-sol}
+      PPLLM_PROMPT_FILE: ${PPLLM_PROMPT_FILE:-/app/prompts/organization.txt}
       PPLLM_TAG: ${PPLLM_TAG:-needs review}
       PPLLM_POLL_SECONDS: ${PPLLM_POLL_SECONDS:-3600}
       PPLLM_BATCH_SIZE: ${PPLLM_BATCH_SIZE:-5}
@@ -47,7 +48,7 @@ services:
     profiles: [setup]
     command: [auth, login]
     environment:
-      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-luna}
+      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-sol}
     volumes:
       - auth:/data/auth
 
