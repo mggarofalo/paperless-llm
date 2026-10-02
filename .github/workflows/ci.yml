@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - name: Test with Coverlet
         run: >-
-          dotnet test --no-restore --configuration Release --logger trx --tl:off
+          dotnet test --no-restore --configuration Release --tl:off
           --collect:"XPlat Code Coverage" --settings coverage.runsettings
           --results-directory artifacts/coverage
       - name: Enforce module coverage floors
