@@ -16,7 +16,7 @@ RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund && node repair-shrin
 COPY runner/bridge.mjs runner/errors.mjs ./
 
 FROM mcr.microsoft.com/dotnet/runtime:10.0.12-noble@sha256:ff17a18b639a0327e52c7c296fa2e1abe6e03eb61d8121a8ef67cc6aa430a27e AS runtime
-ARG VERSION=0.1.3
+ARG VERSION=0.2.0
 ARG REVISION=unknown
 LABEL org.opencontainers.image.source="https://github.com/mggarofalo/paperless-llm" \
       org.opencontainers.image.description="Scheduled Paperless document organization with retrospective review" \

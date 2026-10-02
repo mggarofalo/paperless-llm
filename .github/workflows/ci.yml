@@ -21,6 +21,7 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet restore --locked-mode
       - run: node --test runner/errors.test.mjs
+      - run: node --test scripts/release-policy.test.mjs
       - name: Install renderer for integration tests
         run: sudo apt-get update && sudo apt-get install -y poppler-utils
       - run: dotnet test --no-restore --configuration Release --logger trx --tl:off
@@ -43,7 +44,7 @@ jobs:
       - name: Verify non-root, read-only runtime and bundled renderer
         shell: bash
         run: |
-          test "$(docker run --rm --read-only --tmpfs /tmp ppllm:ci --version)" = '0.1.3'
+          test "$(docker run --rm --read-only --tmpfs /tmp ppllm:ci --version)" = '0.2.0'
           docker run --rm --read-only --tmpfs /tmp ppllm:ci --help
           docker run --rm --read-only --tmpfs /tmp --mount type=volume,dst=/data/auth ppllm:ci auth status
           docker run --rm --network none --read-only --tmpfs /tmp --mount type=volume,dst=/data/auth ppllm:ci models

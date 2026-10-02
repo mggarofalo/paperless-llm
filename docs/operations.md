@@ -17,6 +17,7 @@ Once a valid proposal has been saved, sync retries reuse it. A crash before that
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `PPLLM_PAPERLESS_URL` | required | Paperless instance URL |
+| `PPLLM_IMAGE` | Version pinned in Compose | Compose-only image override; see [release channels](releases.md) |
 | `PPLLM_MODEL` | `gpt-6-sol` | Explicit model; no fallback |
 | `PPLLM_PROMPT_FILE` | `/app/prompts/organization.txt` | UTF-8 policy file, reloaded per inference; see [prompt configuration](prompts.md) |
 | `PPLLM_TAG` | `needs review` | Existing marker added after actual changes |
@@ -63,4 +64,4 @@ v0.1.0 generated read-only proposals. This release applies validated updates aut
 
 Grant the dedicated Paperless account document-change permission and complete device login into the new Pi auth subdirectory. Run `check`, `probe`, and a bounded initial batch before leaving the worker unattended. Existing history is excluded by default. Keep old proposal evidence as long as you need it. Do not run `docker compose down -v` during an upgrade: it deletes deployment volumes.
 
-For v0.1.3, see the [upgrade and editable prompt guide](prompts.md#upgrade-from-v012).
+For v0.2.0, see [upgrade and image channels](releases.md) and [editable prompts](prompts.md).

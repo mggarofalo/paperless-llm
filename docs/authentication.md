@@ -1,4 +1,4 @@
-# Authentication
+# Sign In With ChatGPT and Paperless authentication
 
 [Home](../README.md) · [Operation](operations.md) · [Architecture](architecture.md)
 
@@ -19,7 +19,7 @@ sudo chmod 600 secrets/paperless_token.txt
 
 Set `PPLLM_PAPERLESS_URL` in `.env`, using your instance's HTTPS URL. The token is never sent to the model process.
 
-## ChatGPT device login
+## Sign In With ChatGPT: device-code login
 
 Run on the machine hosting Docker:
 
@@ -31,7 +31,7 @@ docker compose --profile setup run --rm auth
 
 The command prints an OpenAI device-approval URL and a short code. Open that URL on any computer or phone, sign in with ChatGPT and approve the code. Keep the command running until it confirms completion. If your account requires it, enable device-code authentication in ChatGPT security settings first.
 
-No callback listener, published port, DNS entry, reverse proxy or SSH tunnel is needed. The pinned Pi SDK's `openai-codex` provider owns the device-code exchange, credential storage and refresh. This uses the Codex subscription authentication flow; the project does not register a separate “Sign in with ChatGPT” application or extract tokens into .NET. See [OpenAI's authentication documentation](https://developers.openai.com/codex/auth/) and the [Pi source](https://github.com/badlogic/pi-mono).
+No callback listener, published port, DNS entry, reverse proxy or SSH tunnel is needed. The pinned Pi SDK's `openai-codex` provider owns the device-code exchange, credential storage and refresh. This uses the Codex subscription authentication flow; the project does not register a separate “Sign in with ChatGPT” application or extract tokens into .NET. See [OpenAI's headless authentication documentation](https://learn.chatgpt.com/docs/auth#login-on-headless-devices) and the [Pi source](https://github.com/badlogic/pi-mono).
 
 Credentials live under `/data/auth/pi` in Compose's persistent `auth` volume. Keep that volume private. Use one worker per auth volume; stop the worker before login or logout, and do not run cloned copies of rotating credentials concurrently.
 
@@ -48,7 +48,7 @@ docker compose run --rm worker check
 
 Run `docker compose run --rm worker probe organization` to check the configured text policy and taxonomy-name resolution using a synthetic receipt. See [prompt configuration](prompts.md). After these pass, start the worker and inspect a small initial batch and its Paperless history. Confirm OCR, metadata, preserved workflow tags and the review marker. Also verify operation after a token refresh and container restart. Live grant, refresh and model accuracy are deployment acceptance checks; they are not covered by the synthetic CI tests.
 
-`worker` and `once` check saved authorization, catalog availability and review-tag visibility before initializing discovery. This does not substitute for the live `probe`. In v0.1.1 the probe image had a bad PNG checksum and inference errors were collapsed to `runner_request_failed`; upgrade to v0.1.3 before diagnosing that result. A previous `completed 0, failed 0` may only mean that a baseline was recorded without processing any documents.
+`worker` and `once` check saved authorization, catalog availability and review-tag visibility before initializing discovery. This does not substitute for the live `probe`. In v0.1.1 the probe image had a bad PNG checksum and inference errors were collapsed to `runner_request_failed`; upgrade to [v0.2.0](releases.md) before diagnosing that result. A previous `completed 0, failed 0` may only mean that a baseline was recorded without processing any documents.
 
 Probe errors now preserve fixed categories: `runner_image_rejected`, `runner_model_access_denied`, `runner_access_denied`, `runner_transport_failed`, `runner_provider_unavailable` and `runner_request_rejected`. Unknown provider failures remain `runner_inference_failed`. Raw provider errors and credentials are never printed. Report the category if the corrected probe still fails; do not paste auth files.
 

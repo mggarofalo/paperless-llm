@@ -7,7 +7,7 @@ fresh local Codex process in a temporary working directory with read-only
 sandboxing and user configuration ignored. Stage event streams, text, errors,
 and provenance are written to the chosen output directory. Treat that directory
 as sensitive because it can contain document-derived text. Expected answers and
-curator notes are never sent to Luna.
+curator notes are never sent to the candidate model.
 
 ```powershell
 dotnet run --project src/PaperlessLlm.Eval -- experiment `
