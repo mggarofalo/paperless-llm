@@ -1,0 +1,12 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "medium",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "ocr-text-organizer-v1",
+  "ocrContext": "full",
+  "hypothesis": "Can one Luna call organize documents from existing Paperless OCR without vision or transcription?",
+  "taxonomy": "full"
+}
