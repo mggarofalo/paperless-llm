@@ -43,7 +43,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[].tag_name' > existing-release-tags.txt
+          if grep -Fxq "$GITHUB_REF_NAME" existing-release-tags.txt; then
             echo 'Release already exists. Inspect it; do not overwrite published versions.' >&2
             exit 1
           fi
@@ -57,8 +59,16 @@ jobs:
       - name: Refuse replacement of a published image tag
         shell: bash
         run: |
-          if docker buildx imagetools inspect "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          image="ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME"
+          if docker buildx imagetools inspect "$image" > existing-image.txt 2> inspect-error.txt; then
             echo 'Image tag already exists. Inspect partial publication; never retarget it.' >&2
+            exit 1
+          fi
+          # Only the explicit missing-manifest response permits publication.
+          # Network/authentication/unknown CLI errors are not evidence of absence.
+          if [ "$(cat inspect-error.txt)" != "ERROR: $image: not found" ]; then
+            cat inspect-error.txt >&2
+            echo 'Could not establish image-tag absence; refusing publication.' >&2
             exit 1
           fi
       - name: Build and push both architectures
