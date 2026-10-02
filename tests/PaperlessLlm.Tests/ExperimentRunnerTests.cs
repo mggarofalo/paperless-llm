@@ -115,6 +115,92 @@ public sealed class ExperimentRunnerTests
         Assert.Throws<InvalidDataException>(() => ExperimentRunner.ParsePageTranscription(json, 1));
 
     [Fact]
+    public void PerPageImageMappingsSupportSevenOrderedRegionsAndAnchors()
+    {
+        var c = CaseWithPages();
+        var variants = RegionVariants(7);
+        var map = new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = variants };
+        var regionRecipe = Recipe("pagewise") with { ImageMode = "regions" };
+        var regions = ExperimentRunner.SelectImages(c, regionRecipe, map, Path.GetTempPath());
+        Assert.Equal(14, regions.Count);
+        Assert.Equal("p1-r1.png", Path.GetFileName(regions[0]));
+        Assert.Equal("p1-r7.png", Path.GetFileName(regions[6]));
+        Assert.Equal("p2-r1.png", Path.GetFileName(regions[7]));
+        var anchors = ExperimentRunner.BuildImageAnchors(c, regionRecipe, regions);
+        Assert.Contains("Attached image 8: region 1 of page 2.", anchors);
+        Assert.Contains("Attached image 14: region 7 of page 2.", anchors);
+
+        var pageGroups = ExperimentRunner.SelectPageImages(c, regionRecipe, map, Path.GetTempPath());
+        Assert.Equal(7, pageGroups[0].Count);
+        Assert.Equal("p2-r7.png", Path.GetFileName(pageGroups[1][6]));
+    }
+
+    [Fact]
+    public void FullAndRegionsMappingUsesAllPagesThenVariableRegionGroups()
+    {
+        var c = CaseWithPages();
+        var variants = RegionVariants(7);
+        var recipe = Recipe() with { ImageMode = "full-and-regions" };
+        var images = ExperimentRunner.SelectImages(c, recipe,
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = variants }, Path.GetTempPath());
+        Assert.Equal(16, images.Count);
+        Assert.Equal(new[] { "p1-full.png", "p2-full.png", "p1-r1.png", "p1-r2.png", "p1-r3.png", "p1-r4.png", "p1-r5.png", "p1-r6.png", "p1-r7.png" },
+            images.Take(9).Select(Path.GetFileName));
+        var anchors = ExperimentRunner.BuildImageAnchors(c, recipe, images);
+        Assert.Contains("Attached image 2: full page 2.", anchors);
+        Assert.Contains("Attached image 3: region 1 of page 1.", anchors);
+        Assert.Contains("Attached image 16: region 7 of page 2.", anchors);
+    }
+
+    [Fact]
+    public void VariableRegionMapRejectsPerPageCountAndDuplicateMappingDrift()
+    {
+        var c = CaseWithPages();
+        var inconsistent = RegionVariants(7) with { Pages = [RegionPage(1, 7), RegionPage(2, 6)] };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectImages(c, Recipe() with { ImageMode = "regions" },
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = inconsistent }, Path.GetTempPath()));
+        var drifted = RegionVariants(7) with { Regions = ["other.png", .. RegionVariants(7).Regions.Skip(1)] };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectImages(c, Recipe() with { ImageMode = "regions" },
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = drifted }, Path.GetTempPath()));
+    }
+
+    [Fact]
+    public void VariableRegionCountRequiresPageGroupingWhileLegacyThreeRegionFlatMapStillWorks()
+    {
+        var c = CaseWithPages();
+        var variableFlat = RegionVariants(7) with { Pages = [] };
+        Assert.Throws<InvalidDataException>(() => ExperimentRunner.SelectImages(c, Recipe() with { ImageMode = "regions" },
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = variableFlat }, Path.GetTempPath()));
+
+        var legacy = RegionVariants(3) with { Pages = [] };
+        var selected = ExperimentRunner.SelectImages(c, Recipe() with { ImageMode = "regions" },
+            new Dictionary<string, ExperimentRunner.ImageVariantCase> { [c.CaseId] = legacy }, Path.GetTempPath());
+        Assert.Equal(6, selected.Count);
+    }
+
+    private static EvalCase CaseWithPages() => SyntheticCase() with
+    {
+        CaseId = "synthetic-images", PageCount = 2,
+        Document = new EvalDocument { Id = 1, Title = "Synthetic", Content = "", PageImages = ["source-1.png", "source-2.png"] }
+    };
+
+    private static ExperimentRunner.ImageVariantCase RegionVariants(int perPage)
+    {
+        var pages = Enumerable.Range(1, 2).Select(page => RegionPage(page, perPage)).ToList();
+        var full = pages.Select(p => p.Full).ToList();
+        var regions = pages.SelectMany(p => p.Regions).ToList();
+        return new ExperimentRunner.ImageVariantCase
+        {
+            Full = full, Regions = regions, FullAndRegions = full.Concat(regions).ToList(), Pages = pages
+        };
+    }
+
+    private static ExperimentRunner.ImageVariantPage RegionPage(int page, int count) => new()
+    {
+        Page = page, Full = $"p{page}-full.png", Regions = Enumerable.Range(1, count).Select(region => $"p{page}-r{region}.png").ToList()
+    };
+
+    [Fact]
     public void CandidatePayloadCanRemoveOcrAndShortlistByExistingIdsWithoutLeakingLabels()
     {
         var c = SyntheticCase();
