@@ -37,7 +37,8 @@ draft history. Prompts contain general instructions and synthetic examples,
 never reference answers or private case-specific corrections.
 
 References and screening inputs were frozen before model trials. An independent
-source-image review supplied 154 selected text regions across development pages,
+source-image review supplied 164 selected text regions across the 20 real development
+documents (175 references when the two counterfactual copies are included),
 plus signed amounts, identifiers and text anchors. The expansion references were
 frozen before expanded evaluation. These are partial references, not complete
 gold transcriptions.
