@@ -64,6 +64,30 @@ public sealed class PaperlessWriterTests : IDisposable
         Assert.DoesNotContain("sensitive-response", error.Message);
         Assert.Equal(1, requests);
     }
+    [Theory]
+    [InlineData("")]
+    [InlineData("token injected")]
+    [InlineData("token\u0001")]
+    public async Task InvalidCredentialFilesNeverReachNetwork(string token)
+    {
+        await File.WriteAllTextAsync(Path.Combine(directory, "token"), token);
+        var calls = 0;
+        using var writer = new PaperlessWriter(Options(), new Handler((_, _) => { calls++; return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)); }));
+        await Assert.ThrowsAsync<PaperlessException>(() => writer.PatchAsync(1, new Dictionary<string, object?> { ["title"] = "New" }, default));
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task CallerCancellationIsPreservedForWriteReconciliation()
+    {
+        using var cancelled = new CancellationTokenSource();
+        using var writer = new PaperlessWriter(Options(), new Handler(async (_, ct) => {
+            cancelled.Cancel(); await Task.Delay(Timeout.Infinite, ct); return new(HttpStatusCode.OK);
+        }));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => writer.PatchAsync(1,
+            new Dictionary<string, object?> { ["title"] = "New" }, cancelled.Token));
+    }
+
     [Fact]
     public async Task TimeoutRemainsAnUnconfirmedWriteForJournalReconciliation()
     {
