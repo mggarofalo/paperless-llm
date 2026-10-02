@@ -1,0 +1,21 @@
+{
+  "casesPerArm": 75,
+  "selection": "Prefer candidate with no audited factual regressions, valid proposals and better supported repair. Audit type-convention disagreements separately. Repeat selected candidate and test reserved fresh set without further prompt edits.",
+  "freshHoldout": false,
+  "sourceDocuments": 25,
+  "hypothesis": "Simplify policy after v3 Luna/Sol6 error audit. No fresh validation contents inspected. Do not relabel frozen numeric references.",
+  "calls": 150,
+  "arms": [
+    {
+      "reasoning": "medium",
+      "model": "gpt-6-luna",
+      "id": "concise-luna"
+    },
+    {
+      "reasoning": "low",
+      "model": "gpt-6-sol",
+      "id": "concise-sol6"
+    }
+  ],
+  "createdAt": "2026-10-02T11:19:15.2623799+00:00"
+}

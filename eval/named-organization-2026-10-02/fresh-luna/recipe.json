@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "medium",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "fresh-luna",
+  "ocrContext": "full",
+  "hypothesis": "Frozen selected prompt evaluated once on10 reserved fresh documents in30 conditions. No tuning after results.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

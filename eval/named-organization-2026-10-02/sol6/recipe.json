@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "low",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "named-v3-sol6",
+  "ocrContext": "full",
+  "hypothesis": "Exact names eliminate model numeric-ID binding; compare same policy and output contract across models.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

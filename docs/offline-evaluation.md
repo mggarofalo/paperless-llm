@@ -28,6 +28,19 @@ Recipes require `id` and `promptFile`. Optional fields are `parent`,
 `full-and-regions`, `high`), `imageVariants` (recipe-relative mapping file),
 and `includeFinalImages`.
 
+`outputContract` defaults to `ids` (the production intent contract). The
+evaluation-only `names` option requires `pipeline: single` and `taxonomy: full`.
+It supplies exact taxonomy names in current metadata and allowed lists, changes
+correspondent/type values to strings and tag entries to `{name,evidence}`, then
+resolves each name to exactly one ID using ordinal matching. Unknown or ambiguous
+names, numeric values, extra tag keys, and duplicate JSON keys fail. The resolved
+intent still passes the unchanged production validator: existing/protected tag
+additions and keep/value errors are not repaired. Raw responses remain in each
+case's `final.txt`; failed conversion creates a case error and no scorer input.
+Report those conversion failures alongside scorer missing-output counts, rather
+than interpreting them as transport failures. Name binding prevents accidental
+numeric ID selection, but cannot establish semantic accuracy or evidence quality.
+
 `experiment --split train|holdout` is required. The runner filters the case file
 to that split before any model call, so a train run cannot send holdout cases.
 Each `--out` directory must be new or empty; the runner refuses to reuse an
@@ -128,3 +141,8 @@ The [v2 organization experiment](evaluations/2026-10-02-ocr-text-v2.md) compares
 serialization template and conservative taxonomy/date policy, with an identical
 repeat. It reports gains in validity and tag restraint alongside date abstentions,
 taxonomy-ID mismatches, and remaining unsupported changes.
+
+The [exact-name and model comparison](evaluations/2026-10-02-named-organization.md)
+adds deterministic name binding, compares Luna with Sol 6/6.1, repeats the selected
+policy, and evaluates ten fresh documents plus synthetic boundary cases. Sol 6 low
+is the strongest integration candidate; production defaults remain unchanged.

@@ -1,0 +1,23 @@
+{
+  "noPaperlessWrites": true,
+  "promptFrozenAt": "2026-10-02T07:28:18.8133621-04:00",
+  "arms": [
+    {
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "id": "fresh-sol6"
+    },
+    {
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "id": "fresh-luna"
+    }
+  ],
+  "noFurtherTuning": true,
+  "casesPerArm": 30,
+  "sourceDocuments": 10,
+  "createdAt": "2026-10-02T11:31:31.199049+00:00",
+  "referenceBasis": "Manual existing-OCR review before candidate calls; no source-image verification. Eight scored dates, seven scored correspondents, ten types per condition. Nine receipts and one poorly OCRd check. Ambiguous fields ignored in accuracy and audited for unsupported sets.",
+  "calls": 60,
+  "promptSha256": "DE1C83638E38BBA4BF4181A19A7784F0F41EF5964FD8089038F000C39225FFAF"
+}

@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-10-02T11:36:42.9647181+00:00",
+  "calls": 16,
+  "promptChanged": false,
+  "freshValidationTuning": false,
+  "syntheticCases": 8,
+  "arms": [
+    {
+      "reasoning": "low",
+      "id": "boundary-sol6",
+      "model": "gpt-6-sol"
+    },
+    {
+      "reasoning": "medium",
+      "id": "boundary-luna",
+      "model": "gpt-6-luna"
+    }
+  ]
+}

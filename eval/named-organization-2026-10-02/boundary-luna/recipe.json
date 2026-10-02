@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "medium",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "boundary-luna",
+  "ocrContext": "full",
+  "hypothesis": "Synthetic diagnosis of ambiguous issuer, card brands, OCR injection and date roles. Frozen selected prompt; no tuning.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

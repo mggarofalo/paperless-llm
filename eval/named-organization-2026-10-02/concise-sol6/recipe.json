@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "low",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "concise-sol6",
+  "ocrContext": "full",
+  "hypothesis": "Shorter field-independent policy, explicit date roles and preservation of equally reasonable existing types, with the same exact-name contract.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

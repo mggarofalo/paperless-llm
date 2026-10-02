@@ -1,0 +1,13 @@
+{
+  "arms": [
+    {
+      "reasoning": "low",
+      "id": "hybrid-sol6",
+      "model": "gpt-6-sol"
+    }
+  ],
+  "calls": 75,
+  "selection": "Keep hybrid only if it adds supported date repair without factual regressions or lower validity; otherwise select unchanged long Sol6. Freeze selected prompt, repeat it and evaluate reserved fresh documents without further tuning.",
+  "freshContentsInspected": false,
+  "createdAt": "2026-10-02T11:24:46.9879184+00:00"
+}

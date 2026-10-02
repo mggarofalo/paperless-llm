@@ -1,0 +1,11 @@
+{
+  "frozenAt": "2026-10-02T11:28:18.8133621+00:00",
+  "reason": "All75 valid; no scored date/correspondent miswrites, same two type-convention disagreements as long policy, and a supported certificate-date repair. Concise policy rejected for enclosure-date mistakes. One fewer correspondent recovery and another date abstention remain; selection is not a claim of complete accuracy.",
+  "productionPromotion": false,
+  "selected": "hybrid-sol6",
+  "reasoning": "low",
+  "model": "gpt-6-sol",
+  "freshDocumentsReserved": 10,
+  "promptSha256": "DE1C83638E38BBA4BF4181A19A7784F0F41EF5964FD8089038F000C39225FFAF",
+  "next": "Unchanged75-case repeat plus one fresh30-case validation each for selected Sol6 low and Luna medium, with prompt frozen before inspecting fresh document contents. No tuning after fresh results."
+}

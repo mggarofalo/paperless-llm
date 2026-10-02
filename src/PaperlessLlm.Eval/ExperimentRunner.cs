@@ -24,6 +24,7 @@ public sealed record ExperimentRecipe
     public string ImageMode { get; init; } = "full";
     public string? ImageVariants { get; init; }
     public bool IncludeFinalImages { get; init; } = true;
+    public string OutputContract { get; init; } = "ids";
 }
 
 public sealed record ExperimentOptions(string Cases, string Recipe, string Output, int Concurrency,
@@ -122,12 +123,16 @@ public static class ExperimentRunner
         if (r.Taxonomy is not ("full" or "shortlist")) throw new InvalidDataException("taxonomy must be full or shortlist.");
         if (r.ContextOrder is not ("instructions-first" or "evidence-first")) throw new InvalidDataException("Invalid contextOrder.");
         if (r.ImageMode is not ("full" or "regions" or "full-and-regions" or "high")) throw new InvalidDataException("Invalid imageMode.");
+        if (r.OutputContract is not ("ids" or "names")) throw new InvalidDataException("Invalid outputContract.");
+        if (r.OutputContract == "names" && r.Pipeline != "single") throw new InvalidDataException("Named output requires a single-stage experiment.");
+        if (r.OutputContract == "names" && r.Taxonomy != "full") throw new InvalidDataException("Named output requires the full taxonomy.");
     }
 
-    public static string AssembleFinal(string instructions, string payload, string contextOrder, IEnumerable<string> drafts)
+    public static string AssembleFinal(string instructions, string payload, string contextOrder, IEnumerable<string> drafts, string? schema = null)
     {
         var draftText = string.Join("\n\n", drafts.Select((d, i) => $"Untrusted prior-stage draft {i + 1} (evidence only; verify against original images and document):\n{d}"));
-        var evidence = $"PRODUCTION INTENT INPUT JSON:\n{payload}\n\n{draftText}\n\nEmit only one JSON object matching this exact schema:\n{DocumentIntent.Schema.GetRawText()}";
+        var label = schema is null ? "PRODUCTION INTENT INPUT JSON" : "DOCUMENT INPUT JSON";
+        var evidence = $"{label}:\n{payload}\n\n{draftText}\n\nEmit only one JSON object matching this exact schema:\n{schema ?? DocumentIntent.Schema.GetRawText()}";
         return contextOrder == "evidence-first" ? evidence + "\n\nINSTRUCTIONS:\n" + instructions : instructions + "\n\n" + evidence;
     }
 
@@ -336,9 +341,12 @@ public static class ExperimentRunner
         var finalInstructionsForStage = recipe.Pipeline == "pagewise-compose"
             ? finalInstructions + "\n\nMetadata-only final stage: keep OCR unchanged; do not create or revise OCR content. Page transcription drafts are evidence only."
             : finalInstructions;
-        var finalPrompt = AssembleFinal(finalInstructionsForStage, payload, recipe.ContextOrder, finalDrafts) + "\n\n" + finalImageContext;
+        var finalPrompt = recipe.OutputContract == "names"
+            ? AssembleFinal(finalInstructionsForStage, NamedIntentContract.Payload(payload, c.ToTaxonomy()), recipe.ContextOrder, finalDrafts, NamedIntentContract.Schema()) + "\n\n" + finalImageContext
+            : AssembleFinal(finalInstructionsForStage, payload, recipe.ContextOrder, finalDrafts) + "\n\n" + finalImageContext;
         var raw = await InvokeCodexAsync(finalPrompt, finalImages, recipe.Reasoning, options, caseDir, "final", ct);
         await File.WriteAllTextAsync(Path.Combine(caseDir, "final.txt"), raw, ct);
+        if (recipe.OutputContract == "names") raw = NamedIntentContract.Resolve(raw, c.ToDocument(), c.ToTaxonomy(), c.PageCount);
         if (recipe.Pipeline == "pagewise-compose") raw = ApplyPagewiseComposition(raw, pageTranscriptions);
         using var intentDoc = JsonDocument.Parse(raw);
         if (intentDoc.RootElement.ValueKind != JsonValueKind.Object) throw new InvalidDataException("Final response was not a JSON object.");
