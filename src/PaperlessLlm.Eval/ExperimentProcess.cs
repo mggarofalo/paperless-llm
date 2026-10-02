@@ -7,12 +7,14 @@ namespace PaperlessLlm.Eval;
 
 public static partial class ExperimentRunner
 {
-    private static async Task<string> InvokeCodexAsync(string prompt, IReadOnlyList<string> images, string reasoning,
-        ExperimentOptions options, string caseDir, string stage, CancellationToken ct)
+    internal static async Task<string> InvokeCodexAsync(string prompt, IReadOnlyList<string> images, string reasoning,
+        ExperimentOptions options, string caseDir, string stage, CancellationToken ct,
+        Func<ProcessStartInfo, ProcessStartInfo>? configureProcess = null)
     {
         ct.ThrowIfCancellationRequested();
         var cwd = Path.Combine(caseDir, ".cwd-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(cwd);
         var psi = CreateCodexStartInfo(options.Model, reasoning, cwd, images);
+        if (configureProcess is not null) psi = configureProcess(psi);
         try
         {
             using var process = new Process { StartInfo = psi };
