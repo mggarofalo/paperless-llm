@@ -1,0 +1,12 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "medium",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "ocr-text-v2-contract",
+  "ocrContext": "full",
+  "hypothesis": "Concrete JSON template and serialization checklist reduce invalid proposals without policy changes",
+  "taxonomy": "full"
+}

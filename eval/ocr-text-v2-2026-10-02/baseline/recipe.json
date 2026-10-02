@@ -1,0 +1,12 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "medium",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "ocr-text-v2-baseline",
+  "ocrContext": "full",
+  "hypothesis": "Contemporaneous unchanged v1 reference",
+  "taxonomy": "full"
+}
