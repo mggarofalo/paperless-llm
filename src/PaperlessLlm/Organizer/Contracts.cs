@@ -11,7 +11,7 @@ public interface IIntentSynchronizer
 }
 public sealed record SyncResult(string Outcome, PaperlessDocument Document);
 public sealed class SyncConflictException(string code) : Exception(code) { public string Code { get; } = code; }
-public sealed record IntentContext(string Instructions, string Prompt, JsonElement Schema, string PolicyVersion);
+public sealed record IntentContext(string Instructions, string Prompt, JsonElement Schema, string PolicyVersion, bool NamedOutput = false, string? PromptSha256 = null);
 public interface IIntentContextBuilder
 {
     Task<IntentContext> BuildAsync(PaperlessDocument source, PaperlessTaxonomy taxonomy, int pageCount, CancellationToken ct);
@@ -20,7 +20,8 @@ public sealed class OrganizerOptions
 {
     public required string StateDirectory { get; init; }
     public required string SourceUrl { get; init; }
-    public string Model { get; init; } = "gpt-6-luna";
+    public string Model { get; init; } = "gpt-6-sol";
+    public bool UseExistingOcr { get; init; }
     public string ReviewTag { get; init; } = "needs review";
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromHours(1);
     public int BatchSize { get; init; } = 5;

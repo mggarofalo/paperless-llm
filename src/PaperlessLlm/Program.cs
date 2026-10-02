@@ -22,7 +22,7 @@ public static class Program
             return await OrganizerCli.RunAsync(args, cancellation.Token);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return 130; }
-        catch (Exception ex) when (ex is AuthException or InferenceException or PaperlessException or ArgumentException)
+        catch (Exception ex) when (ex is AuthException or InferenceException or PaperlessException or ArgumentException or Intent.OrganizationPromptException)
         {
             Console.Error.WriteLine(ex.Message);
             return 1;
@@ -51,4 +51,3 @@ public static class Program
         int.TryParse(Setting(name, fallback.ToString()), out int value) && value >= min && value <= max
             ? value : throw new ArgumentException($"PPLLM_{name} must be between {min} and {max}.");
 }
-

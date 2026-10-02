@@ -6,9 +6,9 @@ The worker applies validated changes and adds `needs review` in the same PATCH. 
 
 ## What can change
 
-Each proposed title, date, correspondent, document type and descriptive tag needs document-specific evidence. Referenced taxonomy IDs must already exist. OCR replacement requires nonempty text for every rendered page, each marked complete without uncertainty. Ambiguous fields can stay unchanged while other supported fields are updated.
+Each proposed title, date, correspondent, document type and descriptive tag needs document-specific evidence. Exact taxonomy names resolve to unique existing IDs. The worker keeps Paperless OCR unchanged; its default prompt also keeps titles unchanged. Ambiguous fields can stay unchanged while other supported fields are updated.
 
-The model cannot remove tags, clear correspondent/type assignments, create taxonomy, change ownership or permissions, replace originals, delete documents or import receipts. The [prompt](../src/PaperlessLlm/Intent/IntentPrompt.cs) explains these boundaries, and deterministic validation enforces the allowed shape and references. Schema and evidence checks do not prove semantic correctness; an OCR completeness declaration does not establish character accuracy.
+The model cannot remove tags, clear correspondent/type assignments, create taxonomy, change ownership or permissions, replace originals, delete documents or import receipts. The [prompt file](prompts.md) explains these boundaries, and deterministic validation enforces the allowed shape and references. Schema and evidence checks do not prove semantic correctness.
 
 ## History and journals
 

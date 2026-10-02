@@ -1,6 +1,6 @@
 import http from 'node:http';
 const keep = { action: 'keep', value: null, evidence: [] };
-export const intent = { schema_version:'1', title:{action:'set',value:'Synthetic receipt',evidence:['Page 1 synthetic receipt']}, date:keep, correspondent:keep, document_type:keep, add_tags:[{id:3,evidence:['Synthetic fixture category']}], ocr:{action:'keep',pages:[],evidence:[]}, uncertainty:[] };
+export const intent = { schema_version:'1', title:{action:'set',value:'Synthetic receipt',evidence:['Page 1 synthetic receipt']}, date:keep, correspondent:keep, document_type:keep, add_tags:[{name:'receipt',evidence:['Synthetic fixture category']}], ocr:{action:'keep',pages:[],evidence:[]}, uncertainty:[] };
 let document = {id:1,title:'Untitled',content:'Synthetic receipt',created:'2026-10-01',modified:'2026-10-01T00:00:00Z',correspondent:null,document_type:null,tags:[1],mime_type:'image/png',original_file_name:'synthetic.png'};
 let patches=0,inferences=0,disconnect=false,tagVisible=true;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64');

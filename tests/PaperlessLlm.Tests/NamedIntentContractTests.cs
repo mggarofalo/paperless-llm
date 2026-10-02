@@ -21,6 +21,14 @@ public sealed class NamedIntentContractTests
         """;
 
     [Fact]
+    public void TextOnlyContractRejectsOcrWritesEvenWhenCustomPromptRequestsThem()
+    {
+        var raw = JsonNode.Parse(Intent)!;
+        raw["ocr"] = JsonNode.Parse("""{"action":"set","pages":[{"page":1,"text":"fabricated","complete":true,"uncertainty":[]}],"evidence":["custom policy"]}""");
+        Assert.Throws<ProposalValidationException>(() => NamedIntentContract.Resolve(raw.ToJsonString(), Document, Taxonomy, 0));
+    }
+
+    [Fact]
     public void ConvertsNamesWithoutSendingNumericTaxonomyOrReferences()
     {
         var payload = JsonNode.Parse(NamedIntentContract.Payload(IntentPrompt.Build(Document, Taxonomy, 0), Taxonomy))!;

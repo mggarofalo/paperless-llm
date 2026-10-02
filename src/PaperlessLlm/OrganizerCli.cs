@@ -38,6 +38,7 @@ public static class OrganizerCli
                 auth logout            Remove this deployment's local ChatGPT credentials
                 models                 Show the provider's model catalog (not entitlement proof)
                 probe                  Check model/image transport with a synthetic JSON request
+                probe organization     Check the configured text policy and name resolution with a synthetic receipt
                 check                  Check Paperless access, review tag and saved auth
                 --version              Show release version
 
@@ -56,10 +57,10 @@ public static class OrganizerCli
                 && DateTimeOffset.UtcNow - activity < interval + TimeSpan.FromMinutes(15) ? 0 : 1;
         }
 
-        var model = Setting("MODEL", "gpt-6-luna");
+        var model = Setting("MODEL", "gpt-6-sol");
         var runner = new PiRunner(new(Setting("RUNNER_HOME", Path.Combine(Setting("AUTH_DIRECTORY", "/data/auth"), "pi")),
             Setting("RUNNER_BRIDGE", Path.Combine(AppContext.BaseDirectory, "runner", "bridge.mjs")),
-            Setting("NODE", "node")));
+            Setting("NODE", "node"), Reasoning: "low"));
         if (command == "auth")
         {
             if (args.Length != 2) throw new ArgumentException("Use auth login, auth status or auth logout.");
@@ -80,6 +81,28 @@ public static class OrganizerCli
         if (command == "models") { Console.WriteLine(JsonSerializer.Serialize(await runner.ListModelsAsync(ct))); return 0; }
         if (command == "probe")
         {
+            if (args.Length == 2 && args[1] == "organization")
+            {
+                var synthetic = new PaperlessDocument(1, "Synthetic receipt", "CEDAR MARKET\nReceipt\nTransaction date: 2026-04-02\nTOTAL $15.99\nPaid cash",
+                    "2025-01-01", null, null, null, [], null, null, "synthetic");
+                var taxonomy = new PaperlessTaxonomy([new(1, "receipts"), new(2, "inbox", true)],
+                    [new(1, "Cedar Market")], [new(1, "Receipt")]);
+                var context = await new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model)
+                    .BuildAsync(synthetic, taxonomy, 0, ct);
+                var raw = await runner.RunAsync(model, context.Instructions, context.Prompt, [], context.Schema, ct);
+                using var parsedIntent = JsonDocument.Parse(NamedIntentContract.Resolve(raw, synthetic, taxonomy, 0));
+                var intent = parsedIntent.RootElement;
+                if (intent.GetProperty("date").GetProperty("value").GetString() != "2026-04-02"
+                    || intent.GetProperty("correspondent").GetProperty("value").GetInt32() != 1
+                    || intent.GetProperty("document_type").GetProperty("value").GetInt32() != 1
+                    || intent.GetProperty("add_tags").GetArrayLength() != 1
+                    || intent.GetProperty("add_tags")[0].GetProperty("id").GetInt32() != 1)
+                    throw new InferenceException("Synthetic organization probe did not recover the expected receipt fields.");
+                Console.WriteLine(JsonSerializer.Serialize(new { OrganizationProbe = "passed", Model = model,
+                    Reasoning = "low", context.PromptSha256, Note = "Synthetic receipt only. No Paperless documents accessed or changed; not an accuracy benchmark." }));
+                return 0;
+            }
+            if (args.Length != 1) throw new ArgumentException("Use probe or probe organization.");
             var schema = JsonDocument.Parse("""{"type":"object","properties":{"ready":{"type":"boolean"}},"required":["ready"],"additionalProperties":false}""").RootElement.Clone();
             var result = await runner.RunAsync(model, "Return only JSON matching the supplied schema.",
                 "This is a synthetic transport check with a one-pixel image. Return ready true.", [SyntheticImage], schema, ct);
@@ -94,8 +117,10 @@ public static class OrganizerCli
         using var reader = new PaperlessClient(paperlessOptions);
         using var writer = new PaperlessWriter(paperlessOptions);
         var reviewTag = Setting("TAG", "needs review");
+        var prompt = new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model);
         if (command is "check" or "worker" or "once")
         {
+            await prompt.ReadAsync(ct);
             if (!await runner.StatusAsync(ct)) throw new AuthException("Sign in with auth login before starting the worker.", true);
             var taxonomy = await reader.GetTaxonomyAsync(ct);
             SetupValidation.RequireReviewTag(taxonomy, reviewTag);
@@ -110,6 +135,7 @@ public static class OrganizerCli
         var options = new OrganizerOptions
         {
             StateDirectory = stateDirectory, SourceUrl = paperlessOptions.BaseUrl.AbsoluteUri, Model = model, ReviewTag = reviewTag,
+            UseExistingOcr = true,
             PollInterval = interval, BatchSize = Integer("BATCH_SIZE", 5, 1, 100), BackfillLimit = Integer("BACKFILL_LIMIT", 0, 0, 100),
             MaxStateBytes = (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024
         };
@@ -119,7 +145,7 @@ public static class OrganizerCli
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton<IPaperlessClient>(reader);
         builder.Services.AddSingleton<IIntentRunner>(new RunnerAdapter(runner));
-        builder.Services.AddSingleton<IIntentContextBuilder>(new ContextBuilder(model));
+        builder.Services.AddSingleton<IIntentContextBuilder>(prompt);
         builder.Services.AddSingleton<IIntentSynchronizer>(new IntentSynchronizer(reader, writer,
             Path.Combine(Setting("AUDIT_DIRECTORY", "/data/audit"), "operations"), reviewTag, Boolean("DRY_RUN", false)));
         builder.Services.AddSingleton<IDocumentRenderer>(new ImageRenderer());
@@ -142,12 +168,6 @@ public static class OrganizerCli
     {
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
             => runner.RunAsync(model, instructions, prompt, images, schema, ct);
-    }
-    private sealed class ContextBuilder(string model) : IIntentContextBuilder
-    {
-        public Task<IntentContext> BuildAsync(PaperlessDocument source, PaperlessTaxonomy taxonomy, int pageCount, CancellationToken ct)
-            => Task.FromResult(new IntentContext(IntentPrompt.Instructions, IntentPrompt.Build(source, taxonomy, pageCount),
-                DocumentIntent.Schema, IntentPrompt.Fingerprint(model)));
     }
     private static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable("PPLLM_" + name) ?? fallback;
     private static string Required(string name) => Environment.GetEnvironmentVariable("PPLLM_" + name) is { Length: > 0 } value ? value : throw new ArgumentException($"Set PPLLM_{name}.");

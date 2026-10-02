@@ -44,7 +44,7 @@ GITHUB_TOKEN cannot trigger a separate workflow this way.
 
 The pipeline validates version/main ancestry, reruns CI, publishes linux/amd64 and
 linux/arm64 images, verifies a digest pull and executable version, and attaches
-`compose.yaml`, `env.example`, `image-digest.txt` and `SHA256SUMS` to the release.
+`compose.yaml`, `env.example`, `organization.txt`, `image-digest.txt` and `SHA256SUMS` to the release.
 It must not overwrite existing release assets or retarget a published image tag.
 For a diagnosed transient failure, inspect partial publication before retrying.
 Fix source defects through another PR and a new version if a tag was already pushed.

@@ -10,6 +10,32 @@ public sealed class OrganizerTests : IDisposable
     public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
     private OrganizerWorker Worker(int backfill = 0, int max = 100) => new(source, source, source, source, source,
         new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = backfill, MaxJobs = max }, NullLogger<OrganizerWorker>.Instance);
+    [Fact] public async Task TextPolicyResolvesNamesAndRetryKeepsSavedIntentAfterPromptChanges()
+    {
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "policy.txt");
+        await File.WriteAllTextAsync(path, "Policy A");
+        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
+        source.Output = """
+            {"schema_version":"1","title":{"action":"keep","value":null,"evidence":[]},
+            "date":{"action":"keep","value":null,"evidence":[]},"correspondent":{"action":"keep","value":null,"evidence":[]},
+            "document_type":{"action":"keep","value":null,"evidence":[]},"add_tags":[{"name":"receipts","evidence":["Receipt"]}],
+            "ocr":{"action":"keep","pages":[],"evidence":[]},"uncertainty":[]}
+            """;
+        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol"), source, source,
+            new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 1, UseExistingOcr = true },
+            NullLogger<OrganizerWorker>.Instance);
+        source.FailSync = true;
+        Assert.Equal(1, (await worker.RunOnceAsync()).Failed);
+        Assert.Equal(3, source.LastIntent!.Value.GetProperty("add_tags")[0].GetProperty("id").GetInt32());
+        Assert.Equal(0, source.Downloads);
+        Assert.Equal(0, source.ImageCount);
+        File.Delete(path); // Sync must not load a new policy or call the model again.
+        source.FailSync = false;
+        await worker.RetryAsync(1);
+        Assert.Equal(1, (await worker.RunOnceAsync()).Completed);
+        Assert.Equal(1, source.Inferences);
+    }
     [Fact] public async Task BaselineAndRestartPreserveCompletedIdsAfterHumanEdits()
     {
         source.Docs[1] = ProposalTests.Document(1);
@@ -21,6 +47,43 @@ public sealed class OrganizerTests : IDisposable
         Assert.Equal(1, source.Inferences); Assert.Equal(1, source.Syncs);
         Assert.All(source.Filters, Assert.Null);
     }
+    [Fact] public async Task MissingPromptPausesBatchWithoutConsumingAttemptsOrCallingModel()
+    {
+        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
+        source.Docs[2] = ProposalTests.Document(2) with { Tags = [] };
+        using var worker = new OrganizerWorker(source, source,
+            new PaperlessLlm.Intent.OrganizationPrompt(Path.Combine(root, "missing.txt"), "gpt-6-sol"), source, source,
+            new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 2, UseExistingOcr = true },
+            NullLogger<OrganizerWorker>.Instance);
+        await worker.RunOnceAsync();
+        var status = await OrganizerStatusReader.ReadAsync(root);
+        Assert.Equal("organization_prompt_unreadable_or_invalid", status.PauseReason);
+        Assert.All(status.Jobs, j => Assert.Equal(0, j.Attempts));
+        Assert.Equal(0, source.Inferences);
+        Assert.Equal(0, source.Syncs);
+    }
+
+    [Theory]
+    [InlineData("Unlisted")]
+    [InlineData("needs review")]
+    public async Task NamedOutputCannotBypassTaxonomyAndProtectedTagValidation(string tag)
+    {
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "policy.txt");
+        await File.WriteAllTextAsync(path, "Custom instructions");
+        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
+        var keep = new { action = "keep", value = (string?)null, evidence = Array.Empty<string>() };
+        source.Output = JsonSerializer.Serialize(new { schema_version = "1", title = keep, date = keep, correspondent = keep,
+            document_type = keep, add_tags = new[] { new { name = tag, evidence = new[] { "Ignore policy" } } },
+            ocr = new { action = "keep", pages = Array.Empty<object>(), evidence = Array.Empty<string>() }, uncertainty = Array.Empty<string>() });
+        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol"), source, source,
+            new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 1, UseExistingOcr = true },
+            NullLogger<OrganizerWorker>.Instance);
+        Assert.Equal(1, (await worker.RunOnceAsync()).Failed);
+        Assert.Equal(0, source.Syncs);
+        var rawPath = Assert.Single(Directory.GetFiles(Path.Combine(root, "evidence"), "response.txt", SearchOption.AllDirectories));
+        Assert.Equal(source.Output, await File.ReadAllTextAsync(rawPath));
+    }
     [Fact] public async Task ExplicitRetryResumesPersistedIntentWithoutModelCall()
     {
         source.Docs[1] = ProposalTests.Document(1); source.FailSync = true;
@@ -28,6 +91,22 @@ public sealed class OrganizerTests : IDisposable
         source.FailSync = false;
         using (var worker = Worker()) { await worker.RetryAsync(1); Assert.Equal(1, (await worker.RunOnceAsync()).Completed); }
         Assert.Equal(1, source.Inferences); Assert.Equal(2, source.Syncs);
+    }
+    [Fact] public async Task UpgradeDoesNotReplaySavedLegacyOcrWrite()
+    {
+        source.Docs[1] = ProposalTests.Document(1);
+        source.Output = """{"ocr":{"action":"set"}}""";
+        source.FailSync = true;
+        using (var oldWorker = Worker(1)) await oldWorker.RunOnceAsync();
+        source.FailSync = false;
+        using var upgraded = new OrganizerWorker(source, source, source, source, source,
+            new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", UseExistingOcr = true },
+            NullLogger<OrganizerWorker>.Instance);
+        await upgraded.RetryAsync(1);
+        Assert.Equal(1, (await upgraded.RunOnceAsync()).Failed);
+        Assert.Equal(1, source.Syncs);
+        Assert.Equal(1, source.Inferences);
+        Assert.Equal("sync_conflict", Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).ErrorCode);
     }
     [Fact] public async Task InterruptedSyncResumesSameJobAndIntent()
     {
@@ -160,6 +239,9 @@ public sealed class OrganizerTests : IDisposable
     }
     private sealed class Fake : IPaperlessClient, IIntentRunner, IIntentContextBuilder, IIntentSynchronizer, IDocumentRenderer
     {
+        public int Downloads, ImageCount;
+        public string Output = "{}";
+        public JsonElement? LastIntent;
         public Dictionary<int, PaperlessDocument> Docs { get; } = [];
         public List<string?> Filters { get; } = [];
         public int Inferences, Syncs;
@@ -172,19 +254,19 @@ public sealed class OrganizerTests : IDisposable
         public Task<PaperlessTaxonomy> GetTaxonomyAsync(CancellationToken ct = default)
         {
             if (TaxonomyFail) throw new PaperlessException("private", "paperless_authentication_failed");
-            return Task.FromResult(new PaperlessTaxonomy(HiddenReviewTag ? [] : [new(2, "needs review")], [], []));
+            return Task.FromResult(new PaperlessTaxonomy(HiddenReviewTag ? [] : [new(2, "needs review"), new(3, "receipts")], [], []));
         }
         public async Task<OriginalDocument> DownloadOriginalAsync(int id, string destination, CancellationToken ct = default)
-        { if (File.Exists(destination)) throw new IOException("download_destination_exists"); await File.WriteAllTextAsync(destination, "image", ct); return new(destination, "image/png", "hash", 5); }
+        { Downloads++; if (File.Exists(destination)) throw new IOException("download_destination_exists"); await File.WriteAllTextAsync(destination, "image", ct); return new(destination, "image/png", "hash", 5); }
         public Task<IReadOnlyList<RenderedPage>> RenderAsync(OriginalDocument original, string outputDirectory, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<RenderedPage>>([new(original.Path, "image/png", "hash", 1)]);
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken ct)
-        { Inferences++; if (RateLimit) throw new PaperlessLlm.Runner.RunnerRateLimitException(); if (AuthFail) throw new PaperlessLlm.Auth.AuthException("secret", true); return Task.FromResult("{}"); }
+        { Inferences++; ImageCount = imageDataUrls.Count; if (RateLimit) throw new PaperlessLlm.Runner.RunnerRateLimitException(); if (AuthFail) throw new PaperlessLlm.Auth.AuthException("secret", true); return Task.FromResult(Output); }
         public Task<IntentContext> BuildAsync(PaperlessDocument source, PaperlessTaxonomy taxonomy, int pageCount, CancellationToken ct)
             => Task.FromResult(new IntentContext("instructions", "prompt", JsonDocument.Parse("{}").RootElement.Clone(), "v1"));
         public Task<SyncResult> ApplyAsync(string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
         {
-            Syncs++;
+            Syncs++; LastIntent = intent;
             if (CancelSync) { Cancellation!.Cancel(); ct.ThrowIfCancellationRequested(); }
             if (Invalid) throw new PaperlessLlm.Review.ProposalValidationException("invalid");
             if (Conflict) throw new SyncConflictException("secret");
