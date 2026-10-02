@@ -1,0 +1,6 @@
+{
+  "recordedStageAttempts": 2001,
+  "inputTokens": 38138478.0,
+  "outputTokens": 1596427.0,
+  "scope": "All retained stage provenance for controls, screening, expanded validation, repeats, holdout, and infrastructure reruns. Excludes planning and labeling agents. A lower bound because interrupted calls without saved provenance cannot be reconstructed."
+}

@@ -1,0 +1,15 @@
+{
+  "id": "r055",
+  "parent": "r025",
+  "hypothesis": "High-reasoning isolated transcription followed by image-grounded final assembly.",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "ocr-first",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r073",
+  "parent": "r013",
+  "hypothesis": "Resolve explicit tiny-edge blockers using supplied enlarged views.",
+  "promptFile": "../prompts/83e22b3bb564bf26.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

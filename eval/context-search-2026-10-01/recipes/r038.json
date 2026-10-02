@@ -1,0 +1,14 @@
+{
+  "id": "r038",
+  "parent": "baseline-preserve",
+  "hypothesis": "Broad probe: {\"pipeline\":\"refine\",\"imageMode\":\"full-and-regions\"}",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "refine",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full-and-regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r077",
+  "parent": "r071",
+  "hypothesis": "Correct semantic date/type drift without changing OCR strategy.",
+  "promptFile": "../prompts/499cd36fd8ca52a2.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

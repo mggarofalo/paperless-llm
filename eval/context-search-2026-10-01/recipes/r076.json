@@ -1,0 +1,14 @@
+{
+  "id": "r076",
+  "parent": "r006",
+  "hypothesis": "Check repeated text and crop assembly by physical instance rather than textual deduplication.",
+  "promptFile": "../prompts/cab5b5c7d02e3b8b.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

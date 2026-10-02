@@ -1,0 +1,16 @@
+{
+  "id": "r085",
+  "parent": "r043",
+  "hypothesis": "Use a source-grounded second pass to test completeness and abstention reasons; map to actual supported critique pipeline name.",
+  "promptFile": "../prompts/b5cabbcf2bcbd6df.txt",
+  "pipeline": "refine",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "draftContext": "latest",
+  "auxiliaryPromptFile": "../prompts/6fae16b9692eff8a.txt"
+}

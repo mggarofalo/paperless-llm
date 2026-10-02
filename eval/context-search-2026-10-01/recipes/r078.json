@@ -1,0 +1,14 @@
+{
+  "id": "r078",
+  "parent": "r006",
+  "hypothesis": "Keep source-identical OCR decisions stable while repairing wrong metadata.",
+  "promptFile": "../prompts/79fdfcbe787e2c2b.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

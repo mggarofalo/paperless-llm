@@ -1,0 +1,16 @@
+{
+  "id": "r090",
+  "parent": "r086",
+  "hypothesis": "Resolve visually audited marginal-code failures using deterministic narrow edge crops in both rotations, isolated structured page extraction, code assembly, and transcript-only metadata final stage with date-role checks.",
+  "promptFile": "../prompts/cebff675d76d0031.txt",
+  "pipeline": "pagewise-compose",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants-edge-views.json",
+  "includeFinalImages": false,
+  "auxiliaryContext": "images-only",
+  "auxiliaryPromptFile": "../prompts/712354155af9c701.txt"
+}

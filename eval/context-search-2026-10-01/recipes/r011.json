@@ -1,0 +1,14 @@
+{
+  "id": "r011",
+  "parent": "baseline-preserve",
+  "hypothesis": "Broad probe: {\"contextOrder\":\"evidence-first\",\"taxonomy\":\"shortlist\"}",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "shortlist",
+  "contextOrder": "evidence-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

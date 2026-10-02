@@ -1,0 +1,14 @@
+{
+  "id": "baseline-production",
+  "parent": null,
+  "hypothesis": "Deployed prompt control",
+  "promptFile": "../prompts/ee29dfa355d40745.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

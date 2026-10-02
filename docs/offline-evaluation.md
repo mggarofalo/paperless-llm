@@ -1,6 +1,71 @@
 # Offline intent evaluation
 
-`PaperlessLlm.Eval` exports prompt cases and scores externally generated intent JSON. It has no network, Paperless client, authentication, or model runner. It references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
+## Authenticated prompt experiments
+
+Run prompt recipes through the .NET `experiment` command. Every stage starts a
+fresh local Codex process in a temporary working directory with read-only
+sandboxing and user configuration ignored. Stage event streams, text, errors,
+and provenance are written to the chosen output directory. Treat that directory
+as sensitive because it can contain document-derived text. Expected answers and
+curator notes are never sent to Luna.
+
+```powershell
+dotnet run --project src/PaperlessLlm.Eval -- experiment `
+  --cases C:\private\eval\cases.jsonl --split train --recipe C:\private\eval\recipe.json `
+  --out C:\private\eval\runs\recipe-id --concurrency 6 --model gpt-6-luna
+dotnet run --project src/PaperlessLlm.Eval -- score `
+  C:\private\eval\cases.jsonl C:\private\eval\runs\recipe-id --split train `
+  --version recipe-id --out C:\private\eval\score.json --references C:\private\eval\references.json `
+  --regressions C:\private\eval\manual-regression-references.json
+```
+
+Recipes require `id` and `promptFile`. Optional fields are `parent`,
+`hypothesis`, `auxiliaryPromptFile`, `pipeline` (`single`, `ocr-first`,
+`pagewise`, `pagewise-compose`, `refine`, `ledger`, `dual`), `reasoning` (`low`, `medium`, `high`),
+`ocrContext` (`full`, `none`), `auxiliaryContext` (`full`, `images-only`),
+`draftContext` (`all`, `latest`), `taxonomy` (`full`, `shortlist`), `contextOrder`
+(`instructions-first`, `evidence-first`), `imageMode` (`full`, `regions`,
+`full-and-regions`, `high`), `imageVariants` (recipe-relative mapping file),
+and `includeFinalImages`.
+
+`experiment --split train|holdout` is required. The runner filters the case file
+to that split before any model call, so a train run cannot send holdout cases.
+Each `--out` directory must be new or empty; the runner refuses to reuse an
+existing run directory so stale candidate files cannot hide failed cases.
+
+The image mapping is keyed by case ID. Each case can contain `full`, `high`,
+`regions`, and `full-and-regions` arrays plus `pages` entries with a 1-based
+`page`, `full` image, optional `high` image, and `regions` array. Pagewise mode checks
+the page count and numbering before making a fresh transcription call for each
+page. `pagewise-compose` validates a separate `{page,text,complete,uncertainty}`
+record for each page in an isolated image-only call. Its final model stage handles
+metadata and is forced to keep OCR; the runner composes OCR from the validated
+page records only when every page is complete and uncertainty-free. Otherwise
+the candidate keeps OCR and records the page-level uncertainty. Shortlist mode
+uses deterministic lexical overlap and retains original
+taxonomy IDs. Per-page region mappings may contain any positive, consistent
+region count across pages; image order and anchors follow the mapping. `auxiliaryContext: images-only` withholds metadata, OCR, and
+taxonomy from OCR, ledger, and pagewise stages while retaining explicit image
+anchors. `draftContext: latest` includes only the latest synthesis from prior
+stages in the final call. Prior-stage drafts are labeled untrusted evidence.
+`--timeout` sets a per-stage limit in seconds (default 300, allowed
+10..1800). Failed cases remain missing from scorer-compatible `caseId.json`
+outputs and receive an `.error.txt` record. The scorer remains the authority on
+schema and production-validator behavior.
+Pressing Ctrl+C during `experiment` cancels active calls, stops their process
+trees, saves bounded stage logs and provenance, and exits with status 130.
+When `--references` is supplied to `score`, an additional `.regions.json` file
+reports partial OCR-region, signed-amount, identifier, and anchor metrics against
+the private reference map without changing the existing report schema.
+When `--regressions` is supplied, `.regressions.json` runs the post-audit partial
+reference gate on the selected split. It checks validated OCR `set` output on each
+reference page, counts repeated checks independently, and reports zero-based
+`missingCheckIndices` without copying private check text or notes. OCR `keep` is
+reported as a safe abstention; malformed or production-validator-rejected output
+is reported separately as invalid. This gate measures only its reviewed partial
+checks and does not certify complete transcription.
+
+The export and score commands in `PaperlessLlm.Eval` remain offline: they do not use a Paperless client or authentication. The experiment command separately invokes the authenticated local Codex CLI as described above. The harness references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
 
 Keep the real case file, page images, task exports, model outputs, and reports in a private directory outside this repository. Do not commit them. `notes` and all `expected` labels are grader-only: export includes only the production prompt, schema, input payload, case ID, split, and page image paths. Page image paths are references and are not opened or copied by the harness.
 
@@ -54,3 +119,5 @@ Use a separately authenticated inference runner to submit each exported `system_
 Fact matching is a lightweight substring check. It does not establish full transcription, character/word error rate, correct table alignment, amount signs, or the absence of unlisted hallucinations. A short number may match inside another number; punctuation and formatting can also produce false negatives. Use scan comparison and stronger reviewed references for acceptance. Cases marked `mustReplace` must be curated against the actual legibility and scope of the OCR policy; an appropriate abstention can still leave a useful repair unfinished.
 
 The [first tuning report](evaluations/2026-10-01-pilot.md) records a 16/4 real-document pilot and its limitations. Its [selected experimental prompt](../eval/prompts/preserve-context-v1.txt) is available for further offline evaluation. It is **not** the worker's default prompt and has not passed production OCR acceptance.
+
+The [100-configuration context search](evaluations/2026-10-01-context-search.md) compares prompting, image views and multi-stage transcription. Its [recipe bundle](../eval/context-search-2026-10-01/README.md) contains reproducible configurations and aggregate results; it does not change production defaults.

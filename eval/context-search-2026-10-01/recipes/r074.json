@@ -1,0 +1,14 @@
+{
+  "id": "r074",
+  "parent": "r006",
+  "hypothesis": "Recover omitted machine-readable text without converting delimiters to digits.",
+  "promptFile": "../prompts/33f21896649825cb.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

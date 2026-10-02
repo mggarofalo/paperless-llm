@@ -1,0 +1,14 @@
+{
+  "id": "r045",
+  "parent": "r013",
+  "hypothesis": "Use high reasoning with explicit row and peripheral-region inventory.",
+  "promptFile": "../prompts/a68f302c19ea9698.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

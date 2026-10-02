@@ -1,0 +1,15 @@
+{
+  "id": "r066",
+  "parent": "r071",
+  "hypothesis": "Distribute successful full-transcription effort policy over isolated pages.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "pagewise",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "r081",
+  "parent": "r043",
+  "hypothesis": "Separate lengthy transcription work from final metadata assembly and schema emission.",
+  "promptFile": "../prompts/b1f8fe4ac3f04543.txt",
+  "pipeline": "ocr-first",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only",
+  "auxiliaryPromptFile": "../prompts/76effb4aba661343.txt"
+}

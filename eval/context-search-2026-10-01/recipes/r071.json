@@ -1,0 +1,14 @@
+{
+  "id": "r071",
+  "parent": "r013",
+  "hypothesis": "Reduce effort-based abstention while keeping character-level uncertainty honest.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

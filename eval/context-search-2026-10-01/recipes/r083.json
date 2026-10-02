@@ -1,0 +1,15 @@
+{
+  "id": "r083",
+  "parent": "r043",
+  "hypothesis": "Move long-document OCR completeness decisions to independent page scope, if pagewise runner is available.",
+  "promptFile": "../prompts/54bd56b99b081a9c.txt",
+  "pipeline": "pagewise",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryPromptFile": "../prompts/2dd0a668f4872d7a.txt"
+}

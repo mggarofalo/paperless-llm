@@ -1,0 +1,14 @@
+{
+  "id": "r048",
+  "parent": "r006",
+  "hypothesis": "Keep metadata correction active while localizing genuine unreadability.",
+  "promptFile": "../prompts/8703aba005045074.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

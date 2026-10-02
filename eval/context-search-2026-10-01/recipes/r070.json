@@ -1,0 +1,14 @@
+{
+  "id": "r070",
+  "parent": "r071",
+  "hypothesis": "Reduce irrelevant textual context under the successful effort policy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "shortlist",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

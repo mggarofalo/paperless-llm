@@ -8,6 +8,14 @@ internal static class EvalCli
 {
     public static async Task<int> RunAsync(string[] args)
     {
+        using var cancellation = new CancellationTokenSource();
+        ConsoleCancelEventHandler? cancelHandler = null;
+        var isExperiment = args.Length > 0 && args[0] == "experiment";
+        if (isExperiment)
+        {
+            cancelHandler = (_, e) => { e.Cancel = true; cancellation.Cancel(); };
+            Console.CancelKeyPress += cancelHandler;
+        }
         try
         {
             if (args.Length == 0 || args[0] is "help" or "--help" or "-h") { Usage(); return args.Length == 0 ? 2 : 0; }
@@ -17,15 +25,38 @@ internal static class EvalCli
                 case "export": await ExportAsync(options); break;
                 case "score": await ScoreAsync(options); break;
                 case "compare": await CompareAsync(options); break;
+                case "experiment": await ExperimentAsync(options, cancellation.Token); break;
                 default: throw new ArgumentException($"Unknown command '{args[0]}'.");
             }
             return 0;
+        }
+        catch (OperationCanceledException) when (isExperiment && cancellation.IsCancellationRequested)
+        {
+            Console.Error.WriteLine("Experiment cancelled. Active Codex process trees were stopped and partial stage artifacts were saved.");
+            return 130;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidDataException or IOException or JsonException)
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
         }
+        finally
+        {
+            if (cancelHandler is not null) Console.CancelKeyPress -= cancelHandler;
+        }
+    }
+
+    private static async Task ExperimentAsync(Dictionary<string, string> o, CancellationToken cancellationToken)
+    {
+        var cases = Argument(o, "cases", 0);
+        var recipe = Required(o, "recipe");
+        var output = Required(o, "out");
+        var split = Required(o, "split");
+        var concurrency = int.TryParse(o.GetValueOrDefault("concurrency", "1"), out var parsed) ? parsed : 0;
+        var timeout = int.TryParse(o.GetValueOrDefault("timeout", "300"), out var parsedTimeout) ? parsedTimeout : 0;
+        await ExperimentRunner.RunAsync(new ExperimentOptions(cases, recipe, output, concurrency,
+            o.GetValueOrDefault("model", "gpt-6-luna"), timeout, split), cancellationToken);
+        Console.WriteLine($"Experiment outputs and provenance written to {Path.GetFullPath(output)}");
     }
 
     private static async Task ExportAsync(Dictionary<string, string> o)
@@ -70,6 +101,24 @@ internal static class EvalCli
         var target = Path.GetFullPath(Required(o, "out"));
         Directory.CreateDirectory(Path.GetDirectoryName(target)!);
         await File.WriteAllTextAsync(target, JsonSerializer.Serialize(report, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+        if (o.TryGetValue("references", out var referencesPath))
+        {
+            var references = EvalJson.Read<Dictionary<string, RichReference>>(await File.ReadAllTextAsync(referencesPath));
+            var richRows = cases.Where(c => c.Split == split && references.ContainsKey(c.CaseId))
+                .Select(c => RegionScorer.Score(c, outputs.GetValueOrDefault(c.CaseId), references[c.CaseId])).ToArray();
+            var regionsPath = Path.Combine(Path.GetDirectoryName(target)!, Path.GetFileNameWithoutExtension(target) + ".regions.json");
+            await File.WriteAllTextAsync(regionsPath, JsonSerializer.Serialize(richRows, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+            Console.WriteLine($"Region and signed-amount report: {regionsPath}");
+        }
+        if (o.TryGetValue("regressions", out var regressionsPath))
+        {
+            var regressions = EvalJson.Read<Dictionary<string, ManualRegressionReference>>(await File.ReadAllTextAsync(regressionsPath));
+            var validIds = report.Cases.Where(c => c.Valid).Select(c => c.CaseId).ToHashSet(StringComparer.Ordinal);
+            var regressionReport = ManualRegressionScorer.Score(split, cases, outputs, validIds, regressions);
+            var regressionPath = Path.Combine(Path.GetDirectoryName(target)!, Path.GetFileNameWithoutExtension(target) + ".regressions.json");
+            await File.WriteAllTextAsync(regressionPath, JsonSerializer.Serialize(regressionReport, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }));
+            Console.WriteLine($"Manual regression report: {regressionPath}");
+        }
         Console.WriteLine($"{report.Version} ({report.Split}): {report.TotalCases} cases, {report.MissingOutputs} missing, {report.SchemaFailures} schema failures, {report.ValidatorFailures} validator failures, {report.CriticalFailures} critical failures. Report: {target}");
     }
 
@@ -234,7 +283,8 @@ internal static class EvalCli
     private static void Usage() => Console.WriteLine("""
         Offline intent evaluation (no network or Paperless access)
           export CASES.jsonl DIR --split train|holdout [--instructions-file FILE]
-          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME]
+          score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE] [--regressions FILE]
           compare --baseline report.json --candidate report.json --out comparison.json
+          experiment --cases CASES.jsonl --split train|holdout --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
         """);
 }

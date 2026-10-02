@@ -1,0 +1,14 @@
+{
+  "id": "r099",
+  "parent": "r061",
+  "hypothesis": "Trade reasoning effort for enlarged visual regions under the selected policy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r092",
+  "parent": "r061",
+  "hypothesis": "Test minimum reasoning effort under the leading policy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "low",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

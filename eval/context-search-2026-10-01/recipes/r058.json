@@ -1,0 +1,15 @@
+{
+  "id": "r058",
+  "parent": "r036",
+  "hypothesis": "High-reasoning critique with compressed final draft context.",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "refine",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "draftContext": "latest"
+}

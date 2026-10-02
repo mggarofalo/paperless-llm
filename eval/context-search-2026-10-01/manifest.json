@@ -1,0 +1,1002 @@
+[
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r001",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r001.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"imageMode\":\"high\"}",
+    "pipeline": "single",
+    "imageMode": "high",
+    "id": "r002",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r002.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"imageMode\":\"regions\"}",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r003",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r003.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"imageMode\":\"full-and-regions\"}",
+    "pipeline": "single",
+    "imageMode": "full-and-regions",
+    "id": "r004",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r004.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"imageMode\":\"high\"}",
+    "pipeline": "single",
+    "imageMode": "high",
+    "id": "r005",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r005.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"imageMode\":\"regions\"}",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r006",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r006.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"imageMode\":\"full-and-regions\"}",
+    "pipeline": "single",
+    "imageMode": "full-and-regions",
+    "id": "r007",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r007.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"contextOrder\":\"evidence-first\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r008",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r008.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"taxonomy\":\"shortlist\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r009",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r009.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"taxonomy\":\"shortlist\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r010",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r010.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"contextOrder\":\"evidence-first\",\"taxonomy\":\"shortlist\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r011",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r011.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"reasoning\":\"low\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r012",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r012.json",
+    "reasoning": "low"
+  },
+  {
+    "hypothesis": "Broad probe: {\"reasoning\":\"high\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r013",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r013.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"ocrfirst.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r014",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r014.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"noanchor.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r015",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r015.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"tables.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r016",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r016.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"coverage.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r017",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r017.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"numbers.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r018",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r018.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"evidence.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r019",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r019.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"examples.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r020",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r020.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"noexamples.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r021",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r021.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"concise.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r022",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r022.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"bottomup.txt\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r023",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r023.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"promptFile\":\"tables.txt\",\"ocrContext\":\"none\"}",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r024",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r024.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"ocr-first\"}",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r025",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r025.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"ocr-first\",\"ocrContext\":\"none\"}",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r026",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r026.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"includeFinalImages\":false,\"ocrContext\":\"none\",\"pipeline\":\"ocr-first\"}",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r027",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r027.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"pipeline\":\"ocr-first\",\"imageMode\":\"high\"}",
+    "pipeline": "ocr-first",
+    "imageMode": "high",
+    "id": "r028",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r028.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"pipeline\":\"ocr-first\",\"imageMode\":\"full-and-regions\"}",
+    "pipeline": "ocr-first",
+    "imageMode": "full-and-regions",
+    "id": "r029",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r029.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"pagewise\",\"ocrContext\":\"none\"}",
+    "pipeline": "pagewise",
+    "imageMode": "full",
+    "id": "r030",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r030.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"pipeline\":\"pagewise\",\"imageMode\":\"high\"}",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r031",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r031.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"pipeline\":\"pagewise\",\"imageMode\":\"regions\"}",
+    "pipeline": "pagewise",
+    "imageMode": "regions",
+    "id": "r032",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r032.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"ocrContext\":\"none\",\"pipeline\":\"pagewise\",\"imageMode\":\"full-and-regions\"}",
+    "pipeline": "pagewise",
+    "imageMode": "full-and-regions",
+    "id": "r033",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r033.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"ledger\"}",
+    "pipeline": "ledger",
+    "imageMode": "full",
+    "id": "r034",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r034.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"ledger\",\"ocrContext\":\"none\"}",
+    "pipeline": "ledger",
+    "imageMode": "full",
+    "id": "r035",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r035.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"refine\"}",
+    "pipeline": "refine",
+    "imageMode": "full",
+    "id": "r036",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r036.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"refine\",\"ocrContext\":\"none\"}",
+    "pipeline": "refine",
+    "imageMode": "full",
+    "id": "r037",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r037.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"refine\",\"imageMode\":\"full-and-regions\"}",
+    "pipeline": "refine",
+    "imageMode": "full-and-regions",
+    "id": "r038",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r038.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"dual\"}",
+    "pipeline": "dual",
+    "imageMode": "full",
+    "id": "r039",
+    "ocrContext": "full",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r039.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Broad probe: {\"pipeline\":\"dual\",\"ocrContext\":\"none\"}",
+    "pipeline": "dual",
+    "imageMode": "full",
+    "id": "r040",
+    "ocrContext": "none",
+    "parent": "baseline-preserve",
+    "recipe": "recipes/r040.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Combine high reasoning with independent visual reading.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r041",
+    "ocrContext": "none",
+    "parent": "r013",
+    "recipe": "recipes/r041.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine high reasoning with higher resolution.",
+    "pipeline": "single",
+    "imageMode": "high",
+    "id": "r042",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r042.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine enlarged regions and no old OCR with high reasoning.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r043",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r043.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine high resolution and no old OCR with high reasoning.",
+    "pipeline": "single",
+    "imageMode": "high",
+    "id": "r044",
+    "ocrContext": "none",
+    "parent": "r005",
+    "recipe": "recipes/r044.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Use high reasoning with explicit row and peripheral-region inventory.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r045",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r045.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Repair region-mode omissions with digit and coverage audit.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r046",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r046.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Combine tables, no old OCR, coverage inventory and high reasoning.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r047",
+    "ocrContext": "none",
+    "parent": "r024",
+    "recipe": "recipes/r047.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Keep metadata correction active while localizing genuine unreadability.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r048",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r048.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Reduce taxonomy context while retaining high reasoning.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r049",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r049.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Test evidence-first ordering with high reasoning and independent OCR.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r050",
+    "ocrContext": "none",
+    "parent": "r013",
+    "recipe": "recipes/r050.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Promote the strongest completed pagewise broad probe to high reasoning.",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r051",
+    "ocrContext": "none",
+    "parent": "r031",
+    "recipe": "recipes/r051.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Isolate per-page transcription from current metadata and taxonomy.",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r052",
+    "ocrContext": "none",
+    "parent": "r031",
+    "recipe": "recipes/r052.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Combine page isolation with high reasoning.",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r053",
+    "ocrContext": "none",
+    "parent": "r031",
+    "recipe": "recipes/r053.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Remove metadata and OCR anchoring from the successful first transcription stage.",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r054",
+    "ocrContext": "full",
+    "parent": "r025",
+    "recipe": "recipes/r054.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "High-reasoning isolated transcription followed by image-grounded final assembly.",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r055",
+    "ocrContext": "full",
+    "parent": "r025",
+    "recipe": "recipes/r055.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Add an isolated OCR stage to the leading independent high-reasoning single pass.",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r056",
+    "ocrContext": "none",
+    "parent": "r041",
+    "recipe": "recipes/r056.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Test transcript-only final assembly after isolated page transcription.",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r057",
+    "ocrContext": "none",
+    "parent": "r031",
+    "recipe": "recipes/r057.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "High-reasoning critique with compressed final draft context.",
+    "pipeline": "refine",
+    "imageMode": "full",
+    "id": "r058",
+    "ocrContext": "full",
+    "parent": "r036",
+    "recipe": "recipes/r058.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Give successful pagewise pipeline explicit table and peripheral coverage duties.",
+    "pipeline": "pagewise",
+    "imageMode": "high",
+    "id": "r059",
+    "ocrContext": "none",
+    "parent": "r031",
+    "recipe": "recipes/r059.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Independent high-reasoning drafts with compact adjudication context.",
+    "pipeline": "dual",
+    "imageMode": "full",
+    "id": "r060",
+    "ocrContext": "none",
+    "parent": "r041",
+    "recipe": "recipes/r060.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine successful effort/abstention mutation with independent visual reading.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r061",
+    "ocrContext": "none",
+    "parent": "r071",
+    "recipe": "recipes/r061.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Resolve named unreadable spans at higher resolution under successful effort policy.",
+    "pipeline": "single",
+    "imageMode": "high",
+    "id": "r062",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r062.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Enlarge local evidence under successful effort/abstention policy.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r063",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r063.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Give both layout and local evidence to the successful effort mutation.",
+    "pipeline": "single",
+    "imageMode": "full-and-regions",
+    "id": "r064",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r064.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine successful effort instructions with isolated draft transcription.",
+    "pipeline": "ocr-first",
+    "imageMode": "full",
+    "id": "r065",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r065.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Distribute successful full-transcription effort policy over isolated pages.",
+    "pipeline": "pagewise",
+    "imageMode": "full",
+    "id": "r066",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r066.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Test whether source critique improves the high-scoring effort mutation.",
+    "pipeline": "refine",
+    "imageMode": "full",
+    "id": "r067",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r067.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Test source-only evidence ledger before final high-reasoning transcription.",
+    "pipeline": "ledger",
+    "imageMode": "full",
+    "id": "r068",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r068.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine three successful routes: effort, independent OCR, enlarged regions.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r069",
+    "ocrContext": "none",
+    "parent": "r071",
+    "recipe": "recipes/r069.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Reduce irrelevant textual context under the successful effort policy.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r070",
+    "ocrContext": "none",
+    "parent": "r071",
+    "recipe": "recipes/r070.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Reduce effort-based abstention while keeping character-level uncertainty honest.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r071",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r071.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Prevent missing-old-OCR context from suppressing full transcription.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r072",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r072.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Resolve explicit tiny-edge blockers using supplied enlarged views.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r073",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r073.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Recover omitted machine-readable text without converting delimiters to digits.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r074",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r074.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Retain successful high-reasoning identifiers and audit other missed blocks.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r075",
+    "ocrContext": "full",
+    "parent": "r013",
+    "recipe": "recipes/r075.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Check repeated text and crop assembly by physical instance rather than textual deduplication.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r076",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r076.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Correct semantic date/type drift without changing OCR strategy.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r077",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r077.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Keep source-identical OCR decisions stable while repairing wrong metadata.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r078",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r078.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Preserve numeric signs and table coverage while detecting omitted totals/footer blocks.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r079",
+    "ocrContext": "full",
+    "parent": "r071",
+    "recipe": "recipes/r079.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Preserve specific curated types while retaining metadata correction strength.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r080",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r080.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Separate lengthy transcription work from final metadata assembly and schema emission.",
+    "pipeline": "ocr-first",
+    "imageMode": "regions",
+    "id": "r081",
+    "ocrContext": "none",
+    "parent": "r043",
+    "recipe": "recipes/r081.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Supply isolated OCR attention and prevent identifier corruption during final assembly.",
+    "pipeline": "ocr-first",
+    "imageMode": "regions",
+    "id": "r082",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r082.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Move long-document OCR completeness decisions to independent page scope, if pagewise runner is available.",
+    "pipeline": "pagewise",
+    "imageMode": "regions",
+    "id": "r083",
+    "ocrContext": "none",
+    "parent": "r043",
+    "recipe": "recipes/r083.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Combine crop-supported page OCR with deterministic page-order assembly, if supported.",
+    "pipeline": "pagewise",
+    "imageMode": "regions",
+    "id": "r084",
+    "ocrContext": "none",
+    "parent": "r006",
+    "recipe": "recipes/r084.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Use a source-grounded second pass to test completeness and abstention reasons; map to actual supported critique pipeline name.",
+    "pipeline": "refine",
+    "imageMode": "regions",
+    "id": "r085",
+    "ocrContext": "none",
+    "parent": "r043",
+    "recipe": "recipes/r085.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort.",
+    "pipeline": "pagewise-compose",
+    "imageMode": "full",
+    "id": "r086",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r086.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort. Final metadata prompt adds date-role and type-specificity checks after r086 chose a component effective date.",
+    "pipeline": "pagewise-compose",
+    "imageMode": "high",
+    "id": "r087",
+    "ocrContext": "none",
+    "parent": "r086",
+    "recipe": "recipes/r087.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort.",
+    "pipeline": "pagewise-compose",
+    "imageMode": "regions",
+    "id": "r088",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r088.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort. Final metadata prompt adds date-role and type-specificity checks after r086 chose a component effective date.",
+    "pipeline": "pagewise-compose",
+    "imageMode": "regions",
+    "id": "r089",
+    "ocrContext": "none",
+    "parent": "r086",
+    "recipe": "recipes/r089.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Resolve visually audited marginal-code failures using deterministic narrow edge crops in both rotations, isolated structured page extraction, code assembly, and transcript-only metadata final stage with date-role checks.",
+    "pipeline": "pagewise-compose",
+    "imageMode": "regions",
+    "id": "r090",
+    "ocrContext": "none",
+    "parent": "r086",
+    "recipe": "recipes/r090.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Ablate reasoning effort from the leading independent transcription strategy.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r091",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r091.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Test minimum reasoning effort under the leading policy.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r092",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r092.json",
+    "reasoning": "low"
+  },
+  {
+    "hypothesis": "Remove synthetic examples while retaining successful effort and abstention modules.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r093",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r093.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Compress core instructions while retaining strict policy and successful modules.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r094",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r094.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Remove effort obligation, retaining only concrete abstention diagnosis.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r095",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r095.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Remove precise abstention module, retaining only transcription effort obligation.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r096",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r096.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Move instructions after evidence to test order sensitivity of the selected policy.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r097",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r097.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Add layout plus local image views to the selected independent transcription policy.",
+    "pipeline": "single",
+    "imageMode": "full-and-regions",
+    "id": "r098",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r098.json",
+    "reasoning": "high"
+  },
+  {
+    "hypothesis": "Trade reasoning effort for enlarged visual regions under the selected policy.",
+    "pipeline": "single",
+    "imageMode": "regions",
+    "id": "r099",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r099.json",
+    "reasoning": "medium"
+  },
+  {
+    "hypothesis": "Compact taxonomy and move policy last to reduce irrelevant preceding context.",
+    "pipeline": "single",
+    "imageMode": "full",
+    "id": "r100",
+    "ocrContext": "none",
+    "parent": "r061",
+    "recipe": "recipes/r100.json",
+    "reasoning": "high"
+  }
+]
