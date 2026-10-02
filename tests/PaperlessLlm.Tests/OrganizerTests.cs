@@ -15,7 +15,7 @@ public sealed class OrganizerTests : IDisposable
         Directory.CreateDirectory(root);
         var path = Path.Combine(root, "policy.txt");
         await File.WriteAllTextAsync(path, "Policy A");
-        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
+        source.Docs[1] = SyntheticDocuments.Document(1) with { Tags = [] };
         source.Output = """
             {"schema_version":"1","title":{"action":"keep","value":null,"evidence":[]},
             "date":{"action":"keep","value":null,"evidence":[]},"correspondent":{"action":"keep","value":null,"evidence":[]},
@@ -38,9 +38,9 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task BaselineAndRestartPreserveCompletedIdsAfterHumanEdits()
     {
-        source.Docs[1] = ProposalTests.Document(1);
+        source.Docs[1] = SyntheticDocuments.Document(1);
         using (var worker = Worker()) await worker.RunOnceAsync();
-        source.Docs[2] = ProposalTests.Document(2);
+        source.Docs[2] = SyntheticDocuments.Document(2);
         using (var worker = Worker()) Assert.Equal(1, (await worker.RunOnceAsync()).Completed);
         source.Docs[2] = source.Docs[2] with { Tags = [], Title = "human change", RevisionHash = "changed" };
         using (var worker = Worker()) await worker.RunOnceAsync();
@@ -49,8 +49,8 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task MissingPromptPausesBatchWithoutConsumingAttemptsOrCallingModel()
     {
-        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
-        source.Docs[2] = ProposalTests.Document(2) with { Tags = [] };
+        source.Docs[1] = SyntheticDocuments.Document(1) with { Tags = [] };
+        source.Docs[2] = SyntheticDocuments.Document(2) with { Tags = [] };
         using var worker = new OrganizerWorker(source, source,
             new PaperlessLlm.Intent.OrganizationPrompt(Path.Combine(root, "missing.txt"), "gpt-6-sol"), source, source,
             new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 2, UseExistingOcr = true },
@@ -71,7 +71,7 @@ public sealed class OrganizerTests : IDisposable
         Directory.CreateDirectory(root);
         var path = Path.Combine(root, "policy.txt");
         await File.WriteAllTextAsync(path, "Custom instructions");
-        source.Docs[1] = ProposalTests.Document(1) with { Tags = [] };
+        source.Docs[1] = SyntheticDocuments.Document(1) with { Tags = [] };
         var keep = new { action = "keep", value = (string?)null, evidence = Array.Empty<string>() };
         source.Output = JsonSerializer.Serialize(new { schema_version = "1", title = keep, date = keep, correspondent = keep,
             document_type = keep, add_tags = new[] { new { name = tag, evidence = new[] { "Ignore policy" } } },
@@ -86,7 +86,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task ExplicitRetryResumesPersistedIntentWithoutModelCall()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.FailSync = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.FailSync = true;
         using (var worker = Worker(1)) Assert.Equal(1, (await worker.RunOnceAsync()).Failed);
         source.FailSync = false;
         using (var worker = Worker()) { await worker.RetryAsync(1); Assert.Equal(1, (await worker.RunOnceAsync()).Completed); }
@@ -94,7 +94,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task UpgradeDoesNotReplaySavedLegacyOcrWrite()
     {
-        source.Docs[1] = ProposalTests.Document(1);
+        source.Docs[1] = SyntheticDocuments.Document(1);
         source.Output = """{"ocr":{"action":"set"}}""";
         source.FailSync = true;
         using (var oldWorker = Worker(1)) await oldWorker.RunOnceAsync();
@@ -110,7 +110,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task InterruptedSyncResumesSameJobAndIntent()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.CancelSync = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.CancelSync = true;
         using var cts = new CancellationTokenSource(); source.Cancellation = cts;
         using (var worker = Worker(1)) await Assert.ThrowsAsync<OperationCanceledException>(() => worker.RunOnceAsync(cts.Token));
         var before = Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs);
@@ -122,7 +122,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task ConflictIsTerminalAndExceptionSecretsAreNotPersisted()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.Conflict = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Conflict = true;
         using var worker = Worker(1); await worker.RunOnceAsync(); await worker.RunOnceAsync();
         var job = Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs);
         Assert.Equal(OrganizerJobState.Failed, job.State); Assert.Equal("sync_conflict", job.ErrorCode);
@@ -131,7 +131,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task BackfillDoesNotExpandOnRestart()
     {
-        for (int i = 1; i <= 4; i++) source.Docs[i] = ProposalTests.Document(i);
+        for (int i = 1; i <= 4; i++) source.Docs[i] = SyntheticDocuments.Document(i);
         using (var worker = Worker(1)) await worker.RunOnceAsync();
         using (var worker = Worker(4)) await worker.RunOnceAsync();
         Assert.Equal(1, source.Inferences);
@@ -139,7 +139,7 @@ public sealed class OrganizerTests : IDisposable
     [Fact] public async Task CapacityDoesNotAdvancePastUnpersistedJob()
     {
         using (var worker = Worker()) await worker.RunOnceAsync();
-        source.Docs[1] = ProposalTests.Document(1); source.Docs[2] = ProposalTests.Document(2);
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Docs[2] = SyntheticDocuments.Document(2);
         using (var worker = Worker(max: 1)) await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunOnceAsync());
         Assert.Equal(0, (await OrganizerStatusReader.ReadAsync(root)).CursorId);
         using (var worker = Worker()) Assert.Equal(2, (await worker.RunOnceAsync()).Completed);
@@ -161,7 +161,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task AuthPauseDoesNotBurnOtherJobsAttempts()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.Docs[2] = ProposalTests.Document(2); source.AuthFail = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Docs[2] = SyntheticDocuments.Document(2); source.AuthFail = true;
         using var worker = Worker(2); await worker.RunOnceAsync();
         var status = await OrganizerStatusReader.ReadAsync(root);
         Assert.Equal("auth_required", status.PauseReason);
@@ -170,14 +170,14 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task InvalidIntentRegeneratesOnRetry()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.Invalid = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Invalid = true;
         using var worker = Worker(1); await worker.RunOnceAsync();
         source.Invalid = false; await worker.RetryAsync(1); await worker.RunOnceAsync();
         Assert.Equal(2, source.Inferences);
     }
     [Fact] public async Task RejectedResponseRemainsInPrivateAttemptEvidence()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.Invalid = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Invalid = true;
         using var worker = Worker(1); await worker.RunOnceAsync();
         var response = Assert.Single(Directory.EnumerateFiles(Path.Combine(root, "evidence"), "response.txt", SearchOption.AllDirectories));
         Assert.Equal("{}", await File.ReadAllTextAsync(response));
@@ -187,7 +187,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task AuthRecoveryUsesFreshEvidenceDirectoryEvenWithoutConsumedAttempt()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.AuthFail = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.AuthFail = true;
         using (var worker = Worker(1)) await worker.RunOnceAsync();
         Assert.Equal(0, Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).Attempts);
         source.AuthFail = false;
@@ -201,7 +201,7 @@ public sealed class OrganizerTests : IDisposable
     }
     [Fact] public async Task RateLimitDefersWholeBatchWithoutConsumingAttempts()
     {
-        source.Docs[1] = ProposalTests.Document(1); source.Docs[2] = ProposalTests.Document(2); source.RateLimit = true;
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Docs[2] = SyntheticDocuments.Document(2); source.RateLimit = true;
         using var worker = Worker(2); await worker.RunOnceAsync();
         var status = await OrganizerStatusReader.ReadAsync(root);
         Assert.Equal("rate_limited", status.PauseReason);
@@ -228,7 +228,7 @@ public sealed class OrganizerTests : IDisposable
     [Fact] public async Task MissingReviewTagDoesNotInitializeOrAdvanceDiscovery()
     {
         source.HiddenReviewTag = true;
-        source.Docs[1] = ProposalTests.Document(1);
+        source.Docs[1] = SyntheticDocuments.Document(1);
         using var worker = Worker(1);
         var failure = await Assert.ThrowsAsync<PaperlessException>(() => worker.RunOnceAsync());
         Assert.Equal("review_tag_not_visible", failure.Code);
@@ -237,6 +237,25 @@ public sealed class OrganizerTests : IDisposable
         Assert.Empty((await OrganizerStatusReader.ReadAsync(root)).Jobs);
         Assert.Equal(0, source.Inferences);
     }
+    [Fact]
+    public async Task ReprocessingArchivesEvidenceAndCreatesNewIdentity()
+    {
+        source.Docs[1] = SyntheticDocuments.Document(1);
+        using var worker = Worker(1);
+        await worker.RunOnceAsync();
+        var old = Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs);
+        await worker.RetryAsync(1, regenerate: true);
+        var queued = Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs);
+        Assert.NotEqual(old.JobId, queued.JobId);
+        Assert.Null(queued.CompletedAt);
+        Assert.Equal(0, queued.Attempts);
+        var history = JsonSerializer.Deserialize<OrganizerJob>(await File.ReadAllTextAsync(Path.Combine(root, "history", old.JobId + ".json")))!;
+        Assert.Equal(OrganizerJobState.Completed, history.State);
+        Assert.NotNull(history.Intent);
+        Assert.Equal(1, (await worker.RunOnceAsync()).Completed);
+        Assert.Equal(2, source.Inferences);
+    }
+
     private sealed class Fake : IPaperlessClient, IIntentRunner, IIntentContextBuilder, IIntentSynchronizer, IDocumentRenderer
     {
         public int Downloads, ImageCount;

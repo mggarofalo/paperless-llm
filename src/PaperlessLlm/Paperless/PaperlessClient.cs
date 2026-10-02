@@ -15,15 +15,107 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
 
     public PaperlessClient(PaperlessOptions options, HttpMessageHandler? handler = null)
     {
-        if (!options.BaseUrl.IsAbsoluteUri || options.BaseUrl.Scheme is not ("http" or "https") ||
-            options.BaseUrl.UserInfo.Length != 0 || options.BaseUrl.Query.Length != 0 || options.BaseUrl.Fragment.Length != 0)
-            throw new ArgumentException("Paperless URL must be an HTTP(S) instance URL without credentials, query, or fragment.");
-        if (options.RequestTimeout <= TimeSpan.Zero || options.RequestTimeout > TimeSpan.FromMinutes(10) ||
-            options.PageSize is < 1 or > 100 || options.MaxPages is < 1 or > 100 || options.MaxOriginalBytes <= 0 || options.MaxJsonBytes <= 0)
-            throw new ArgumentException("Invalid Paperless request limits.");
+        ValidateOptions(options);
         this.options = options;
         api = new Uri(options.BaseUrl.AbsoluteUri.TrimEnd('/') + "/api/");
         http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
+    }
+
+    internal static void ValidateOptions(PaperlessOptions options)
+    {
+        if (!options.BaseUrl.IsAbsoluteUri || options.BaseUrl.Scheme is not ("http" or "https") ||
+            options.BaseUrl.UserInfo.Length != 0 || options.BaseUrl.Query.Length != 0 || options.BaseUrl.Fragment.Length != 0)
+            throw new ArgumentException("Paperless URL must be an HTTP(S) instance URL without credentials, query, or fragment.");
+        ValidateLimits(options);
+    }
+    private static void ValidateLimits(PaperlessOptions options)
+    {
+        if (options.RequestTimeout <= TimeSpan.Zero || options.RequestTimeout > TimeSpan.FromMinutes(10) ||
+            options.PageSize is < 1 or > 100 || options.MaxPages is < 1 or > 100 || options.MaxOriginalBytes <= 0 || options.MaxJsonBytes <= 0)
+            throw new ArgumentException("Invalid Paperless request limits.");
+    }
+
+    private bool IsProxyUpgrade(Uri uri) => api.Scheme == "https" && api.IsDefaultPort && uri.Scheme == "http" && uri.IsDefaultPort;
+
+    private void ValidatePageOrigin(Uri uri, string resource)
+    {
+        // A reverse proxy can advertise HTTP links for an HTTPS API. Upgrade only
+        // the same host's default-port link; credentials always use configured API.
+        var proxyUpgrade = IsProxyUpgrade(uri);
+        if ((uri.Scheme != api.Scheme && !proxyUpgrade) || !string.Equals(uri.Host, api.Host, StringComparison.OrdinalIgnoreCase) ||
+            (uri.Port != api.Port && !proxyUpgrade) || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
+            uri.AbsolutePath != new Uri(api, resource + "/").AbsolutePath)
+            throw new PaperlessException("Paperless pagination left the configured API origin or resource.");
+    }
+
+    private static (JsonElement Rows, int Count, JsonElement Next) ReadPage(JsonElement root, int size)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("results", out var rows) || rows.ValueKind != JsonValueKind.Array)
+            throw new PaperlessException("Paperless returned an invalid result page.");
+        var count = ReadCount(root);
+        if (!root.TryGetProperty("next", out var next) || rows.GetArrayLength() > size)
+            throw new PaperlessException("Paperless returned an invalid result page.");
+        return (rows, count, next);
+    }
+    private static int ReadCount(JsonElement root)
+    {
+        if (!root.TryGetProperty("count", out var count) || count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var value) || value < 0)
+            throw new PaperlessException("Paperless returned an invalid result page.");
+        return value;
+    }
+
+    private static bool Misordered(string resource, int? previous, int id, bool descending) =>
+        resource == "documents" && previous is not null && (descending ? id >= previous : id <= previous);
+
+    private async Task<(JsonElement[] Rows, int Count, bool More)> ReadCursorPageAsync(int page, int? tag,
+        Dictionary<int, (JsonElement[] Rows, int Count, bool More)> cache, CancellationToken ct)
+    {
+        if (cache.TryGetValue(page, out var cached)) return cached;
+        if (cache.Count >= options.MaxPages) throw new PaperlessException("Paperless exceeded the pagination safety limit.");
+        using var result = await JsonAsync(PageUri("documents", page, options.PageSize, tag), ct);
+        var (rows, total, next) = ReadPage(result.RootElement, options.PageSize);
+        var more = next.ValueKind != JsonValueKind.Null;
+        if (more) ValidateNext(next, "documents", page + 1);
+        var copied = rows.EnumerateArray().Select(x => x.Clone()).ToArray();
+        int previous = 0;
+        foreach (var row in copied)
+        {
+            var id = RequiredId(row, "id");
+            if (id <= previous) throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
+            previous = id;
+        }
+        if (more && copied.Length == 0) throw new PaperlessException("Paperless pagination made no progress.");
+        var value = (copied, total, more); cache.Add(page, value); return value;
+    }
+
+    private async Task<int> FindCursorPageAsync((JsonElement[] Rows, int Count, bool More) first, int afterId, int? tag,
+        Dictionary<int, (JsonElement[] Rows, int Count, bool More)> cache, CancellationToken ct)
+    {
+        int low = 1, high = Math.Max(1, (int)(((long)first.Count + options.PageSize - 1) / options.PageSize));
+        if (RequiredId(first.Rows[^1], "id") <= afterId)
+        {
+            while (low < high)
+            {
+                int middle = low + (high - low) / 2;
+                var candidate = await ReadCursorPageAsync(middle, tag, cache, ct);
+                if (candidate.Rows.Length == 0) throw new PaperlessException("Paperless collection changed during discovery; retry.");
+                if (RequiredId(candidate.Rows[^1], "id") <= afterId) low = middle + 1;
+                else high = middle;
+            }
+        }
+        return low;
+    }
+
+    private async Task DownloadToStageAsync(HttpResponseMessage response, string stage, CancellationToken ct)
+    {
+        if (response.Content.Headers.ContentLength > options.MaxOriginalBytes) throw new PaperlessException("Original exceeded the download size limit.");
+        await using (var source = await response.Content.ReadAsStreamAsync(ct))
+        await using (var output = new FileStream(stage, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(stage, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+            var length = await CopyBoundedAsync(source, output, options.MaxOriginalBytes, ct);
+            if (length == 0) throw new PaperlessException("Original document is empty.");
+        }
     }
 
     public void Dispose() => http.Dispose();
@@ -109,47 +201,37 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
     {
         if (next.ValueKind != JsonValueKind.String || !Uri.TryCreate(new Uri(api, resource + "/"), next.GetString(), out var uri))
             throw new PaperlessException("Paperless returned invalid pagination.");
-        // A reverse proxy can advertise HTTP links for an HTTPS API. Upgrade only
-        // the same host's default-port link; credentials always use configured API.
-        var proxyUpgrade = api.Scheme == "https" && api.IsDefaultPort && uri.Scheme == "http" && uri.IsDefaultPort;
-        if ((uri.Scheme != api.Scheme && !proxyUpgrade) || !string.Equals(uri.Host, api.Host, StringComparison.OrdinalIgnoreCase) ||
-            (uri.Port != api.Port && !proxyUpgrade) || uri.UserInfo.Length != 0 || uri.Fragment.Length != 0 ||
-            uri.AbsolutePath != new Uri(api, resource + "/").AbsolutePath)
-            throw new PaperlessException("Paperless pagination left the configured API origin or resource.");
+        ValidatePageOrigin(uri, resource);
         var pages = uri.Query.TrimStart('?').Split('&').Select(x => x.Split('=', 2))
             .Where(x => x[0] == "page").ToArray();
         if (pages.Length != 1 || pages[0].Length != 2 || !int.TryParse(pages[0][1], out var value) || value != expectedPage)
             throw new PaperlessException("Paperless returned nonsequential pagination.");
     }
 
+    private static bool ReachedLimit(int count, int? take) => take is not null && count >= take;
+
     private async Task<IReadOnlyList<JsonElement>> ListAsync(string resource, int? tag, CancellationToken ct,
-        int? take = null, int? afterId = null, bool descending = false)
+        int? take = null, bool descending = false)
     {
         var values = new List<JsonElement>();
         var seen = new HashSet<int>();
         int? previousId = null;
         for (var page = 1; page <= options.MaxPages; page++)
         {
-            // Cursor discovery must scan full-size historical pages; a small
-            // work batch must not shrink the archive traversal safety budget.
-            var size = afterId is not null ? options.PageSize : Math.Min(options.PageSize, take ?? options.PageSize);
+            var size = Math.Min(options.PageSize, take ?? options.PageSize);
             using var result = await JsonAsync(PageUri(resource, page, size, tag, descending), ct);
-            var root = result.RootElement;
-            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("results", out var rows) || rows.ValueKind != JsonValueKind.Array ||
-                !root.TryGetProperty("count", out var count) || count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var countValue) || countValue < 0 ||
-                !root.TryGetProperty("next", out var next) || rows.GetArrayLength() > size)
-                throw new PaperlessException("Paperless returned an invalid result page.");
+            var (rows, _, next) = ReadPage(result.RootElement, size);
             if (next.ValueKind != JsonValueKind.Null) ValidateNext(next, resource, page + 1);
             foreach (var row in rows.EnumerateArray())
             {
                 var id = RequiredId(row, "id");
                 // Taxonomy endpoints may ignore ordering=id and return name order.
                 // Only document discovery relies on monotonic IDs; reject duplicates everywhere.
-                if (!seen.Add(id) || (resource == "documents" && previousId is not null && (descending ? id >= previousId : id <= previousId)))
+                if (!seen.Add(id) || Misordered(resource, previousId, id, descending))
                     throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
                 previousId = id;
-                if (afterId is null || id > afterId) values.Add(row.Clone());
-                if (take is not null && values.Count >= take) return values;
+                values.Add(row.Clone());
+                if (ReachedLimit(values.Count, take)) return values;
             }
             if (next.ValueKind == JsonValueKind.Null) return values;
             if (rows.GetArrayLength() == 0) throw new PaperlessException("Paperless pagination made no progress.");
@@ -163,47 +245,14 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
     private async Task<IReadOnlyList<JsonElement>> ListAfterAsync(int? tag, int afterId, int take, CancellationToken ct)
     {
         var cache = new Dictionary<int, (JsonElement[] Rows, int Count, bool More)>();
-        async Task<(JsonElement[] Rows, int Count, bool More)> Page(int page)
-        {
-            if (cache.TryGetValue(page, out var cached)) return cached;
-            if (cache.Count >= options.MaxPages) throw new PaperlessException("Paperless exceeded the pagination safety limit.");
-            using var result = await JsonAsync(PageUri("documents", page, options.PageSize, tag), ct);
-            var root = result.RootElement;
-            if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("results", out var rows) || rows.ValueKind != JsonValueKind.Array ||
-                rows.GetArrayLength() > options.PageSize || !root.TryGetProperty("count", out var count) || count.ValueKind != JsonValueKind.Number || !count.TryGetInt32(out var total) || total < 0 ||
-                !root.TryGetProperty("next", out var next)) throw new PaperlessException("Paperless returned an invalid result page.");
-            var more = next.ValueKind != JsonValueKind.Null;
-            if (more) ValidateNext(next, "documents", page + 1);
-            var copied = rows.EnumerateArray().Select(x => x.Clone()).ToArray();
-            int previous = 0;
-            foreach (var row in copied)
-            {
-                var id = RequiredId(row, "id");
-                if (id <= previous) throw new PaperlessException("Paperless pagination repeated or misordered a resource.");
-                previous = id;
-            }
-            if (more && copied.Length == 0) throw new PaperlessException("Paperless pagination made no progress.");
-            var value = (copied, total, more); cache.Add(page, value); return value;
-        }
-        var first = await Page(1);
+        var first = await ReadCursorPageAsync(1, tag, cache, ct);
         if (first.Rows.Length == 0) return [];
-        int low = 1, high = Math.Max(1, (int)(((long)first.Count + options.PageSize - 1) / options.PageSize));
-        if (RequiredId(first.Rows[^1], "id") <= afterId)
-        {
-            while (low < high)
-            {
-                int middle = low + (high - low) / 2;
-                var candidate = await Page(middle);
-                if (candidate.Rows.Length == 0) throw new PaperlessException("Paperless collection changed during discovery; retry.");
-                if (RequiredId(candidate.Rows[^1], "id") <= afterId) low = middle + 1;
-                else high = middle;
-            }
-        }
+        var low = await FindCursorPageAsync(first, afterId, tag, cache, ct);
         var values = new List<JsonElement>();
         int previousId = 0;
         for (int page = low; ; page++)
         {
-            var current = await Page(page);
+            var current = await ReadCursorPageAsync(page, tag, cache, ct);
             foreach (var row in current.Rows)
             {
                 int id = RequiredId(row, "id");
@@ -282,24 +331,22 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         return document with { RevisionHash = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(document))) };
     }
 
+    private static void RequireNewDestination(string destination)
+    {
+        if (File.Exists(destination) || Directory.Exists(destination)) throw new PaperlessException("Original destination already exists.");
+    }
+
     public async Task<OriginalDocument> DownloadOriginalAsync(int id, string destination, CancellationToken ct = default)
     {
         if (id <= 0) throw new ArgumentOutOfRangeException(nameof(id));
         destination = Path.GetFullPath(destination);
-        if (File.Exists(destination) || Directory.Exists(destination)) throw new PaperlessException("Original destination already exists.");
+        RequireNewDestination(destination);
         var stage = Path.Combine(Path.GetDirectoryName(destination)!, ".ppllm-" + Guid.NewGuid().ToString("N"));
         using var cancellation = RequestCancellation(ct);
         try
         {
             using var response = await SendAsync(new Uri(api, $"documents/{id}/download/?original=true"), cancellation.Token);
-            if (response.Content.Headers.ContentLength > options.MaxOriginalBytes) throw new PaperlessException("Original exceeded the download size limit.");
-            await using (var source = await response.Content.ReadAsStreamAsync(cancellation.Token))
-            await using (var output = new FileStream(stage, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(stage, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-                var length = await CopyBoundedAsync(source, output, options.MaxOriginalBytes, cancellation.Token);
-                if (length == 0) throw new PaperlessException("Original document is empty.");
-            }
+            await DownloadToStageAsync(response, stage, cancellation.Token);
             string hash;
             await using (var input = File.OpenRead(stage)) hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, cancellation.Token));
             var bytes = new FileInfo(stage).Length;

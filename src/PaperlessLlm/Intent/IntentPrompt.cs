@@ -67,14 +67,22 @@ public static class IntentPrompt
         static string Bounded(string value, int maximum) => value.Length <= maximum ? value : value[..maximum];
         var payload = JsonSerializer.Serialize(new
         {
-            data_classification = "untrusted_document_evidence", page_count = pageCount,
-            document = new { id = document.Id, title = Bounded(document.Title, 512),
-                content = Bounded(document.Content, MaxOcrCharacters), content_truncated = document.Content.Length > MaxOcrCharacters,
-                created = document.Created, correspondent = document.CorrespondentId, document_type = document.DocumentTypeId,
-                tags = document.Tags },
+            data_classification = "untrusted_document_evidence",
+            page_count = pageCount,
+            document = new
+            {
+                id = document.Id,
+                title = Bounded(document.Title, 512),
+                content = Bounded(document.Content, MaxOcrCharacters),
+                content_truncated = document.Content.Length > MaxOcrCharacters,
+                created = document.Created,
+                correspondent = document.CorrespondentId,
+                document_type = document.DocumentTypeId,
+                tags = document.Tags
+            },
             allowed_taxonomy = new
             {
-                tags = taxonomy.Tags.Where(t => !ProposalValidator.IsProtected(t)).Select(t => new { id = t.Id, name = Bounded(t.Name, 256) }),
+                tags = taxonomy.Tags.Where(t => !ProtectedTags.IsProtected(t)).Select(t => new { id = t.Id, name = Bounded(t.Name, 256) }),
                 correspondents = taxonomy.Correspondents.Select(t => new { id = t.Id, name = Bounded(t.Name, 256) }),
                 document_types = taxonomy.DocumentTypes.Select(t => new { id = t.Id, name = Bounded(t.Name, 256) })
             }
@@ -83,8 +91,19 @@ public static class IntentPrompt
     }
 
     public static string Fingerprint(string model) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-        JsonSerializer.Serialize(new { model, PolicyVersion, Instructions, schema = DocumentIntent.Schema,
-            MaxOcrCharacters, MaxEntities, MaxPages, validator = "intent-validator-1",
-            runner = "pi-0.99.2", reasoning = "medium", maxOutputTokens = 16000,
-            rendering = "poppler-all-pages-max10-2000px-v1" }))));
+        JsonSerializer.Serialize(new
+        {
+            model,
+            PolicyVersion,
+            Instructions,
+            schema = DocumentIntent.Schema,
+            MaxOcrCharacters,
+            MaxEntities,
+            MaxPages,
+            validator = "intent-validator-1",
+            runner = "pi-0.99.2",
+            reasoning = "medium",
+            maxOutputTokens = 16000,
+            rendering = "poppler-all-pages-max10-2000px-v1"
+        }))));
 }

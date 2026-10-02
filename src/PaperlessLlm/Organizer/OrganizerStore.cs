@@ -1,6 +1,7 @@
 using System.Text.Json;
 using PaperlessLlm.Review;
 namespace PaperlessLlm.Organizer;
+
 internal sealed class OrganizerCheckpoint
 {
     public int Version { get; set; } = 1;

@@ -7,7 +7,7 @@ using PaperlessLlm.Auth;
 using PaperlessLlm.Inference;
 using PaperlessLlm.Paperless;
 using PaperlessLlm.Review;
-using PaperlessLlm.Worker;
+
 
 namespace PaperlessLlm;
 
@@ -35,19 +35,4 @@ public static class Program
         }
     }
 
-    internal static bool IsHealthy(WorkerStatus status, DateTimeOffset now, TimeSpan freshness)
-    {
-        // A bounded batch can outlast the polling interval. Job transitions are
-        // heartbeats too, so useful ongoing work is not mistaken for a hung poll.
-        var activity = status.Jobs.Select(job => job.UpdatedAt)
-            .Append(status.LastPollAt ?? DateTimeOffset.MinValue).Max();
-        return status.Initialized && activity > now - freshness && status.PauseReason is null && !status.AuthenticationPaused;
-    }
-
-    private static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable("PPLLM_" + name) ?? fallback;
-    private static string Required(string name) => Environment.GetEnvironmentVariable("PPLLM_" + name) is { Length: > 0 } value
-        ? value : throw new ArgumentException($"Set PPLLM_{name} before starting the worker.");
-    private static int Integer(string name, int fallback, int min, int max) =>
-        int.TryParse(Setting(name, fallback.ToString()), out int value) && value >= min && value <= max
-            ? value : throw new ArgumentException($"PPLLM_{name} must be between {min} and {max}.");
 }

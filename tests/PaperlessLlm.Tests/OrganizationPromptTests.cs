@@ -12,16 +12,16 @@ public sealed class OrganizationPromptTests : IDisposable
     {
         await File.WriteAllTextAsync(path, "Policy A");
         var prompt = new OrganizationPrompt(path, "gpt-6-sol");
-        var first = await prompt.BuildAsync(ProposalTests.Document(), ProposalTests.Taxonomy, 0, default);
+        var first = await prompt.BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
         await File.WriteAllTextAsync(path, "Policy B");
-        var second = await prompt.BuildAsync(ProposalTests.Document(), ProposalTests.Taxonomy, 0, default);
+        var second = await prompt.BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
         Assert.Equal("Policy A", first.Instructions);
         Assert.Equal("Policy B", second.Instructions);
         Assert.NotEqual(first.PromptSha256, second.PromptSha256);
         Assert.NotEqual(first.PolicyVersion, second.PolicyVersion);
         Assert.True(second.NamedOutput);
         Assert.Contains("Synthetic merchant", second.Prompt);
-        var repeat = await prompt.BuildAsync(ProposalTests.Document(), ProposalTests.Taxonomy, 0, default);
+        var repeat = await prompt.BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
         Assert.Equal(second.PolicyVersion, repeat.PolicyVersion);
     }
 
