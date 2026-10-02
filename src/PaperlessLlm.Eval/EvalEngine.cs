@@ -20,64 +20,12 @@ public static class EvalEngine
 
         foreach (var testCase in selected)
         {
-            var checks = new Dictionary<string, bool>(StringComparer.Ordinal)
-            {
-                ["output.present"] = false, ["validator.valid"] = false,
-                ["title.correct"] = false, ["title.no_unnecessary_write"] = false,
-                ["date.correct"] = false, ["date.no_unnecessary_write"] = false,
-                ["correspondent.correct"] = false, ["correspondent.no_unnecessary_write"] = false,
-                ["document_type.correct"] = false, ["document_type.no_unnecessary_write"] = false,
-                ["tags.expected_added"] = false, ["tags.no_unexpected"] = false,
-                ["protected_tags.present_in_input"] = false, ["protected_tags.not_added"] = false,
-                ["ocr.must_replace"] = false, ["ocr.key_facts"] = false, ["ocr.forbidden_facts_absent"] = false
-            };
-            foreach (var (field, expected) in new[]
-            {
-                ("title", testCase.Expected.Title.Action), ("date", testCase.Expected.Date.Action),
-                ("correspondent", testCase.Expected.Correspondent.Action), ("document_type", testCase.Expected.DocumentType.Action)
-            })
-                if (expected == "ignore") checks.Remove(field + ".correct");
-            string? failure = null;
-            var valid = false;
-            var ocrKeyFactsMatched = 0;
-            if (!outputs.TryGetValue(testCase.CaseId, out var raw)) failure = "missing_output";
-            else
-            {
-                checks["output.present"] = true;
-                try
-                {
-                    var document = testCase.ToDocument();
-                    var taxonomy = testCase.ToTaxonomy();
-                    var intent = IntentValidator.Validate(raw, document, taxonomy, testCase.PageCount);
-                    valid = true;
-                    checks["validator.valid"] = true;
-                    ocrKeyFactsMatched = ScoreIntent(testCase, intent, checks);
-                }
-                catch (ProposalValidationException ex)
-                {
-                    failure = ex.Code;
-                    validatorFailures++;
-                    if (IsSchemaFailure(ex.Code)) schemaFailures++;
-                    if (ex.Code == "protected_tag") checks["protected_tags.not_added"] = false;
-                }
-                catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
-                {
-                    failure = "invalid_intent";
-                    validatorFailures++;
-                    schemaFailures++;
-                    checks["validator.valid"] = false;
-                }
-            }
-
-            if (!valid)
-                foreach (var key in checks.Keys.Where(k => k.EndsWith(".no_unnecessary_write", StringComparison.Ordinal)).ToArray())
-                    checks.Remove(key);
-            foreach (var check in checks)
-            {
-                if (!checkCounts.TryGetValue(check.Key, out var count)) count = (0, 0);
-                checkCounts[check.Key] = (count.Passed + (check.Value ? 1 : 0), count.Total + 1);
-            }
-            var failed = failure is not null || checks.Any(check => !check.Value && !check.Key.EndsWith(".no_unnecessary_write", StringComparison.Ordinal));
+            var result = ScoreCase(testCase, outputs);
+            var (checks, valid, failure, ocrKeyFactsMatched) = result;
+            if (failure is not null && failure != "missing_output") validatorFailures++;
+            if (failure is not null && (IsSchemaFailure(failure) || failure == "invalid_intent")) schemaFailures++;
+            AccumulateChecks(checkCounts, checks);
+            var failed = HasCorrectnessFailure(failure, checks);
             if (testCase.Expected.Critical && failed) criticalFailures++;
             scoreRows.Add(new CaseScore(testCase.CaseId, testCase.Split, testCase.Expected.Critical, valid, failure,
                 ocrKeyFactsMatched, testCase.Expected.Ocr.KeyFacts.Count, checks));
@@ -89,15 +37,98 @@ public static class EvalEngine
         checksResult["validator.valid"] = new FieldScore(selected.Count(c => scoreRows.First(r => r.CaseId == c.CaseId).Valid), selected.Length);
         return new EvalReport
         {
-            Version = version, Model = model, HarnessVersion = harnessVersion, Split = split,
-            CreatedUtc = DateTimeOffset.UtcNow, TotalCases = selected.Length,
-            ImportedOutputs = selected.Count(c => outputs.ContainsKey(c.CaseId)), MissingOutputs = absent,
-            InvalidJsonOutputs = invalidJsonOutputs, ValidatorFailures = validatorFailures,
+            Version = version,
+            Model = model,
+            HarnessVersion = harnessVersion,
+            Split = split,
+            CreatedUtc = DateTimeOffset.UtcNow,
+            TotalCases = selected.Length,
+            ImportedOutputs = selected.Count(c => outputs.ContainsKey(c.CaseId)),
+            MissingOutputs = absent,
+            InvalidJsonOutputs = invalidJsonOutputs,
+            ValidatorFailures = validatorFailures,
             SchemaFailures = schemaFailures,
-            CriticalFailures = criticalFailures, Checks = checksResult, Cases = scoreRows,
+            CriticalFailures = criticalFailures,
+            Checks = checksResult,
+            Cases = scoreRows,
             OcrKeyFactsMatched = scoreRows.Sum(r => r.OcrKeyFactsMatched),
             OcrKeyFactsTotal = scoreRows.Sum(r => r.OcrKeyFactsTotal)
         };
+    }
+
+    private static bool HasCorrectnessFailure(string? failure, Dictionary<string, bool> checks) =>
+        failure is not null || checks.Any(check => !check.Value && !check.Key.EndsWith(".no_unnecessary_write", StringComparison.Ordinal));
+
+    private static void AccumulateChecks(Dictionary<string, (int Passed, int Total)> checkCounts, Dictionary<string, bool> checks)
+    {
+        foreach (var check in checks)
+        {
+            if (!checkCounts.TryGetValue(check.Key, out var count)) count = (0, 0);
+            checkCounts[check.Key] = (count.Passed + (check.Value ? 1 : 0), count.Total + 1);
+        }
+    }
+
+    private static (Dictionary<string, bool> Checks, bool Valid, string? Failure, int OcrKeyFactsMatched) ScoreCase(
+        EvalCase testCase, IReadOnlyDictionary<string, string> outputs)
+    {
+        var checks = new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            ["output.present"] = false,
+            ["validator.valid"] = false,
+            ["title.correct"] = false,
+            ["title.no_unnecessary_write"] = false,
+            ["date.correct"] = false,
+            ["date.no_unnecessary_write"] = false,
+            ["correspondent.correct"] = false,
+            ["correspondent.no_unnecessary_write"] = false,
+            ["document_type.correct"] = false,
+            ["document_type.no_unnecessary_write"] = false,
+            ["tags.expected_added"] = false,
+            ["tags.no_unexpected"] = false,
+            ["protected_tags.present_in_input"] = false,
+            ["protected_tags.not_added"] = false,
+            ["ocr.must_replace"] = false,
+            ["ocr.key_facts"] = false,
+            ["ocr.forbidden_facts_absent"] = false
+        };
+        foreach (var (field, expected) in new[]
+        {
+            ("title", testCase.Expected.Title.Action), ("date", testCase.Expected.Date.Action),
+            ("correspondent", testCase.Expected.Correspondent.Action), ("document_type", testCase.Expected.DocumentType.Action)
+        })
+            if (expected == "ignore") checks.Remove(field + ".correct");
+        string? failure = null;
+        var valid = false;
+        var ocrKeyFactsMatched = 0;
+        if (!outputs.TryGetValue(testCase.CaseId, out var raw)) failure = "missing_output";
+        else
+        {
+            checks["output.present"] = true;
+            try
+            {
+                var document = testCase.ToDocument();
+                var taxonomy = testCase.ToTaxonomy();
+                var intent = IntentValidator.Validate(raw, document, taxonomy, testCase.PageCount);
+                valid = true;
+                checks["validator.valid"] = true;
+                ocrKeyFactsMatched = ScoreIntent(testCase, intent, checks);
+            }
+            catch (ProposalValidationException ex)
+            {
+                failure = ex.Code;
+                if (ex.Code == "protected_tag") checks["protected_tags.not_added"] = false;
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException)
+            {
+                failure = "invalid_intent";
+                checks["validator.valid"] = false;
+            }
+        }
+
+        if (!valid)
+            foreach (var key in checks.Keys.Where(k => k.EndsWith(".no_unnecessary_write", StringComparison.Ordinal)).ToArray())
+                checks.Remove(key);
+        return (checks, valid, failure, ocrKeyFactsMatched);
     }
 
     private static int ScoreIntent(EvalCase testCase, JsonElement intent, Dictionary<string, bool> checks)

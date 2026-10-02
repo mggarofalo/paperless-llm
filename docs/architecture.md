@@ -42,9 +42,16 @@ Prompt fingerprints cover instructions, schema and inference settings. Jobs reta
 | `src/PaperlessLlm/Sync` | Minimal writes, conflict checks and reconciliation |
 | `src/PaperlessLlm/Paperless` | Bounded reads and downloads |
 | `src/PaperlessLlm/OrganizerCli.cs` | Current CLI wiring |
+| `src/PaperlessLlm.Eval` | Offline experiments, scoring and isolated experiment processes |
 | `tests/container` | Isolated synthetic end-to-end acceptance |
 
-The old `Auth`, `Inference`, `Review` and `Worker` foundations remain for regression coverage and shared components. The current CLI does not invoke the old loopback authentication flow or read-only worker.
+The retired loopback authentication, direct inference client and read-only worker
+were removed in 0.2.0. Small shared exception types, protected-tag rules and the
+private audit writer remain where the current organizer uses them. Evaluation
+code separates orchestration, case execution, image preparation and process
+isolation so experiments do not expand the production worker's permissions.
+See [quality and testing](quality.md) for scope, measured complexity, coverage and
+the failure modes exercised by tests.
 
 ```sh
 dotnet restore --locked-mode

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using PaperlessLlm.Paperless;
 namespace PaperlessLlm.Organizer;
+
 public interface IIntentRunner
 {
     Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken ct);
@@ -9,9 +10,9 @@ public interface IIntentSynchronizer
 {
     Task<SyncResult> ApplyAsync(string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct);
 }
-public sealed record SyncResult(string Outcome, PaperlessDocument Document);
+public sealed record SyncResult(string Outcome, PaperlessDocument Document) { }
 public sealed class SyncConflictException(string code) : Exception(code) { public string Code { get; } = code; }
-public sealed record IntentContext(string Instructions, string Prompt, JsonElement Schema, string PolicyVersion, bool NamedOutput = false, string? PromptSha256 = null);
+public sealed record IntentContext(string Instructions, string Prompt, JsonElement Schema, string PolicyVersion, bool NamedOutput = false, string? PromptSha256 = null) { }
 public interface IIntentContextBuilder
 {
     Task<IntentContext> BuildAsync(PaperlessDocument source, PaperlessTaxonomy taxonomy, int pageCount, CancellationToken ct);
@@ -33,10 +34,25 @@ public sealed class OrganizerOptions
     public long MaxStateBytes { get; init; } = 2L * 1024 * 1024 * 1024;
     internal void Validate()
     {
-        if (string.IsNullOrWhiteSpace(StateDirectory) || string.IsNullOrWhiteSpace(SourceUrl) || string.IsNullOrWhiteSpace(Model) ||
-            PollInterval < TimeSpan.FromSeconds(1) || PollInterval > TimeSpan.FromDays(1) || BatchSize is < 1 or > 100 ||
-            BackfillLimit is < 0 or > 100 || DiscoveryLimit is < 1 or > 100 || MaxJobs is < 1 or > 100000 ||
-            MaxAttempts is < 1 or > 10 || RetryBaseDelay < TimeSpan.FromSeconds(1) || MaxStateBytes < 1)
+        ValidateIdentity();
+        ValidateSchedule();
+        ValidateCapacity();
+    }
+    private void ValidateIdentity()
+    {
+        if (string.IsNullOrWhiteSpace(StateDirectory) || string.IsNullOrWhiteSpace(SourceUrl) || string.IsNullOrWhiteSpace(Model))
+            throw new ArgumentException("invalid_organizer_configuration");
+    }
+    private void ValidateSchedule()
+    {
+        if (PollInterval < TimeSpan.FromSeconds(1) || PollInterval > TimeSpan.FromDays(1) ||
+            MaxAttempts is < 1 or > 10 || RetryBaseDelay < TimeSpan.FromSeconds(1))
+            throw new ArgumentException("invalid_organizer_configuration");
+    }
+    private void ValidateCapacity()
+    {
+        if (BatchSize is < 1 or > 100 || BackfillLimit is < 0 or > 100 || DiscoveryLimit is < 1 or > 100 ||
+            MaxJobs is < 1 or > 100000 || MaxStateBytes < 1)
             throw new ArgumentException("invalid_organizer_configuration");
     }
 }
@@ -64,8 +80,9 @@ public sealed class OrganizerJob
     public long? InferenceMilliseconds { get; set; }
     public long? SyncMilliseconds { get; set; }
 }
-public sealed record OrganizerPollResult(int Completed, int Failed, bool Initialized);
+public sealed record OrganizerPollResult(int Completed, int Failed, bool Initialized) { }
 public sealed record OrganizerJobSummary(int DocumentId, string JobId, OrganizerJobState State, int Attempts, string? ErrorCode, DateTimeOffset? NextAttemptAt, string? Outcome,
     DateTimeOffset CreatedAt = default, DateTimeOffset? UpdatedAt = null, DateTimeOffset? CompletedAt = null,
-    long? InferenceMilliseconds = null, long? SyncMilliseconds = null);
-public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null);
+    long? InferenceMilliseconds = null, long? SyncMilliseconds = null)
+{ }
+public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null) { }

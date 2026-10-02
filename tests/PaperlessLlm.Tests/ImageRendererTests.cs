@@ -97,6 +97,36 @@ public sealed class ImageRendererTests : IDisposable
         Assert.Empty(Directory.GetDirectories(directory));
     }
 
+    [Fact]
+    public void JpegFrameDimensionsAndEndMarkerAreVerified()
+    {
+        byte[] jpeg = [0xff, 0xd8, 0xff, 0xe0, 0, 8, 1, 2, 3, 4, 5, 6,
+            0xff, 0xc0, 0, 8, 8, 0, 1, 0, 1, 0, 0xff, 0xd9];
+        Assert.Equal("image/jpeg", ImageRenderer.ValidateImage(Original(jpeg).Path));
+        jpeg[^1] = 0;
+        Assert.Throws<PaperlessException>(() => ImageRenderer.ValidateImage(Original(jpeg).Path));
+    }
+
+    [Theory]
+    [InlineData(0, 1)]
+    [InlineData(20001, 1)]
+    [InlineData(10000, 10000)]
+    public void OversizedOrZeroPngDimensionsAreRejected(uint width, uint height)
+    {
+        var bytes = (byte[])Png.Clone();
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(16, 4), width);
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(bytes.AsSpan(20, 4), height);
+        Assert.Throws<PaperlessException>(() => ImageRenderer.ValidateImage(Original(bytes).Path));
+    }
+
+    [Fact]
+    public void TruncatedJpegSegmentCannotSkipPastFileBounds()
+    {
+        byte[] jpeg = [0xff, 0xd8, 0xff, 0xe0, 0xff, 0xff, 0, 0, 0, 0, 0, 0,
+            0xff, 0xc0, 0, 8, 8, 0, 1, 0, 1, 0, 0xff, 0xd9];
+        Assert.Throws<PaperlessException>(() => ImageRenderer.ValidateImage(Original(jpeg).Path));
+    }
+
     private static byte[] SyntheticPdf()
     {
         var content1 = "BT /F1 20 Tf 20 100 Td (SYNTHETIC PAGE ONE) Tj ET\n";

@@ -42,9 +42,20 @@ public sealed class OrganizationPrompt(string path, string model) : IIntentConte
         var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(instructions)));
         var schema = JsonDocument.Parse(NamedIntentContract.Schema()).RootElement.Clone();
         var fingerprint = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(
-            JsonSerializer.Serialize(new { model, prompt = hash, schema, contract = "names-1", reasoning = "low",
-                runner = "pi-0.99.2", maxOutputTokens = 16000, context = "existing-ocr-1",
-                IntentPrompt.MaxOcrCharacters, IntentPrompt.MaxEntities, validator = "intent-validator-1" }))));
+            JsonSerializer.Serialize(new
+            {
+                model,
+                prompt = hash,
+                schema,
+                contract = "names-1",
+                reasoning = "low",
+                runner = "pi-0.99.2",
+                maxOutputTokens = 16000,
+                context = "existing-ocr-1",
+                IntentPrompt.MaxOcrCharacters,
+                IntentPrompt.MaxEntities,
+                validator = "intent-validator-1"
+            }))));
         return new(instructions, NamedIntentContract.Payload(IntentPrompt.Build(source, taxonomy, 0), taxonomy),
             schema, fingerprint, true, hash);
     }

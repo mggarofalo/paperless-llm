@@ -1,33 +1,43 @@
-# Paperless LLM
+# Paperless LLM — AI document organization for Paperless-ngx
 
-A .NET 10 worker that checks Paperless for new documents, asks Sol 6 low to infer organization from existing OCR, and applies validated changes automatically. Changed documents receive `needs review` so you can inspect them later in Paperless. There is no approval queue before updates.
+A self-hosted **.NET worker for Paperless-ngx** that uses existing OCR to organize document dates, correspondents, document types and tags. Run it with Docker Compose on Linux, sign in with ChatGPT, and let it process new documents on a schedule. Validated changes apply automatically; changed documents receive `needs review` for retrospective inspection in Paperless.
 
-.NET owns discovery, durable jobs, validation and sync. A small JavaScript bridge uses the pinned Pi provider SDK for ChatGPT device login and inference, without an agent session or tool executor. Existing OCR, document metadata and visible taxonomy are sent to OpenAI through your ChatGPT subscription; there is no API-key fallback.
+## Sign In With ChatGPT
+
+Paperless LLM implements **Sign In With ChatGPT using a device-code flow** through the pinned Pi SDK's `openai-codex` provider. Start login on your server, open the printed link on any browser, and approve the code. Credentials persist in a Docker volume. No localhost callback, published port or SSH tunnel is needed.
+
+This is an independent integration, not an OpenAI product or certification. Model access and limits depend on your account. There is no silent API-key billing fallback. See [authentication and data flow](docs/authentication.md).
 
 ## Quick start
 
-Download `compose.yaml` and `env.example` from the [release](https://github.com/mggarofalo/paperless-llm/releases), save the latter as `.env`, and set your Paperless URL. Follow [authentication](docs/authentication.md) to create the scoped Paperless token and approve the ChatGPT device code.
+Download `compose.yaml` and `env.example` from the [latest stable release](https://github.com/mggarofalo/paperless-llm/releases/latest). Save `env.example` as `.env`, set your Paperless URL, and put a dedicated Paperless view/change token in `secrets/paperless_token.txt`. The [setup guide](docs/authentication.md) explains global and object permissions.
 
 ```sh
+docker compose --profile setup run --rm auth login
 docker compose run --rm worker check
-docker compose --profile setup run --rm auth probe
+docker compose run --rm worker probe organization
 docker compose up -d worker
 docker compose logs -f worker
 ```
 
-The default interval is one hour; set `PPLLM_POLL_SECONDS=10800` for three hours. The first run records a baseline and processes newer documents. Existing documents require a bounded initial backfill. **Updates are enabled by default**; see [configuration and migration](docs/operations.md) for dry-run mode and upgrading from v0.1.0.
+The default is **Sol 6 low**, one call per document and five jobs per hourly cycle. The first run records a baseline; historical backfill is opt-in and bounded. **Writes are enabled by default.** Use the [dry-run and upgrade guide](docs/operations.md) to control enrollment and rollout. Linux `amd64` and `arm64` images are available.
 
-The worker can change titles, document dates, existing correspondents and types, add descriptive tags, while keeping searchable OCR unchanged. It preserves originals, permissions, ownership and workflow tags such as receipt-tracker `inbox`. It cannot delete documents, remove tags, create taxonomy or import receipts.
+## What it does
 
-## Guides
+- Uses Paperless OCR as evidence; the worker does not replace OCR or scan files.
+- Selects exact existing taxonomy names; .NET resolves IDs and validates changes.
+- Preserves workflow tags, ownership, permissions and original files. It cannot delete documents, remove tags, create taxonomy or import receipts.
+- Loads an [editable prompt file](docs/prompts.md) before each new inference; policy changes require no image rebuild or restart. The default keeps titles.
+- Keeps durable jobs, prompt hashes and private before/after journals for [review and recovery](docs/review.md). Saved proposals survive sync retries.
 
-- [Authentication](docs/authentication.md): Paperless permissions, device login, persistent credentials and renewal.
-- [Prompts](docs/prompts.md): editable policy files, audit hashes and v0.1.3 upgrade instructions.
-- [Operation](docs/operations.md): discovery, jobs, retries, logs, health, storage and migration.
-- [Review and recovery](docs/review.md): `needs review`, Paperless history and sync records.
-- [Architecture](docs/architecture.md): boundaries, runner choice and contributor commands.
-- [Paperless connector](docs/connector.md): API and rendering limits.
-- [Offline evaluation](docs/offline-evaluation.md): private corpora, prompt experiments, and measured accuracy limitations.
-- [Release procedure](.agents/skills/release/SKILL.md): protected main, CI and GHCR publication.
+OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md) and inspect early results in your own library.
 
-Synthetic tests cover validation, retries and sync recovery. They do not establish live ChatGPT entitlement, renewal or OCR accuracy. Those require the deployment acceptance checks in the authentication guide. Sync rechecks the source immediately before writing, but the GET and PATCH are not atomic; a human edit in that interval can race with the update.
+## Documentation
+
+Start at the [documentation index](docs/index.md). Operators get setup, configuration, OCR tuning and troubleshooting guides; coding agents get [AGENTS.md](AGENTS.md), architecture, quality commands and the [release skill](.agents/skills/release/SKILL.md).
+
+- [Image versions and `latest` / `stable` channels](docs/releases.md)
+- [Paperless OCR configuration recommendations](docs/ocr.md)
+- [Architecture and contributing](docs/architecture.md)
+- [Roadmap](docs/roadmap.md): local OpenAI-compatible models and a run-review UI with SQLite-backed settings are planned, not shipped.
+- [Current delivery checklist](TODO.md) and [documentation strategy](docs/documentation-strategy.md)

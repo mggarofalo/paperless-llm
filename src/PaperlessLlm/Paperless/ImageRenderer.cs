@@ -40,52 +40,11 @@ public sealed partial class ImageRenderer : IDocumentRenderer
         var stage = Path.Combine(Path.GetDirectoryName(outputDirectory)!, ".ppllm-render-" + Guid.NewGuid().ToString("N"));
         try
         {
-            await using (var file = File.OpenRead(original.Path))
-            {
-                if (file.Length != original.Bytes || file.Length <= 0 ||
-                    Convert.ToHexStringLower(await SHA256.HashDataAsync(file, ct)) != original.Sha256)
-                    throw new PaperlessException("Original changed before rendering.");
-            }
+            await ValidateOriginalAsync(original, ct);
             Directory.CreateDirectory(stage);
             if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(stage, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-            var prefix = new byte[8];
-            await using (var file = File.OpenRead(original.Path)) _ = await file.ReadAsync(prefix, ct);
-            int pages;
-            if (prefix.AsSpan(0, 5).SequenceEqual("%PDF-"u8))
-            {
-                var info = await RunAsync(options.PdfInfoExecutable, [Path.GetFullPath(original.Path)], ct);
-                var match = PageCountRegex().Match(info);
-                if (!match.Success || !int.TryParse(match.Groups[1].Value, out pages) || pages < 1 || pages > options.MaxPages)
-                    throw new PaperlessException("PDF page count is invalid or exceeds the rendering limit.");
-                await RunAsync(options.PdfToPpmExecutable,
-                    ["-png", "-r", "120", "-scale-to", options.MaxDimension.ToString(), "-f", "1", "-l", pages.ToString(),
-                        Path.GetFullPath(original.Path), Path.Combine(stage, "page")], ct);
-            }
-            else
-            {
-                pages = 1;
-                var type = ValidateImage(original.Path);
-                if (original.Bytes > options.MaxTotalBytes) throw new PaperlessException("Original image exceeds the rendering size limit.");
-                File.Copy(original.Path, Path.Combine(stage, "page-1." + (type == "image/png" ? "png" : "jpg")), false);
-            }
-            var files = Directory.GetFiles(stage);
-            if (files.Length != pages || Directory.GetDirectories(stage).Length != 0)
-                throw new PaperlessException("Renderer did not produce exactly all document pages.");
-            var results = new List<RenderedPage>();
-            long total = 0;
-            foreach (var file in files)
-            {
-                var match = RenderedNameRegex().Match(Path.GetFileName(file));
-                if (!match.Success || !int.TryParse(match.Groups[1].Value, out var page) || page < 1 || page > pages || results.Any(x => x.PageNumber == page))
-                    throw new PaperlessException("Renderer produced an unexpected page filename.");
-                if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) throw new PaperlessException("Rendered page cannot be a link.");
-                total += new FileInfo(file).Length;
-                if (total > options.MaxTotalBytes) throw new PaperlessException("Rendered pages exceed the size limit.");
-                var mediaType = ValidateImage(file);
-                await using var input = File.OpenRead(file);
-                var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, ct));
-                results.Add(new RenderedPage(Path.Combine(outputDirectory, Path.GetFileName(file)), mediaType, hash, page));
-            }
+            var pages = await RenderToStageAsync(original, stage, ct);
+            var results = await ValidateRenderedPagesAsync(stage, outputDirectory, pages, ct);
             Directory.Move(stage, outputDirectory);
             return results.OrderBy(x => x.PageNumber).ToArray();
         }
@@ -101,19 +60,87 @@ public sealed partial class ImageRenderer : IDocumentRenderer
         if (file.Read(header) < 24) throw new PaperlessException("Image data is incomplete.");
         if (header[..8].SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }) && header.Slice(12, 4).SequenceEqual("IHDR"u8))
         {
-            if (file.Length < 45 || BinaryPrimitives.ReadUInt32BigEndian(header.Slice(8, 4)) != 13)
-                throw new PaperlessException("PNG data is incomplete.");
-            var width = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(16, 4));
-            var height = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(20, 4));
-            CheckDimensions(width, height);
-            file.Position = file.Length - 12;
-            Span<byte> ending = stackalloc byte[12];
-            file.ReadExactly(ending);
-            if (!ending.SequenceEqual(new byte[] { 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130 }))
-                throw new PaperlessException("PNG data is incomplete.");
-            return "image/png";
+            return ValidatePng(file, header);
         }
         if (header[0] != 0xff || header[1] != 0xd8) throw new PaperlessException("Only PDF, PNG, and JPEG originals are supported.");
+        return ValidateJpeg(file);
+    }
+
+    private static async Task ValidateOriginalAsync(OriginalDocument original, CancellationToken ct)
+    {
+        await using (var file = File.OpenRead(original.Path))
+        {
+            if (file.Length != original.Bytes || file.Length <= 0 ||
+                Convert.ToHexStringLower(await SHA256.HashDataAsync(file, ct)) != original.Sha256)
+                throw new PaperlessException("Original changed before rendering.");
+        }
+    }
+
+    private async Task<int> RenderToStageAsync(OriginalDocument original, string stage, CancellationToken ct)
+    {
+        var prefix = new byte[8];
+        await using (var file = File.OpenRead(original.Path)) _ = await file.ReadAsync(prefix, ct);
+        int pages;
+        if (prefix.AsSpan(0, 5).SequenceEqual("%PDF-"u8))
+        {
+            var info = await RunAsync(options.PdfInfoExecutable, [Path.GetFullPath(original.Path)], ct);
+            var match = PageCountRegex().Match(info);
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out pages) || pages < 1 || pages > options.MaxPages)
+                throw new PaperlessException("PDF page count is invalid or exceeds the rendering limit.");
+            await RunAsync(options.PdfToPpmExecutable,
+                ["-png", "-r", "120", "-scale-to", options.MaxDimension.ToString(), "-f", "1", "-l", pages.ToString(),
+                        Path.GetFullPath(original.Path), Path.Combine(stage, "page")], ct);
+        }
+        else
+        {
+            pages = 1;
+            var type = ValidateImage(original.Path);
+            if (original.Bytes > options.MaxTotalBytes) throw new PaperlessException("Original image exceeds the rendering size limit.");
+            File.Copy(original.Path, Path.Combine(stage, "page-1." + (type == "image/png" ? "png" : "jpg")), false);
+        }
+        return pages;
+    }
+
+    private async Task<List<RenderedPage>> ValidateRenderedPagesAsync(string stage, string outputDirectory, int pages, CancellationToken ct)
+    {
+        var files = Directory.GetFiles(stage);
+        if (files.Length != pages || Directory.GetDirectories(stage).Length != 0)
+            throw new PaperlessException("Renderer did not produce exactly all document pages.");
+        var results = new List<RenderedPage>();
+        long total = 0;
+        foreach (var file in files)
+        {
+            var match = RenderedNameRegex().Match(Path.GetFileName(file));
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, out var page) || page < 1 || page > pages || results.Any(x => x.PageNumber == page))
+                throw new PaperlessException("Renderer produced an unexpected page filename.");
+            if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) throw new PaperlessException("Rendered page cannot be a link.");
+            total += new FileInfo(file).Length;
+            if (total > options.MaxTotalBytes) throw new PaperlessException("Rendered pages exceed the size limit.");
+            var mediaType = ValidateImage(file);
+            await using var input = File.OpenRead(file);
+            var hash = Convert.ToHexStringLower(await SHA256.HashDataAsync(input, ct));
+            results.Add(new RenderedPage(Path.Combine(outputDirectory, Path.GetFileName(file)), mediaType, hash, page));
+        }
+        return results;
+    }
+
+    private static string ValidatePng(FileStream file, ReadOnlySpan<byte> header)
+    {
+        if (file.Length < 45 || BinaryPrimitives.ReadUInt32BigEndian(header.Slice(8, 4)) != 13)
+            throw new PaperlessException("PNG data is incomplete.");
+        var width = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(16, 4));
+        var height = BinaryPrimitives.ReadUInt32BigEndian(header.Slice(20, 4));
+        CheckDimensions(width, height);
+        file.Position = file.Length - 12;
+        Span<byte> ending = stackalloc byte[12];
+        file.ReadExactly(ending);
+        if (!ending.SequenceEqual(new byte[] { 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130 }))
+            throw new PaperlessException("PNG data is incomplete.");
+        return "image/png";
+    }
+
+    private static string ValidateJpeg(FileStream file)
+    {
         file.Position = 2;
         // Parse JPEG frame dimensions without decoding or invoking arbitrary image delegates.
         while (file.Position < file.Length)
@@ -123,25 +150,39 @@ public sealed partial class ImageRenderer : IDocumentRenderer
             do { marker = file.ReadByte(); } while (marker == 0xff);
             if (marker < 0 || marker is 0xd9 or 0xda) break;
             if (marker is 0x01 or >= 0xd0 and <= 0xd7) continue;
-            var high = file.ReadByte();
-            var low = file.ReadByte();
-            if (high < 0 || low < 0) break;
-            var length = high * 256 + low;
-            if (length < 2 || file.Position + length - 2 > file.Length) break;
-            if (marker is >= 0xc0 and <= 0xcf && marker is not (0xc4 or 0xc8 or 0xcc))
+            var length = ReadJpegSegmentLength(file);
+            if (length == 0) break;
+            if (IsFrameMarker(marker))
             {
                 if (length < 8) break;
-                _ = file.ReadByte();
-                var height = file.ReadByte() * 256 + file.ReadByte();
-                var width = file.ReadByte() * 256 + file.ReadByte();
-                CheckDimensions((uint)width, (uint)height);
-                file.Position = file.Length - 2;
-                if (file.ReadByte() != 0xff || file.ReadByte() != 0xd9) throw new PaperlessException("JPEG data is incomplete.");
-                return "image/jpeg";
+                return ValidateJpegFrame(file);
             }
             file.Position += length - 2;
         }
         throw new PaperlessException("JPEG frame dimensions could not be verified.");
+    }
+
+
+    private static bool IsFrameMarker(int marker) => marker is >= 0xc0 and <= 0xcf && marker is not (0xc4 or 0xc8 or 0xcc);
+
+    private static int ReadJpegSegmentLength(FileStream file)
+    {
+        var high = file.ReadByte();
+        var low = file.ReadByte();
+        if (high < 0 || low < 0) return 0;
+        var length = high * 256 + low;
+        return length < 2 || file.Position + length - 2 > file.Length ? 0 : length;
+    }
+
+    private static string ValidateJpegFrame(FileStream file)
+    {
+        _ = file.ReadByte();
+        var height = file.ReadByte() * 256 + file.ReadByte();
+        var width = file.ReadByte() * 256 + file.ReadByte();
+        CheckDimensions((uint)width, (uint)height);
+        file.Position = file.Length - 2;
+        if (file.ReadByte() != 0xff || file.ReadByte() != 0xd9) throw new PaperlessException("JPEG data is incomplete.");
+        return "image/jpeg";
     }
 
     private static void CheckDimensions(uint width, uint height)
@@ -154,8 +195,11 @@ public sealed partial class ImageRenderer : IDocumentRenderer
     {
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cancellation.CancelAfter(options.Timeout);
-        using var process = new Process { StartInfo = new ProcessStartInfo(executable)
-        { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true } };
+        using var process = new Process
+        {
+            StartInfo = new ProcessStartInfo(executable)
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true }
+        };
         foreach (var argument in arguments) process.StartInfo.ArgumentList.Add(argument);
         process.StartInfo.Environment["LC_ALL"] = "C";
         try

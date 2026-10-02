@@ -11,7 +11,8 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
     string reviewTag = "needs review", bool dryRun = false) : IIntentSynchronizer
 {
     private sealed record Operation(string JobId, PaperlessDocument Before, JsonElement Intent, int PageCount, JsonElement Patch, string Status,
-        DateTimeOffset CreatedAt, PaperlessDocument? After = null);
+        DateTimeOffset CreatedAt, PaperlessDocument? After = null)
+    { }
 
     public async Task<SyncResult> ApplyAsync(string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
     {
@@ -24,31 +25,15 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
         Operation operation;
         if (File.Exists(path))
         {
-            if (new FileInfo(path).Length > 64 * 1024 * 1024) throw new InvalidOperationException("sync_journal_too_large");
-            operation = JsonSerializer.Deserialize<Operation>(await File.ReadAllTextAsync(path, ct))
-                ?? throw new InvalidOperationException("invalid_sync_journal");
-            if (operation.JobId != jobId || operation.Before.Id != source.Id || operation.Before.RevisionHash != source.RevisionHash)
-                throw new InvalidOperationException("sync_job_identity_mismatch");
-            if (!JsonElement.DeepEquals(operation.Intent, intent) || operation.PageCount != pageCount)
-                throw new InvalidOperationException("sync_intent_identity_mismatch");
+            operation = await ReadOperationAsync(path, jobId, source, intent, pageCount, ct);
             if (operation.Status == "verified")
                 return new("applied", await reader.GetDocumentAsync(source.Id, ct));
         }
         else
         {
-            var taxonomy = await reader.GetTaxonomyAsync(ct);
-            var validated = IntentValidator.Validate(intent.GetRawText(), source, taxonomy, pageCount);
-            var current = await reader.GetDocumentAsync(source.Id, ct);
-            if (current.RevisionHash != source.RevisionHash) throw new SyncConflictException("stale_source");
-            var patch = BuildPatch(validated, current);
-            if (patch.Count == 0) return new("no_change", current);
-            var matches = taxonomy.Tags.Where(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (matches.Length != 1) throw new ProposalValidationException("review_tag_missing_or_ambiguous");
-            var tags = patch.TryGetValue("tags", out var proposedTags) ? (int[])proposedTags! : current.Tags.ToArray();
-            patch["tags"] = tags.Append(matches[0].Id).Distinct().Order().ToArray();
-            if (dryRun) return new("dry_run", current);
-            operation = new(jobId, current, validated, pageCount, JsonSerializer.SerializeToElement(patch), "pending", DateTimeOffset.UtcNow);
-            await SaveAsync(path, operation, ct);
+            var prepared = await PrepareOperationAsync(path, jobId, source, intent, pageCount, ct);
+            if (prepared.Result is not null) return prepared.Result;
+            operation = prepared.Operation!;
         }
 
         var latest = await reader.GetDocumentAsync(source.Id, ct);
@@ -58,46 +43,66 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
             // against the exact before-state; never overwrite a subsequent human correction.
             if (latest.RevisionHash != operation.Before.RevisionHash) throw new SyncConflictException("sync_conflict");
             if (dryRun) return new("dry_run", latest);
-            // IDs and tag semantics may have changed while a pending write was paused.
-            var taxonomy = await reader.GetTaxonomyAsync(ct);
-            try { IntentValidator.Validate(operation.Intent.GetRawText(), operation.Before, taxonomy, operation.PageCount); }
-            catch (ProposalValidationException) { throw new SyncConflictException("sync_taxonomy_changed"); }
-            var marker = taxonomy.Tags.Where(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)).ToArray();
-            if (marker.Length != 1 || !operation.Patch.GetProperty("tags").EnumerateArray().Any(t => t.GetInt32() == marker[0].Id))
-                throw new SyncConflictException("sync_review_tag_changed");
-            latest = await reader.GetDocumentAsync(source.Id, ct);
-            if (latest.RevisionHash != operation.Before.RevisionHash) throw new SyncConflictException("sync_conflict");
-            var patch = operation.Patch.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value.Clone());
-            await writer.PatchAsync(source.Id, patch, ct);
-            latest = await reader.GetDocumentAsync(source.Id, ct);
-            if (!Matches(latest, operation.Patch)) throw new SyncConflictException("sync_readback_mismatch");
+            latest = await CommitAsync(operation, ct);
         }
         await SaveAsync(path, operation with { Status = "verified", After = latest }, ct);
         return new("applied", latest);
     }
 
+    private static async Task<Operation> ReadOperationAsync(string path, string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
+    {
+        if (new FileInfo(path).Length > 64 * 1024 * 1024) throw new InvalidOperationException("sync_journal_too_large");
+        var operation = JsonSerializer.Deserialize<Operation>(await File.ReadAllTextAsync(path, ct))
+            ?? throw new InvalidOperationException("invalid_sync_journal");
+        if (operation.JobId != jobId || operation.Before.Id != source.Id || operation.Before.RevisionHash != source.RevisionHash)
+            throw new InvalidOperationException("sync_job_identity_mismatch");
+        if (!JsonElement.DeepEquals(operation.Intent, intent) || operation.PageCount != pageCount)
+            throw new InvalidOperationException("sync_intent_identity_mismatch");
+        return operation;
+    }
+
+    private async Task<(Operation? Operation, SyncResult? Result)> PrepareOperationAsync(string path, string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
+    {
+        var taxonomy = await reader.GetTaxonomyAsync(ct);
+        var validated = IntentValidator.Validate(intent.GetRawText(), source, taxonomy, pageCount);
+        var current = await reader.GetDocumentAsync(source.Id, ct);
+        if (current.RevisionHash != source.RevisionHash) throw new SyncConflictException("stale_source");
+        var patch = BuildPatch(validated, current);
+        if (patch.Count == 0) return (null, new("no_change", current));
+        var matches = taxonomy.Tags.Where(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matches.Length != 1) throw new ProposalValidationException("review_tag_missing_or_ambiguous");
+        var tags = patch.TryGetValue("tags", out var proposedTags) ? (int[])proposedTags! : current.Tags.ToArray();
+        patch["tags"] = tags.Append(matches[0].Id).Distinct().Order().ToArray();
+        if (dryRun) return (null, new("dry_run", current));
+        var operation = new Operation(jobId, current, validated, pageCount, JsonSerializer.SerializeToElement(patch), "pending", DateTimeOffset.UtcNow);
+        await SaveAsync(path, operation, ct);
+        return (operation, null);
+    }
+
+    private async Task<PaperlessDocument> CommitAsync(Operation operation, CancellationToken ct)
+    {
+        // IDs and tag semantics may have changed while a pending write was paused.
+        var taxonomy = await reader.GetTaxonomyAsync(ct);
+        try { IntentValidator.Validate(operation.Intent.GetRawText(), operation.Before, taxonomy, operation.PageCount); }
+        catch (ProposalValidationException) { throw new SyncConflictException("sync_taxonomy_changed"); }
+        var marker = taxonomy.Tags.Where(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (marker.Length != 1 || !operation.Patch.GetProperty("tags").EnumerateArray().Any(t => t.GetInt32() == marker[0].Id))
+            throw new SyncConflictException("sync_review_tag_changed");
+        var latest = await reader.GetDocumentAsync(operation.Before.Id, ct);
+        if (latest.RevisionHash != operation.Before.RevisionHash) throw new SyncConflictException("sync_conflict");
+        var patch = operation.Patch.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value.Clone());
+        await writer.PatchAsync(operation.Before.Id, patch, ct);
+        latest = await reader.GetDocumentAsync(operation.Before.Id, ct);
+        if (!Matches(latest, operation.Patch)) throw new SyncConflictException("sync_readback_mismatch"); return latest;
+    }
+
     internal static Dictionary<string, object?> BuildPatch(JsonElement intent, PaperlessDocument current)
     {
         Dictionary<string, object?> patch = [];
-        void Text(string field, string target, string? before)
-        {
-            var entry = intent.GetProperty(field);
-            if (entry.GetProperty("action").GetString() != "set") return;
-            var value = entry.GetProperty("value").GetString();
-            var comparison = field == "date" && before is { Length: >= 10 } ? before[..10] : before;
-            if (value != comparison) patch[target] = value;
-        }
-        void Identity(string field, int? before)
-        {
-            var entry = intent.GetProperty(field);
-            if (entry.GetProperty("action").GetString() != "set") return;
-            var value = entry.GetProperty("value").GetInt32();
-            if (value != before) patch[field] = value;
-        }
-        Text("title", "title", current.Title);
-        Text("date", "created", current.Created);
-        Identity("correspondent", current.CorrespondentId);
-        Identity("document_type", current.DocumentTypeId);
+        AddText(patch, intent, "title", "title", current.Title);
+        AddText(patch, intent, "date", "created", current.Created);
+        AddIdentity(patch, intent, "correspondent", current.CorrespondentId);
+        AddIdentity(patch, intent, "document_type", current.DocumentTypeId);
         var tags = current.Tags.Concat(intent.GetProperty("add_tags").EnumerateArray().Select(t => t.GetProperty("id").GetInt32()))
             .Distinct().Order().ToArray();
         if (!tags.SequenceEqual(current.Tags.Order())) patch["tags"] = tags;
@@ -109,6 +114,22 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
             if (content != current.Content) patch["content"] = content;
         }
         return patch;
+    }
+
+    private static void AddText(Dictionary<string, object?> patch, JsonElement intent, string field, string target, string? before)
+    {
+        var entry = intent.GetProperty(field);
+        if (entry.GetProperty("action").GetString() != "set") return;
+        var value = entry.GetProperty("value").GetString();
+        var comparison = field == "date" && before is { Length: >= 10 } ? before[..10] : before;
+        if (value != comparison) patch[target] = value;
+    }
+    private static void AddIdentity(Dictionary<string, object?> patch, JsonElement intent, string field, int? before)
+    {
+        var entry = intent.GetProperty(field);
+        if (entry.GetProperty("action").GetString() != "set") return;
+        var value = entry.GetProperty("value").GetInt32();
+        if (value != before) patch[field] = value;
     }
 
     private static bool Matches(PaperlessDocument current, JsonElement patch)

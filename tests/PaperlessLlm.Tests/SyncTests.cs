@@ -134,6 +134,72 @@ public sealed class SyncTests : IDisposable
         Assert.False(File.Exists(Path.Combine(directory, "dry.json")));
     }
 
+    [Fact]
+    public async Task PendingIntentCannotBeReplacedUnderSameJobIdentity()
+    {
+        var api = new Fake { ThrowBeforeCommit = true };
+        var sync = new IntentSynchronizer(api, api, directory);
+        var source = api.Document;
+        await Assert.ThrowsAsync<PaperlessException>(() => sync.ApplyAsync("identity", source, Intent("First"), 1, default));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => sync.ApplyAsync("identity", source, Intent("Changed"), 1, default));
+        Assert.Equal("sync_intent_identity_mismatch", error.Message);
+        error = await Assert.ThrowsAsync<InvalidOperationException>(() => sync.ApplyAsync("identity", source with { RevisionHash = "different" }, Intent("First"), 1, default));
+        Assert.Equal("sync_job_identity_mismatch", error.Message);
+        Assert.Equal(1, api.Writes);
+    }
+
+    [Fact]
+    public async Task PendingOperationHonorsDryRunAfterRestart()
+    {
+        var api = new Fake { ThrowBeforeCommit = true };
+        var source = api.Document;
+        await Assert.ThrowsAsync<PaperlessException>(() => new IntentSynchronizer(api, api, directory)
+            .ApplyAsync("pending", source, Intent("New"), 1, default));
+        api.ThrowBeforeCommit = false;
+        var result = await new IntentSynchronizer(api, api, directory, dryRun: true)
+            .ApplyAsync("pending", source, Intent("New"), 1, default);
+        Assert.Equal("dry_run", result.Outcome);
+        Assert.Equal(1, api.Writes);
+        Assert.Equal(source.Title, api.Document.Title);
+    }
+
+    [Fact]
+    public async Task SuccessfulHttpWithoutMatchingReadbackRemainsUnverified()
+    {
+        var api = new Fake { IgnoreWrite = true };
+        var error = await Assert.ThrowsAsync<SyncConflictException>(() => new IntentSynchronizer(api, api, directory)
+            .ApplyAsync("readback", api.Document, Intent("New"), 1, default));
+        Assert.Equal("sync_readback_mismatch", error.Code);
+        using var journal = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "readback.json")));
+        Assert.Equal("pending", journal.RootElement.GetProperty("Status").GetString());
+    }
+
+    [Fact]
+    public async Task PendingWriteStopsWhenReviewMarkerChanges()
+    {
+        var api = new Fake { ThrowBeforeCommit = true };
+        var source = api.Document;
+        var sync = new IntentSynchronizer(api, api, directory);
+        await Assert.ThrowsAsync<PaperlessException>(() => sync.ApplyAsync("marker", source, Intent("New"), 1, default));
+        api.ReviewTagId = 50;
+        var error = await Assert.ThrowsAsync<SyncConflictException>(() => sync.ApplyAsync("marker", source, Intent("New"), 1, default));
+        Assert.Equal("sync_review_tag_changed", error.Code);
+        Assert.Equal(1, api.Writes);
+    }
+
+    [Theory]
+    [InlineData("../outside")]
+    [InlineData("job/name")]
+    [InlineData("")]
+    public async Task JobIdentityCannotEscapeJournalDirectory(string id)
+    {
+        var api = new Fake();
+        await Assert.ThrowsAsync<ArgumentException>(() => new IntentSynchronizer(api, api, directory)
+            .ApplyAsync(id, api.Document, Intent("New"), 1, default));
+        Assert.Equal(0, api.Writes);
+        Assert.False(Directory.Exists(directory));
+    }
+
     private sealed class Fake : IPaperlessClient, IPaperlessWriter
     {
         public PaperlessDocument Document = new(1, "Old title", "Original content", "2026-01-01", "2026-01-02", null, null,
@@ -141,16 +207,19 @@ public sealed class SyncTests : IDisposable
         public int Writes;
         public bool ThrowAfterCommit;
         public bool ThrowBeforeCommit;
+        public bool IgnoreWrite;
+        public int ReviewTagId = 2;
         public string ExtraTag = "receipt";
         public IReadOnlyDictionary<string, object?>? LastPatch;
         public Task<PaperlessDocument> GetDocumentAsync(int id, CancellationToken ct = default) => Task.FromResult(Document);
         public Task<PaperlessTaxonomy> GetTaxonomyAsync(CancellationToken ct = default) => Task.FromResult(new PaperlessTaxonomy(
-            [new(2, "needs review"), new(27, "receipt to log"), new(30, "hsa unreimbursed"), new(40, ExtraTag)], [new(1, "Merchant")], [new(1, "Receipt")]));
+            [new(ReviewTagId, "needs review"), new(27, "receipt to log"), new(30, "hsa unreimbursed"), new(40, ExtraTag)], [new(1, "Merchant")], [new(1, "Receipt")]));
         public Task PatchAsync(int id, IReadOnlyDictionary<string, object?> fields, CancellationToken ct)
         {
             Writes++;
             LastPatch = fields;
             if (ThrowBeforeCommit) throw new PaperlessException("Simulated uncommitted write");
+            if (IgnoreWrite) return Task.CompletedTask;
             var json = JsonSerializer.SerializeToElement(fields);
             Document = Document with
             {

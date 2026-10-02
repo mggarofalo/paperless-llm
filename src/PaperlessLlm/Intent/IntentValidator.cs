@@ -24,63 +24,84 @@ public static class IntentValidator
             var tags = Index(taxonomy.Tags);
             var correspondents = Index(taxonomy.Correspondents);
             var types = Index(taxonomy.DocumentTypes);
-            foreach (var key in new[] { "title", "date", "correspondent", "document_type" })
-            {
-                var field = root.GetProperty(key);
-                Fields(field, "action", "value", "evidence");
-                var set = Set(field);
-                var evidence = TextArray(field.GetProperty("evidence"));
-                var value = field.GetProperty("value");
-                if (!set) { if (value.ValueKind != JsonValueKind.Null) Fail("keep_requires_null"); continue; }
-                if (evidence == 0) Fail("field_evidence_required");
-                if (key is "title" or "date")
-                {
-                    var text = Text(value, key == "title" ? 128 : 10);
-                    if (key == "date" && !DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _))
-                        Fail("invalid_date");
-                }
-                else if (!TryId(value, out var id) || !(key == "correspondent" ? correspondents : types).ContainsKey(id))
-                    Fail("unknown_taxonomy_id");
-            }
-            var additions = root.GetProperty("add_tags");
-            Array(additions, 100);
-            HashSet<int> seen = [];
-            foreach (var tag in additions.EnumerateArray())
-            {
-                Fields(tag, "id", "evidence");
-                if (!TryId(tag.GetProperty("id"), out var id) || !tags.ContainsKey(id)) Fail("unknown_tag");
-                if (ProposalValidator.IsProtected(tags[id])) Fail("protected_tag");
-                if (!seen.Add(id) || document.Tags.Contains(id)) Fail("duplicate_tag_addition");
-                if (TextArray(tag.GetProperty("evidence")) == 0) Fail("field_evidence_required");
-            }
-            var ocr = root.GetProperty("ocr");
-            Fields(ocr, "action", "pages", "evidence");
-            var replace = Set(ocr);
-            var pages = ocr.GetProperty("pages");
-            Array(pages, IntentPrompt.MaxPages);
-            var ocrEvidence = TextArray(ocr.GetProperty("evidence"));
-            if (!replace && pages.GetArrayLength() != 0) Fail("keep_ocr_requires_empty_pages");
-            if (replace)
-            {
-                if (pageCount == 0 || pages.GetArrayLength() != pageCount) Fail("incomplete_ocr_pages");
-                if (ocrEvidence == 0) Fail("field_evidence_required");
-                var number = 0;
-                var hasText = false;
-                foreach (var page in pages.EnumerateArray())
-                {
-                    Fields(page, "page", "text", "complete", "uncertainty");
-                    if (!TryId(page.GetProperty("page"), out var index) || index != ++number) Fail("invalid_ocr_page_order");
-                    if (page.GetProperty("complete").ValueKind != JsonValueKind.True || TextArray(page.GetProperty("uncertainty")) != 0)
-                        Fail("incomplete_ocr_page");
-                    var text = page.GetProperty("text");
-                    if (text.ValueKind != JsonValueKind.String || text.GetString()!.Length > 500000) Fail("invalid_ocr_text");
-                    hasText |= !string.IsNullOrWhiteSpace(text.GetString());
-                }
-                if (!hasText) Fail("blank_ocr_replacement");
-            }
+            ValidateFields(root, correspondents, types);
+            ValidateTags(root.GetProperty("add_tags"), document, tags);
+            ValidateOcr(root.GetProperty("ocr"), pageCount);
             TextArray(root.GetProperty("uncertainty"));
             return root.Clone();
         }
+    }
+
+    private static void ValidateFields(JsonElement root, Dictionary<int, NamedEntity> correspondents, Dictionary<int, NamedEntity> types)
+    {
+        foreach (var key in new[] { "title", "date", "correspondent", "document_type" })
+            ValidateField(key, root.GetProperty(key), correspondents, types);
+    }
+
+    private static void ValidateField(string key, JsonElement fieldValue, Dictionary<int, NamedEntity> correspondents, Dictionary<int, NamedEntity> types)
+    {
+        var field = fieldValue;
+        Fields(field, "action", "value", "evidence");
+        var set = Set(field);
+        var evidence = TextArray(field.GetProperty("evidence"));
+        var value = field.GetProperty("value");
+        if (!set) { if (value.ValueKind != JsonValueKind.Null) Fail("keep_requires_null"); return; }
+        if (evidence == 0) Fail("field_evidence_required");
+        if (key is "title" or "date")
+        {
+            var text = Text(value, key == "title" ? 128 : 10);
+            if (InvalidDate(key, text))
+                Fail("invalid_date");
+        }
+        else if (!TryId(value, out var id) || !(key == "correspondent" ? correspondents : types).ContainsKey(id))
+            Fail("unknown_taxonomy_id");
+    }
+
+    private static bool InvalidDate(string key, string text) => key == "date" &&
+        !DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+
+    private static void ValidateTags(JsonElement additions, PaperlessDocument document, Dictionary<int, NamedEntity> tags)
+    {
+        Array(additions, 100);
+        HashSet<int> seen = [];
+        foreach (var tag in additions.EnumerateArray())
+        {
+            Fields(tag, "id", "evidence");
+            if (!TryId(tag.GetProperty("id"), out var id) || !tags.ContainsKey(id)) Fail("unknown_tag");
+            if (ProtectedTags.IsProtected(tags[id])) Fail("protected_tag");
+            if (!seen.Add(id) || document.Tags.Contains(id)) Fail("duplicate_tag_addition");
+            if (TextArray(tag.GetProperty("evidence")) == 0) Fail("field_evidence_required");
+        }
+    }
+
+    private static void ValidateOcr(JsonElement ocr, int pageCount)
+    {
+        Fields(ocr, "action", "pages", "evidence");
+        var replace = Set(ocr);
+        var pages = ocr.GetProperty("pages");
+        Array(pages, IntentPrompt.MaxPages);
+        var ocrEvidence = TextArray(ocr.GetProperty("evidence"));
+        if (!replace && pages.GetArrayLength() != 0) Fail("keep_ocr_requires_empty_pages");
+        if (replace)
+        {
+            if (pageCount == 0 || pages.GetArrayLength() != pageCount) Fail("incomplete_ocr_pages");
+            if (ocrEvidence == 0) Fail("field_evidence_required");
+            var number = 0;
+            var hasText = false;
+            foreach (var page in pages.EnumerateArray()) hasText |= ValidateOcrPage(page, ++number);
+            if (!hasText) Fail("blank_ocr_replacement");
+        }
+    }
+
+    private static bool ValidateOcrPage(JsonElement page, int number)
+    {
+        Fields(page, "page", "text", "complete", "uncertainty");
+        if (!TryId(page.GetProperty("page"), out var index) || index != number) Fail("invalid_ocr_page_order");
+        if (page.GetProperty("complete").ValueKind != JsonValueKind.True || TextArray(page.GetProperty("uncertainty")) != 0)
+            Fail("incomplete_ocr_page");
+        var text = page.GetProperty("text");
+        if (text.ValueKind != JsonValueKind.String || text.GetString()!.Length > 500000) Fail("invalid_ocr_text");
+        return !string.IsNullOrWhiteSpace(text.GetString());
     }
 
     private static void Fields(JsonElement value, params string[] expected)

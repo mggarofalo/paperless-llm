@@ -6,7 +6,7 @@ using PaperlessLlm.Review;
 
 namespace PaperlessLlm.Eval;
 
-public sealed record RegionReference(string Name, string Text, int? Page = null);
+public sealed record RegionReference(string Name, string Text, int? Page = null) { }
 public sealed record RichReference
 {
     public List<RegionReference> Regions { get; init; } = [];
@@ -31,7 +31,7 @@ public sealed record RichTextScore(double RegionAccuracy, int Regions,
 }
 
 public sealed record RichCaseScore(string CaseId, bool Valid, string? Failure, bool OcrReplaced,
-    RichTextScore Original, RichTextScore Result, double Improvement, int NewOmissions);
+    RichTextScore Original, RichTextScore Result, double Improvement, int NewOmissions) { }
 
 /// <summary>Deterministic partial-reference metrics; not proof of full-page transcription.</summary>
 public static class RegionScorer

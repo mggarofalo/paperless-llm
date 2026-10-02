@@ -5,7 +5,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-stable
   cancel-in-progress: false
 jobs:
   validate:
@@ -43,7 +43,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[].tag_name' > existing-release-tags.txt
+          if grep -Fxq "$GITHUB_REF_NAME" existing-release-tags.txt; then
             echo 'Release already exists. Inspect it; do not overwrite published versions.' >&2
             exit 1
           fi
@@ -57,8 +59,16 @@ jobs:
       - name: Refuse replacement of a published image tag
         shell: bash
         run: |
-          if docker buildx imagetools inspect "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" >/dev/null 2>&1; then
+          image="ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME"
+          if docker buildx imagetools inspect "$image" > existing-image.txt 2> inspect-error.txt; then
             echo 'Image tag already exists. Inspect partial publication; never retarget it.' >&2
+            exit 1
+          fi
+          # Only the explicit missing-manifest response permits publication.
+          # Network/authentication/unknown CLI errors are not evidence of absence.
+          if [ "$(cat inspect-error.txt)" != "ERROR: $image: not found" ]; then
+            cat inspect-error.txt >&2
+            echo 'Could not establish image-tag absence; refusing publication.' >&2
             exit 1
           fi
       - name: Build and push both architectures
@@ -91,6 +101,27 @@ jobs:
           sha256sum release/compose.yaml release/env.example release/organization.txt release/image-digest.txt | sed 's|release/||' > release/SHA256SUMS
           printf 'Docker image: `%s`\n\nPinned digest: `%s`\n\nSee the [quick start](https://github.com/mggarofalo/paperless-llm/tree/%s#quick-start) and [authentication guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/authentication.md).\n\nAutomatic validated updates with a needs review marker. Device-code ChatGPT login; no callback ports. Live authorization renewal and document accuracy require deployment acceptance.\n' "ghcr.io/mggarofalo/paperless-llm:$GITHUB_REF_NAME" "$image" "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" > release/notes.md
           printf '\nThis release defaults to Sol 6 low with existing Paperless OCR and exact taxonomy-name resolution. OCR is kept unchanged. Mount the included organization.txt to edit policy without rebuilding or restarting; see the [prompt and upgrade guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/prompts.md). Existing .env files must explicitly change PPLLM_MODEL to gpt-6-sol.\n' "$GITHUB_REF_NAME" >> release/notes.md
-          gh release create "$GITHUB_REF_NAME" release/compose.yaml release/env.example release/organization.txt release/image-digest.txt release/SHA256SUMS --verify-tag --title "$GITHUB_REF_NAME" --notes-file release/notes.md
+          printf '\nMutable latest and stable channels advance to the verified release digest. See the [upgrade guide](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/releases.md) and [quality report](https://github.com/mggarofalo/paperless-llm/blob/%s/docs/quality.md).\n' "$GITHUB_REF_NAME" "$GITHUB_REF_NAME" >> release/notes.md
+          gh release create "$GITHUB_REF_NAME" release/compose.yaml release/env.example release/organization.txt release/image-digest.txt release/SHA256SUMS --verify-tag --generate-notes --latest=false --title "$GITHUB_REF_NAME" --notes-file release/notes.md
           gh release download "$GITHUB_REF_NAME" --dir downloaded
           (cd downloaded && sha256sum --check SHA256SUMS)
+      - name: Promote verified stable release channels
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        shell: bash
+        run: |
+          # Serialized across all stable releases. Compare numerically, not by publication time.
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' > published-tags.txt
+          if [ "$(node scripts/release-policy.mjs "$GITHUB_REF_NAME" < published-tags.txt)" != true ]; then
+            echo 'A newer stable release exists; leaving mutable channels unchanged.'
+            exit 0
+          fi
+          image="ghcr.io/mggarofalo/paperless-llm"
+          docker buildx imagetools create --tag "$image:latest" --tag "$image:stable" "$image@$IMAGE_DIGEST"
+          for channel in latest stable; do
+            actual="$(docker buildx imagetools inspect "$image:$channel" --format '{{json .Manifest}}' | jq -r .digest)"
+            test "$actual" = "$IMAGE_DIGEST"
+          done
+          gh release edit "$GITHUB_REF_NAME" --latest

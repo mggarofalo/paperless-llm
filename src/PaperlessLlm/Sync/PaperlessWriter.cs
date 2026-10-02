@@ -20,7 +20,7 @@ public sealed class PaperlessWriter : IPaperlessWriter, IDisposable
 
     public PaperlessWriter(PaperlessOptions options, HttpMessageHandler? handler = null)
     {
-        using var validation = new PaperlessClient(options);
+        PaperlessClient.ValidateOptions(options);
         this.options = options;
         http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false });
     }
@@ -33,10 +33,7 @@ public sealed class PaperlessWriter : IPaperlessWriter, IDisposable
         deadline.CancelAfter(options.RequestTimeout);
         try
         {
-            if (new FileInfo(options.TokenFile).Length is < 1 or > 4096) throw new PaperlessException("Invalid Paperless token file.");
-            var token = (await File.ReadAllTextAsync(options.TokenFile, deadline.Token)).Trim();
-            if (token.Length == 0 || token.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
-                throw new PaperlessException("Invalid Paperless token file.");
+            var token = await ReadTokenAsync(ct);
             var uri = new Uri(options.BaseUrl.AbsoluteUri.TrimEnd('/') + $"/api/documents/{documentId}/");
             using var request = new HttpRequestMessage(HttpMethod.Patch, uri);
             request.Headers.Authorization = new AuthenticationHeaderValue("Token", token);
@@ -54,6 +51,15 @@ public sealed class PaperlessWriter : IPaperlessWriter, IDisposable
         { throw new PaperlessException("Paperless update timed out; reconcile before retrying.", "paperless_write_unconfirmed"); }
         catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException)
         { throw new PaperlessException("Paperless update could not be confirmed.", "paperless_write_unconfirmed"); }
+    }
+
+    private async Task<string> ReadTokenAsync(CancellationToken ct)
+    {
+        if (new FileInfo(options.TokenFile).Length is < 1 or > 4096) throw new PaperlessException("Invalid Paperless token file.");
+        var token = (await File.ReadAllTextAsync(options.TokenFile, ct)).Trim();
+        if (token.Length == 0 || token.Any(c => char.IsControl(c) || char.IsWhiteSpace(c)))
+            throw new PaperlessException("Invalid Paperless token file.");
+        return token;
     }
 
     public void Dispose() => http.Dispose();

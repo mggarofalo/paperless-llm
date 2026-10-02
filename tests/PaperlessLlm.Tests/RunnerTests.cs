@@ -127,5 +127,54 @@ public sealed class RunnerTests : IDisposable
         Assert.Equal("runner_busy", error.Message);
     }
 
+    [Theory]
+    [InlineData("private-provider-body", "runner_request_failed")]
+    [InlineData("model_access_denied", "runner_model_access_denied")]
+    [InlineData("context_limit", "runner_context_limit")]
+    [InlineData("transport_failed", "runner_transport_failed")]
+    public async Task ProviderErrorsOnlyExposeAllowlistedCodes(string code, string expected)
+    {
+        var runner = Runner($"console.log(JSON.stringify({{type:'error',code:'{code}'}}));process.exitCode=21;");
+        var error = await Assert.ThrowsAsync<InferenceException>(() => runner.StatusAsync());
+        Assert.Equal(expected, error.Message);
+    }
+
+    [Theory]
+    [InlineData("console.log('not json');")]
+    [InlineData("process.stdout.write('{\"type\":\"ready\"}');")]
+    public async Task MalformedOrUnterminatedProtocolIsRejected(string script)
+    {
+        var error = await Assert.ThrowsAsync<InferenceException>(() => Runner(script).StatusAsync());
+        Assert.Equal("runner_protocol_invalid", error.Message);
+    }
+
+    [Theory]
+    [InlineData("https://attacker.example/device", "ABCD")]
+    [InlineData("https://auth.openai.com/codex/device", "bad code")]
+    public async Task DeviceCodeCannotRedirectUserToUntrustedUrl(string url, string code)
+    {
+        var runner = Runner($"console.log(JSON.stringify({{type:'device_code',url:'{url}',code:'{code}'}}));");
+        var displayed = false;
+        var error = await Assert.ThrowsAsync<AuthException>(() => runner.LoginAsync(_ => displayed = true));
+        Assert.Equal("runner_device_code_invalid", error.Message);
+        Assert.False(displayed);
+    }
+
+    [Fact]
+    public async Task MissingResultIsNotAcceptedAsInferenceSuccess()
+    {
+        var error = await Assert.ThrowsAsync<InferenceException>(() => Runner("console.log('{\"type\":\"ready\"}');")
+            .RunAsync("model", "policy", "text", [], Schema));
+        Assert.Equal("runner_missing_result", error.Message);
+    }
+
+    [Fact]
+    public async Task NonImageDataUrlsNeverReachChild()
+    {
+        var error = await Assert.ThrowsAsync<InferenceException>(() => Runner("throw Error('must not run')")
+            .RunAsync("model", "policy", "text", ["file:///secret"], Schema));
+        Assert.Equal("runner_image_invalid", error.Message);
+    }
+
     public void Dispose() { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
 }

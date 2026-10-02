@@ -1,12 +1,13 @@
 namespace PaperlessLlm.Paperless;
 
-public sealed record NamedEntity(int Id, string Name, bool IsInboxTag = false);
-public sealed record PaperlessTaxonomy(IReadOnlyList<NamedEntity> Tags, IReadOnlyList<NamedEntity> Correspondents, IReadOnlyList<NamedEntity> DocumentTypes);
+public sealed record NamedEntity(int Id, string Name, bool IsInboxTag = false) { }
+public sealed record PaperlessTaxonomy(IReadOnlyList<NamedEntity> Tags, IReadOnlyList<NamedEntity> Correspondents, IReadOnlyList<NamedEntity> DocumentTypes) { }
 public sealed record PaperlessDocument(int Id, string Title, string Content, string? Created, string? Modified,
     int? CorrespondentId, int? DocumentTypeId, IReadOnlyList<int> Tags, string? MimeType,
-    string? OriginalFileName, string RevisionHash);
-public sealed record OriginalDocument(string Path, string MediaType, string Sha256, long Bytes);
-public sealed record RenderedPage(string Path, string MediaType, string Sha256, int PageNumber);
+    string? OriginalFileName, string RevisionHash)
+{ }
+public sealed record OriginalDocument(string Path, string MediaType, string Sha256, long Bytes) { }
+public sealed record RenderedPage(string Path, string MediaType, string Sha256, int PageNumber) { }
 
 public interface IPaperlessClient
 {
