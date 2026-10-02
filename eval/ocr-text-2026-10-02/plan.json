@@ -1,0 +1,20 @@
+{
+  "createdAt": "2026-10-02T06:27:04.1029662-04:00",
+  "model": "gpt-6-luna",
+  "reasoning": "medium",
+  "calls": 75,
+  "conditions": [
+    "control",
+    "missing",
+    "wrong"
+  ],
+  "images": 0,
+  "ocr": "Existing OCR snapshot only; always keep",
+  "title": "Always keep; neutral scan.pdf in challenge copies",
+  "tagTargets": "Recover existing receipts/insurance/medical/cars/citizenship/taxes tags removed from challenge copies. Current ownership is not proof of text-only inferability; failures audited separately.",
+  "dateCorruption": "Advance correct year by1",
+  "taxonomyCorruption": "First allowed ID different from reference",
+  "evaluation": "Per-field accuracy, incorrect writes, correct repairs, abstentions, tag recovery and extra additions. No combined OCR score. All25 source documents already exposed; no fresh holdout or production acceptance claim.",
+  "noPaperlessWrites": true,
+  "promptTuning": false
+}

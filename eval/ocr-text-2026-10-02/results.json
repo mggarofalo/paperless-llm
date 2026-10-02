@@ -1,0 +1,320 @@
+{
+  "normalization": "For the18 proposals rejected with keep_requires_null, set values of keep fields to null. No actions, set values, tag additions, evidence, or uncertainty changed. This was not installed in the worker. No further inference.",
+  "keepNormalizedDiagnostic": {
+    "model": "gpt-6-luna",
+    "reasoning": "medium",
+    "sourceDocuments": 25,
+    "cases": 75,
+    "valid": 71,
+    "fields": [
+      {
+        "condition": "control",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 22,
+        "initiallyCorrect": 24,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 2
+      },
+      {
+        "condition": "control",
+        "field": "date",
+        "scored": 23,
+        "correct": 19,
+        "initiallyCorrect": 23,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 2,
+        "abstainedOnWrong": 0,
+        "invalid": 2
+      },
+      {
+        "condition": "control",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 21,
+        "initiallyCorrect": 24,
+        "neededRepair": 1,
+        "corrected": 0,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 1,
+        "invalid": 2
+      },
+      {
+        "condition": "missing",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 22,
+        "initiallyCorrect": 0,
+        "neededRepair": 24,
+        "corrected": 22,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 2,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "date",
+        "scored": 23,
+        "correct": 17,
+        "initiallyCorrect": 0,
+        "neededRepair": 23,
+        "corrected": 17,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 4,
+        "invalid": 1
+      },
+      {
+        "condition": "missing",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 21,
+        "initiallyCorrect": 0,
+        "neededRepair": 25,
+        "corrected": 21,
+        "incorrectWrites": 3,
+        "abstainedOnWrong": 0,
+        "invalid": 1
+      },
+      {
+        "condition": "wrong",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 20,
+        "initiallyCorrect": 0,
+        "neededRepair": 24,
+        "corrected": 20,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 3,
+        "invalid": 1
+      },
+      {
+        "condition": "wrong",
+        "field": "date",
+        "scored": 23,
+        "correct": 17,
+        "initiallyCorrect": 0,
+        "neededRepair": 23,
+        "corrected": 17,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 4,
+        "invalid": 1
+      },
+      {
+        "condition": "wrong",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 17,
+        "initiallyCorrect": 0,
+        "neededRepair": 25,
+        "corrected": 17,
+        "incorrectWrites": 3,
+        "abstainedOnWrong": 4,
+        "invalid": 1
+      }
+    ],
+    "tags": [
+      {
+        "condition": "control",
+        "cases": 25,
+        "valid": 23,
+        "expectedTags": 0.0,
+        "recoveredTags": 0.0,
+        "proposedTags": 17.0,
+        "unexpectedTags": 17.0,
+        "exactCases": 11,
+        "ocrKept": 25,
+        "titleKept": 25
+      },
+      {
+        "condition": "missing",
+        "cases": 25,
+        "valid": 24,
+        "expectedTags": 20.0,
+        "recoveredTags": 19.0,
+        "proposedTags": 35.0,
+        "unexpectedTags": 16.0,
+        "exactCases": 10,
+        "ocrKept": 25,
+        "titleKept": 25
+      },
+      {
+        "condition": "wrong",
+        "cases": 25,
+        "valid": 24,
+        "expectedTags": 20.0,
+        "recoveredTags": 19.0,
+        "proposedTags": 32.0,
+        "unexpectedTags": 13.0,
+        "exactCases": 14,
+        "ocrKept": 25,
+        "titleKept": 25
+      }
+    ],
+    "note": "All source documents previously exposed. Removed-tag recovery targets existing subject labels, not exhaustive source-verified tag truth. Incorrect writes are disagreements with frozen targets; inspect factual vs interpretive errors separately."
+  },
+  "raw": {
+    "model": "gpt-6-luna",
+    "reasoning": "medium",
+    "sourceDocuments": 25,
+    "cases": 75,
+    "valid": 55,
+    "fields": [
+      {
+        "condition": "control",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 17,
+        "initiallyCorrect": 24,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 7
+      },
+      {
+        "condition": "control",
+        "field": "date",
+        "scored": 23,
+        "correct": 15,
+        "initiallyCorrect": 23,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 0,
+        "invalid": 7
+      },
+      {
+        "condition": "control",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 16,
+        "initiallyCorrect": 24,
+        "neededRepair": 1,
+        "corrected": 0,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 1,
+        "invalid": 7
+      },
+      {
+        "condition": "missing",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 19,
+        "initiallyCorrect": 0,
+        "neededRepair": 24,
+        "corrected": 19,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 5
+      },
+      {
+        "condition": "missing",
+        "field": "date",
+        "scored": 23,
+        "correct": 16,
+        "initiallyCorrect": 0,
+        "neededRepair": 23,
+        "corrected": 16,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 2,
+        "invalid": 5
+      },
+      {
+        "condition": "missing",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 18,
+        "initiallyCorrect": 0,
+        "neededRepair": 25,
+        "corrected": 18,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 0,
+        "invalid": 6
+      },
+      {
+        "condition": "wrong",
+        "field": "correspondent",
+        "scored": 24,
+        "correct": 17,
+        "initiallyCorrect": 0,
+        "neededRepair": 24,
+        "corrected": 17,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 1,
+        "invalid": 6
+      },
+      {
+        "condition": "wrong",
+        "field": "date",
+        "scored": 23,
+        "correct": 14,
+        "initiallyCorrect": 0,
+        "neededRepair": 23,
+        "corrected": 14,
+        "incorrectWrites": 1,
+        "abstainedOnWrong": 1,
+        "invalid": 7
+      },
+      {
+        "condition": "wrong",
+        "field": "document_type",
+        "scored": 25,
+        "correct": 15,
+        "initiallyCorrect": 0,
+        "neededRepair": 25,
+        "corrected": 15,
+        "incorrectWrites": 2,
+        "abstainedOnWrong": 1,
+        "invalid": 7
+      }
+    ],
+    "tags": [
+      {
+        "condition": "control",
+        "cases": 25,
+        "valid": 18,
+        "expectedTags": 0.0,
+        "recoveredTags": 0.0,
+        "proposedTags": 17.0,
+        "unexpectedTags": 17.0,
+        "exactCases": 9,
+        "ocrKept": 25,
+        "titleKept": 25
+      },
+      {
+        "condition": "missing",
+        "cases": 25,
+        "valid": 19,
+        "expectedTags": 20.0,
+        "recoveredTags": 18.0,
+        "proposedTags": 35.0,
+        "unexpectedTags": 16.0,
+        "exactCases": 8,
+        "ocrKept": 25,
+        "titleKept": 25
+      },
+      {
+        "condition": "wrong",
+        "cases": 25,
+        "valid": 18,
+        "expectedTags": 20.0,
+        "recoveredTags": 16.0,
+        "proposedTags": 32.0,
+        "unexpectedTags": 13.0,
+        "exactCases": 10,
+        "ocrKept": 25,
+        "titleKept": 25
+      }
+    ],
+    "usage": {
+      "inputTokens": 1026831.0,
+      "recordedStages": 75,
+      "outputTokens": 15931.0
+    },
+    "note": "All source documents previously exposed. Removed-tag recovery targets existing subject labels, not exhaustive source-verified tag truth. Incorrect writes are disagreements with frozen targets; inspect factual vs interpretive errors separately."
+  }
+}

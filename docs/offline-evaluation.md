@@ -121,3 +121,5 @@ Fact matching is a lightweight substring check. It does not establish full trans
 The [first tuning report](evaluations/2026-10-01-pilot.md) records a 16/4 real-document pilot and its limitations. Its [selected experimental prompt](../eval/prompts/preserve-context-v1.txt) is available for further offline evaluation. It is **not** the worker's default prompt and has not passed production OCR acceptance.
 
 The [100-configuration context search](evaluations/2026-10-01-context-search.md) compares prompting, image views and multi-stage transcription. Its [recipe bundle](../eval/context-search-2026-10-01/README.md) contains reproducible configurations and aggregate results; it does not change production defaults.
+
+The [existing-OCR organization experiment](evaluations/2026-10-02-ocr-text.md) tests a single Luna call on unchanged, missing, and incorrect metadata, including positive tag-recovery cases. It reports raw validator results separately from a deterministic formatting-cleanup diagnostic.
