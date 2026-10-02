@@ -1,0 +1,14 @@
+{
+  "id": "r064",
+  "parent": "r071",
+  "hypothesis": "Give both layout and local evidence to the successful effort mutation.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full-and-regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

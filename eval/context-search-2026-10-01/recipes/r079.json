@@ -1,0 +1,14 @@
+{
+  "id": "r079",
+  "parent": "r071",
+  "hypothesis": "Preserve numeric signs and table coverage while detecting omitted totals/footer blocks.",
+  "promptFile": "../prompts/3ac0dbf460760f56.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,15 @@
+{
+  "id": "r084",
+  "parent": "r006",
+  "hypothesis": "Combine crop-supported page OCR with deterministic page-order assembly, if supported.",
+  "promptFile": "../prompts/a5cec0b3c1721455.txt",
+  "pipeline": "pagewise",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryPromptFile": "../prompts/106b0824b087446d.txt"
+}

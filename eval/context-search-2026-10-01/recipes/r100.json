@@ -1,0 +1,14 @@
+{
+  "id": "r100",
+  "parent": "r061",
+  "hypothesis": "Compact taxonomy and move policy last to reduce irrelevant preceding context.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "shortlist",
+  "contextOrder": "evidence-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r063",
+  "parent": "r071",
+  "hypothesis": "Enlarge local evidence under successful effort/abstention policy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

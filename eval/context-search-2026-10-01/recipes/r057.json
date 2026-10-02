@@ -1,0 +1,15 @@
+{
+  "id": "r057",
+  "parent": "r031",
+  "hypothesis": "Test transcript-only final assembly after isolated page transcription.",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "pagewise",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "high",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": false,
+  "auxiliaryContext": "images-only"
+}

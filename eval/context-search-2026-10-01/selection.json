@@ -1,0 +1,9 @@
+{
+  "candidate": "r087",
+  "recipe": "recipes/r087.json",
+  "frozenAt": "2026-10-01T20:56:22.2508728-04:00",
+  "publicRecipeSha256": "2CC9CF48AFE764FB2CA5784E420A12EEB8221E386640FDC5171B2891522609F9",
+  "runnerCommit": "9cec30da7e55139401ef057a4f161e592b64a68a",
+  "productionAccepted": false,
+  "reason": "Research candidate for metadata comparison. All 22 expanded proposals passed validation and every scored metadata decision was correct; source-image review still found incomplete or inaccurate OCR. Alternatives failed metadata checks, validation, or cost more without reliable acceptance. Selection was frozen before holdout evaluation; no tuning followed."
+}

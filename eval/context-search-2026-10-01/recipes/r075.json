@@ -1,0 +1,14 @@
+{
+  "id": "r075",
+  "parent": "r013",
+  "hypothesis": "Retain successful high-reasoning identifiers and audit other missed blocks.",
+  "promptFile": "../prompts/ee5a97baaadfbbab.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

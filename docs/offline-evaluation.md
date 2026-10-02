@@ -43,7 +43,8 @@ metadata and is forced to keep OCR; the runner composes OCR from the validated
 page records only when every page is complete and uncertainty-free. Otherwise
 the candidate keeps OCR and records the page-level uncertainty. Shortlist mode
 uses deterministic lexical overlap and retains original
-taxonomy IDs. `auxiliaryContext: images-only` withholds metadata, OCR, and
+taxonomy IDs. Per-page region mappings may contain any positive, consistent
+region count across pages; image order and anchors follow the mapping. `auxiliaryContext: images-only` withholds metadata, OCR, and
 taxonomy from OCR, ledger, and pagewise stages while retaining explicit image
 anchors. `draftContext: latest` includes only the latest synthesis from prior
 stages in the final call. Prior-stage drafts are labeled untrusted evidence.
@@ -118,3 +119,5 @@ Use a separately authenticated inference runner to submit each exported `system_
 Fact matching is a lightweight substring check. It does not establish full transcription, character/word error rate, correct table alignment, amount signs, or the absence of unlisted hallucinations. A short number may match inside another number; punctuation and formatting can also produce false negatives. Use scan comparison and stronger reviewed references for acceptance. Cases marked `mustReplace` must be curated against the actual legibility and scope of the OCR policy; an appropriate abstention can still leave a useful repair unfinished.
 
 The [first tuning report](evaluations/2026-10-01-pilot.md) records a 16/4 real-document pilot and its limitations. Its [selected experimental prompt](../eval/prompts/preserve-context-v1.txt) is available for further offline evaluation. It is **not** the worker's default prompt and has not passed production OCR acceptance.
+
+The [100-configuration context search](evaluations/2026-10-01-context-search.md) compares prompting, image views and multi-stage transcription. Its [recipe bundle](../eval/context-search-2026-10-01/README.md) contains reproducible configurations and aggregate results; it does not change production defaults.

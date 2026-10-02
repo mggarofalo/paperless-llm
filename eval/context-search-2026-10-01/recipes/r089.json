@@ -1,0 +1,16 @@
+{
+  "id": "r089",
+  "parent": "r086",
+  "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort. Final metadata prompt adds date-role and type-specificity checks after r086 chose a component effective date.",
+  "promptFile": "../prompts/cebff675d76d0031.txt",
+  "pipeline": "pagewise-compose",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only",
+  "auxiliaryPromptFile": "../prompts/6068de5784c4038f.txt"
+}

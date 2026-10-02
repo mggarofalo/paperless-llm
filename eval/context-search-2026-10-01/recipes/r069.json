@@ -1,0 +1,14 @@
+{
+  "id": "r069",
+  "parent": "r071",
+  "hypothesis": "Combine three successful routes: effort, independent OCR, enlarged regions.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

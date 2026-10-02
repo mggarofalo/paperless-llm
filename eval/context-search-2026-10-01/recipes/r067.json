@@ -1,0 +1,15 @@
+{
+  "id": "r067",
+  "parent": "r071",
+  "hypothesis": "Test whether source critique improves the high-scoring effort mutation.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "refine",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "draftContext": "latest"
+}

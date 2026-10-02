@@ -1,0 +1,14 @@
+{
+  "id": "r039",
+  "parent": "baseline-preserve",
+  "hypothesis": "Broad probe: {\"pipeline\":\"dual\"}",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "dual",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r094",
+  "parent": "r061",
+  "hypothesis": "Compress core instructions while retaining strict policy and successful modules.",
+  "promptFile": "../prompts/8a6404744613bc0b.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

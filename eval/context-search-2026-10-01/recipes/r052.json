@@ -1,0 +1,15 @@
+{
+  "id": "r052",
+  "parent": "r031",
+  "hypothesis": "Isolate per-page transcription from current metadata and taxonomy.",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "pagewise",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "high",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "r080",
+  "parent": "r006",
+  "hypothesis": "Preserve specific curated types while retaining metadata correction strength.",
+  "promptFile": "../prompts/1a986b17850f6f67.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

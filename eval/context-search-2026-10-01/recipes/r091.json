@@ -1,0 +1,14 @@
+{
+  "id": "r091",
+  "parent": "r061",
+  "hypothesis": "Ablate reasoning effort from the leading independent transcription strategy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

@@ -1,0 +1,16 @@
+{
+  "id": "r088",
+  "parent": "r061",
+  "hypothesis": "Isolated structured page transcription and deterministic OCR assembly prevent cross-page copying and final-stage rewriting; compare image context and reasoning effort.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "pagewise-compose",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only",
+  "auxiliaryPromptFile": "../prompts/6068de5784c4038f.txt"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "r056",
+  "parent": "r041",
+  "hypothesis": "Add an isolated OCR stage to the leading independent high-reasoning single pass.",
+  "promptFile": "../prompts/e9ed3c8192a8b014.txt",
+  "pipeline": "ocr-first",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only"
+}

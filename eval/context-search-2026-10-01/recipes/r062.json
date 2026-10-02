@@ -1,0 +1,14 @@
+{
+  "id": "r062",
+  "parent": "r071",
+  "hypothesis": "Resolve named unreadable spans at higher resolution under successful effort policy.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "high",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

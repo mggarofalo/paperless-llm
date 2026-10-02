@@ -1,0 +1,932 @@
+[
+  {
+    "id": "all-keep",
+    "set": "expanded",
+    "score": 50.398,
+    "valid": 22,
+    "cases": 22,
+    "ocr": 0.76621,
+    "repair": 0.0,
+    "preservation": 0.9875,
+    "correction": 0.0,
+    "newOmissions": 0.0,
+    "fullPass": 7,
+    "stageCalls": 0,
+    "outputTokens": 0.0,
+    "inputTokens": 0.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "date.correct": {
+        "passed": 18,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 19,
+        "total": 19
+      },
+      "correspondent.correct": {
+        "passed": 19,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "document_type.correct": {
+        "passed": 19,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.expected_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 8,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 7,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 14,
+        "total": 22
+      }
+    }
+  },
+  {
+    "id": "baseline-production",
+    "set": "expanded",
+    "score": 58.306,
+    "valid": 20,
+    "cases": 22,
+    "ocr": 0.68594,
+    "repair": 0.05474,
+    "preservation": 0.725,
+    "correction": 1.0,
+    "newOmissions": 1.0,
+    "fullPass": 2,
+    "stageCalls": 22,
+    "outputTokens": 5457.0,
+    "inputTokens": 405881.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 20,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 4,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 20,
+        "total": 20
+      },
+      "date.correct": {
+        "passed": 17,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 1,
+        "total": 17
+      },
+      "correspondent.correct": {
+        "passed": 19,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 7,
+        "total": 19
+      },
+      "document_type.correct": {
+        "passed": 20,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 9,
+        "total": 20
+      },
+      "tags.expected_added": {
+        "passed": 20,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 20,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 20,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 20,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 9,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 8,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 13,
+        "total": 22
+      }
+    }
+  },
+  {
+    "id": "baseline-production",
+    "set": "holdout",
+    "score": 49.788,
+    "valid": 5,
+    "cases": 5,
+    "ocr": 0.708,
+    "repair": 0.0,
+    "preservation": 0.7,
+    "correction": 0.0,
+    "newOmissions": 0.0,
+    "fullPass": 0,
+    "stageCalls": 5,
+    "outputTokens": 971.0,
+    "inputTokens": 98330.0,
+    "checks": {
+      "output.present": {
+        "passed": 5,
+        "total": 5
+      },
+      "validator.valid": {
+        "passed": 5,
+        "total": 5
+      },
+      "title.correct": {
+        "passed": 1,
+        "total": 5
+      },
+      "title.no_unnecessary_write": {
+        "passed": 5,
+        "total": 5
+      },
+      "date.correct": {
+        "passed": 4,
+        "total": 5
+      },
+      "date.no_unnecessary_write": {
+        "passed": 1,
+        "total": 5
+      },
+      "correspondent.correct": {
+        "passed": 5,
+        "total": 5
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 1,
+        "total": 5
+      },
+      "document_type.correct": {
+        "passed": 4,
+        "total": 5
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 3,
+        "total": 5
+      },
+      "tags.expected_added": {
+        "passed": 5,
+        "total": 5
+      },
+      "tags.no_unexpected": {
+        "passed": 5,
+        "total": 5
+      },
+      "protected_tags.present_in_input": {
+        "passed": 5,
+        "total": 5
+      },
+      "protected_tags.not_added": {
+        "passed": 5,
+        "total": 5
+      },
+      "ocr.must_replace": {
+        "passed": 1,
+        "total": 5
+      },
+      "ocr.key_facts": {
+        "passed": 3,
+        "total": 5
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 5,
+        "total": 5
+      }
+    },
+    "manualRegressionGate": {
+      "split": "holdout",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 0,
+      "failedSetCases": 0,
+      "safeAbstentions": 0,
+      "invalidCases": 0,
+      "matchedSetChecks": 0,
+      "totalSetChecks": 0
+    }
+  },
+  {
+    "id": "r013",
+    "set": "expanded",
+    "score": 82.633,
+    "valid": 22,
+    "cases": 22,
+    "ocr": 0.8841,
+    "repair": 0.50078,
+    "preservation": 0.9875,
+    "correction": 1.0,
+    "newOmissions": 0.0,
+    "fullPass": 13,
+    "stageCalls": 22,
+    "outputTokens": 23665.0,
+    "inputTokens": 407131.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "date.correct": {
+        "passed": 19,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 10,
+        "total": 19
+      },
+      "correspondent.correct": {
+        "passed": 21,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "document_type.correct": {
+        "passed": 21,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.expected_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 17,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 14,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 17,
+        "total": 22
+      }
+    },
+    "manualRegressionGate": {
+      "split": "train",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 0,
+      "failedSetCases": 2,
+      "safeAbstentions": 2,
+      "invalidCases": 0,
+      "matchedSetChecks": 2,
+      "totalSetChecks": 4
+    }
+  },
+  {
+    "id": "r013",
+    "set": "repeat-screen",
+    "score": 77.47,
+    "valid": 10,
+    "cases": 10,
+    "ocr": 0.78058,
+    "repair": 0.49989,
+    "preservation": 0.9375,
+    "correction": 1.0,
+    "newOmissions": 2.0,
+    "fullPass": 4,
+    "stageCalls": 10,
+    "outputTokens": 9574.0,
+    "inputTokens": 181538.0,
+    "checks": {
+      "output.present": {
+        "passed": 10,
+        "total": 10
+      },
+      "validator.valid": {
+        "passed": 10,
+        "total": 10
+      },
+      "title.correct": {
+        "passed": 10,
+        "total": 10
+      },
+      "title.no_unnecessary_write": {
+        "passed": 10,
+        "total": 10
+      },
+      "date.correct": {
+        "passed": 7,
+        "total": 8
+      },
+      "date.no_unnecessary_write": {
+        "passed": 4,
+        "total": 8
+      },
+      "correspondent.correct": {
+        "passed": 10,
+        "total": 10
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 10,
+        "total": 10
+      },
+      "document_type.correct": {
+        "passed": 9,
+        "total": 10
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 10,
+        "total": 10
+      },
+      "tags.expected_added": {
+        "passed": 10,
+        "total": 10
+      },
+      "tags.no_unexpected": {
+        "passed": 10,
+        "total": 10
+      },
+      "protected_tags.present_in_input": {
+        "passed": 10,
+        "total": 10
+      },
+      "protected_tags.not_added": {
+        "passed": 10,
+        "total": 10
+      },
+      "ocr.must_replace": {
+        "passed": 6,
+        "total": 10
+      },
+      "ocr.key_facts": {
+        "passed": 5,
+        "total": 10
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 7,
+        "total": 10
+      }
+    },
+    "manualRegressionGate": {
+      "split": "train",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 1,
+      "failedSetCases": 1,
+      "safeAbstentions": 2,
+      "invalidCases": 0,
+      "matchedSetChecks": 1,
+      "totalSetChecks": 6
+    }
+  },
+  {
+    "id": "r052",
+    "set": "expanded",
+    "score": 81.407,
+    "valid": 21,
+    "cases": 22,
+    "ocr": 0.86788,
+    "repair": 0.51768,
+    "preservation": 0.9375,
+    "correction": 1.0,
+    "newOmissions": 4.0,
+    "fullPass": 14,
+    "stageCalls": 57,
+    "outputTokens": 28032.0,
+    "inputTokens": 889646.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 21,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 21,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "date.correct": {
+        "passed": 18,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 7,
+        "total": 18
+      },
+      "correspondent.correct": {
+        "passed": 20,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 17,
+        "total": 20
+      },
+      "document_type.correct": {
+        "passed": 20,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "tags.expected_added": {
+        "passed": 21,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 20,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 21,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 21,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 16,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 15,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 17,
+        "total": 22
+      }
+    },
+    "manualRegressionGate": {
+      "split": "train",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 1,
+      "failedSetCases": 2,
+      "safeAbstentions": 1,
+      "invalidCases": 0,
+      "matchedSetChecks": 5,
+      "totalSetChecks": 9
+    }
+  },
+  {
+    "id": "r061",
+    "set": "expanded",
+    "score": 92.035,
+    "valid": 22,
+    "cases": 22,
+    "ocr": 0.92287,
+    "repair": 0.82481,
+    "preservation": 0.975,
+    "correction": 1.0,
+    "newOmissions": 1.0,
+    "fullPass": 17,
+    "stageCalls": 22,
+    "outputTokens": 43786.0,
+    "inputTokens": 391935.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "date.correct": {
+        "passed": 18,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 15,
+        "total": 19
+      },
+      "correspondent.correct": {
+        "passed": 21,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "document_type.correct": {
+        "passed": 21,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.expected_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 21,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 19,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 21,
+        "total": 22
+      }
+    }
+  },
+  {
+    "id": "r087",
+    "set": "expanded",
+    "score": 77.705,
+    "valid": 22,
+    "cases": 22,
+    "ocr": 0.82828,
+    "repair": 0.38294,
+    "preservation": 1.0,
+    "correction": 1.0,
+    "newOmissions": 0.0,
+    "fullPass": 14,
+    "stageCalls": 57,
+    "outputTokens": 60542.0,
+    "inputTokens": 907833.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "date.correct": {
+        "passed": 19,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 17,
+        "total": 19
+      },
+      "correspondent.correct": {
+        "passed": 21,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "document_type.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.expected_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 15,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 14,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 17,
+        "total": 22
+      }
+    },
+    "manualRegressionGate": {
+      "split": "train",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 0,
+      "failedSetCases": 0,
+      "safeAbstentions": 4,
+      "invalidCases": 0,
+      "matchedSetChecks": 0,
+      "totalSetChecks": 0
+    }
+  },
+  {
+    "id": "r087",
+    "set": "holdout",
+    "score": 53.318,
+    "valid": 5,
+    "cases": 5,
+    "ocr": 0.708,
+    "repair": 0.0,
+    "preservation": 0.85,
+    "correction": 0.0,
+    "newOmissions": 0.0,
+    "fullPass": 1,
+    "stageCalls": 16,
+    "outputTokens": 18434.0,
+    "inputTokens": 259968.0,
+    "checks": {
+      "output.present": {
+        "passed": 5,
+        "total": 5
+      },
+      "validator.valid": {
+        "passed": 5,
+        "total": 5
+      },
+      "title.correct": {
+        "passed": 4,
+        "total": 5
+      },
+      "title.no_unnecessary_write": {
+        "passed": 5,
+        "total": 5
+      },
+      "date.correct": {
+        "passed": 4,
+        "total": 5
+      },
+      "date.no_unnecessary_write": {
+        "passed": 5,
+        "total": 5
+      },
+      "correspondent.correct": {
+        "passed": 5,
+        "total": 5
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 4,
+        "total": 5
+      },
+      "document_type.correct": {
+        "passed": 4,
+        "total": 5
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 5,
+        "total": 5
+      },
+      "tags.expected_added": {
+        "passed": 5,
+        "total": 5
+      },
+      "tags.no_unexpected": {
+        "passed": 5,
+        "total": 5
+      },
+      "protected_tags.present_in_input": {
+        "passed": 5,
+        "total": 5
+      },
+      "protected_tags.not_added": {
+        "passed": 5,
+        "total": 5
+      },
+      "ocr.must_replace": {
+        "passed": 1,
+        "total": 5
+      },
+      "ocr.key_facts": {
+        "passed": 3,
+        "total": 5
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 5,
+        "total": 5
+      }
+    },
+    "manualRegressionGate": {
+      "split": "holdout",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 0,
+      "failedSetCases": 0,
+      "safeAbstentions": 0,
+      "invalidCases": 0,
+      "matchedSetChecks": 0,
+      "totalSetChecks": 0
+    }
+  },
+  {
+    "id": "r090",
+    "set": "expanded",
+    "score": 77.299,
+    "valid": 22,
+    "cases": 22,
+    "ocr": 0.81985,
+    "repair": 0.39019,
+    "preservation": 0.9875,
+    "correction": 1.0,
+    "newOmissions": 1.0,
+    "fullPass": 11,
+    "stageCalls": 57,
+    "outputTokens": 75365.0,
+    "inputTokens": 1073307.0,
+    "checks": {
+      "output.present": {
+        "passed": 22,
+        "total": 22
+      },
+      "validator.valid": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.correct": {
+        "passed": 22,
+        "total": 22
+      },
+      "title.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "date.correct": {
+        "passed": 19,
+        "total": 19
+      },
+      "date.no_unnecessary_write": {
+        "passed": 15,
+        "total": 19
+      },
+      "correspondent.correct": {
+        "passed": 21,
+        "total": 21
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 21,
+        "total": 21
+      },
+      "document_type.correct": {
+        "passed": 21,
+        "total": 22
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.expected_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "tags.no_unexpected": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.present_in_input": {
+        "passed": 22,
+        "total": 22
+      },
+      "protected_tags.not_added": {
+        "passed": 22,
+        "total": 22
+      },
+      "ocr.must_replace": {
+        "passed": 14,
+        "total": 22
+      },
+      "ocr.key_facts": {
+        "passed": 12,
+        "total": 22
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 18,
+        "total": 22
+      }
+    },
+    "manualRegressionGate": {
+      "split": "train",
+      "gate": "post-audit-partial-reference",
+      "passedSetCases": 1,
+      "failedSetCases": 0,
+      "safeAbstentions": 3,
+      "invalidCases": 0,
+      "matchedSetChecks": 1,
+      "totalSetChecks": 1
+    }
+  }
+]

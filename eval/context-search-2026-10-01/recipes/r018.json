@@ -1,0 +1,14 @@
+{
+  "id": "r018",
+  "parent": "baseline-preserve",
+  "hypothesis": "Broad probe: {\"promptFile\":\"numbers.txt\"}",
+  "promptFile": "../prompts/599364a1cc5f8dc2.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

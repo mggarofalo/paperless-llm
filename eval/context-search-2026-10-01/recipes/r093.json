@@ -1,0 +1,14 @@
+{
+  "id": "r093",
+  "parent": "r061",
+  "hypothesis": "Remove synthetic examples while retaining successful effort and abstention modules.",
+  "promptFile": "../prompts/ab5e2fc4a0e8f474.txt",
+  "pipeline": "single",
+  "reasoning": "high",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

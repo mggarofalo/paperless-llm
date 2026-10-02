@@ -1,0 +1,14 @@
+{
+  "id": "r059",
+  "parent": "r031",
+  "hypothesis": "Give successful pagewise pipeline explicit table and peripheral coverage duties.",
+  "promptFile": "../prompts/a68f302c19ea9698.txt",
+  "pipeline": "pagewise",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "high",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

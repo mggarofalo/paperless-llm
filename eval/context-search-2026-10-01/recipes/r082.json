@@ -1,0 +1,16 @@
+{
+  "id": "r082",
+  "parent": "r006",
+  "hypothesis": "Supply isolated OCR attention and prevent identifier corruption during final assembly.",
+  "promptFile": "../prompts/a71bcbba4db6f69e.txt",
+  "pipeline": "ocr-first",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only",
+  "auxiliaryPromptFile": "../prompts/11104998201fb931.txt"
+}

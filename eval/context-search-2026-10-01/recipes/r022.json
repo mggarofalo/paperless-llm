@@ -1,0 +1,14 @@
+{
+  "id": "r022",
+  "parent": "baseline-preserve",
+  "hypothesis": "Broad probe: {\"promptFile\":\"concise.txt\"}",
+  "promptFile": "../prompts/22a7ed4c12bf697e.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

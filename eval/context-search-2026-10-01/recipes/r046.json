@@ -1,0 +1,14 @@
+{
+  "id": "r046",
+  "parent": "r006",
+  "hypothesis": "Repair region-mode omissions with digit and coverage audit.",
+  "promptFile": "../prompts/782a4093d090b9de.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

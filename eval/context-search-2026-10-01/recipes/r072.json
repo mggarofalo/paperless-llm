@@ -1,0 +1,14 @@
+{
+  "id": "r072",
+  "parent": "r006",
+  "hypothesis": "Prevent missing-old-OCR context from suppressing full transcription.",
+  "promptFile": "../prompts/ba355933b76dfb5e.txt",
+  "pipeline": "single",
+  "reasoning": "medium",
+  "ocrContext": "none",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "regions",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true
+}

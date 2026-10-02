@@ -1,0 +1,15 @@
+{
+  "id": "r065",
+  "parent": "r071",
+  "hypothesis": "Combine successful effort instructions with isolated draft transcription.",
+  "promptFile": "../prompts/ed4c560ad4489b85.txt",
+  "pipeline": "ocr-first",
+  "reasoning": "high",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "imageVariants": "/private/eval/image-variants.json",
+  "includeFinalImages": true,
+  "auxiliaryContext": "images-only"
+}
