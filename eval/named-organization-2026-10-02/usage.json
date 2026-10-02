@@ -1,0 +1,109 @@
+{
+  "totalCalls": 601.0,
+  "images": 0,
+  "outputTokens": 110931.0,
+  "arms": [
+    {
+      "arm": "luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 75,
+      "inputTokens": 1067115.0,
+      "outputTokens": 13169.0,
+      "meanSeconds": 7.26
+    },
+    {
+      "arm": "sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 75,
+      "inputTokens": 1080510.0,
+      "outputTokens": 14477.0,
+      "meanSeconds": 11.33
+    },
+    {
+      "arm": "sol61",
+      "model": "gpt-6.1-sol",
+      "reasoning": "low",
+      "calls": 75,
+      "inputTokens": 1119724.0,
+      "outputTokens": 15261.0,
+      "meanSeconds": 12.31
+    },
+    {
+      "arm": "concise-luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 75,
+      "inputTokens": 1020735.0,
+      "outputTokens": 12891.0,
+      "meanSeconds": 7.74
+    },
+    {
+      "arm": "concise-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 75,
+      "inputTokens": 1034920.0,
+      "outputTokens": 13404.0,
+      "meanSeconds": 11.3
+    },
+    {
+      "arm": "hybrid-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 75,
+      "inputTokens": 1086838.0,
+      "outputTokens": 14216.0,
+      "meanSeconds": 11.46
+    },
+    {
+      "arm": "selected-repeat",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 75,
+      "inputTokens": 1086606.0,
+      "outputTokens": 14040.0,
+      "meanSeconds": 11.76
+    },
+    {
+      "arm": "fresh-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 30,
+      "inputTokens": 422966.0,
+      "outputTokens": 5663.0,
+      "meanSeconds": 11.35
+    },
+    {
+      "arm": "fresh-luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 30,
+      "inputTokens": 417605.0,
+      "outputTokens": 5216.0,
+      "meanSeconds": 8.01
+    },
+    {
+      "arm": "boundary-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 8,
+      "inputTokens": 106164.0,
+      "outputTokens": 1350.0,
+      "meanSeconds": 10.32
+    },
+    {
+      "arm": "boundary-luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 8,
+      "inputTokens": 104732.0,
+      "outputTokens": 1244.0,
+      "meanSeconds": 7.33
+    }
+  ],
+  "timeouts": 0,
+  "truncatedStages": 0,
+  "inputTokens": 8547915.0
+}

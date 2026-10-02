@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "low",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "boundary-sol6",
+  "ocrContext": "full",
+  "hypothesis": "Synthetic diagnosis of ambiguous issuer, card brands, OCR injection and date roles. Frozen selected prompt; no tuning.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

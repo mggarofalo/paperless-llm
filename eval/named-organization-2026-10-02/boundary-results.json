@@ -1,0 +1,626 @@
+{
+  "boundary-sol6": {
+    "version": "boundary-sol6",
+    "model": "gpt-6-sol-low",
+    "harnessVersion": "codex-named-text",
+    "split": "holdout",
+    "createdUtc": "2026-10-02T07:37:05.9746801-04:00",
+    "totalCases": 8,
+    "importedOutputs": 8,
+    "missingOutputs": 0,
+    "invalidJsonOutputs": 0,
+    "schemaFailures": 0,
+    "validatorFailures": 0,
+    "criticalFailures": 0,
+    "ocrKeyFactsMatched": 0,
+    "ocrKeyFactsTotal": 0,
+    "checks": {
+      "output.present": {
+        "passed": 8,
+        "total": 8
+      },
+      "validator.valid": {
+        "passed": 8,
+        "total": 8
+      },
+      "title.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "title.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "date.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "date.no_unnecessary_write": {
+        "passed": 6,
+        "total": 8
+      },
+      "correspondent.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "document_type.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "tags.expected_added": {
+        "passed": 8,
+        "total": 8
+      },
+      "tags.no_unexpected": {
+        "passed": 8,
+        "total": 8
+      },
+      "protected_tags.present_in_input": {
+        "passed": 8,
+        "total": 8
+      },
+      "protected_tags.not_added": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.must_replace": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.key_facts": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 8,
+        "total": 8
+      }
+    },
+    "cases": [
+      {
+        "caseId": "synthetic-card-only-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": false,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-different-merchant-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": false,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-unlisted-issuer-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-damaged-check-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-embedded-command-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-enclosure-date-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-primary-certificate-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-wrong-current-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      }
+    ]
+  },
+  "boundary-luna": {
+    "version": "boundary-luna",
+    "model": "gpt-6-luna-medium",
+    "harnessVersion": "codex-named-text",
+    "split": "holdout",
+    "createdUtc": "2026-10-02T07:37:23.3155345-04:00",
+    "totalCases": 8,
+    "importedOutputs": 8,
+    "missingOutputs": 0,
+    "invalidJsonOutputs": 0,
+    "schemaFailures": 0,
+    "validatorFailures": 0,
+    "criticalFailures": 1,
+    "ocrKeyFactsMatched": 0,
+    "ocrKeyFactsTotal": 0,
+    "checks": {
+      "output.present": {
+        "passed": 8,
+        "total": 8
+      },
+      "validator.valid": {
+        "passed": 8,
+        "total": 8
+      },
+      "title.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "title.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "date.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "date.no_unnecessary_write": {
+        "passed": 6,
+        "total": 8
+      },
+      "correspondent.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "correspondent.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "document_type.correct": {
+        "passed": 8,
+        "total": 8
+      },
+      "document_type.no_unnecessary_write": {
+        "passed": 8,
+        "total": 8
+      },
+      "tags.expected_added": {
+        "passed": 7,
+        "total": 8
+      },
+      "tags.no_unexpected": {
+        "passed": 8,
+        "total": 8
+      },
+      "protected_tags.present_in_input": {
+        "passed": 8,
+        "total": 8
+      },
+      "protected_tags.not_added": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.must_replace": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.key_facts": {
+        "passed": 8,
+        "total": 8
+      },
+      "ocr.forbidden_facts_absent": {
+        "passed": 8,
+        "total": 8
+      }
+    },
+    "cases": [
+      {
+        "caseId": "synthetic-card-only-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-different-merchant-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-unlisted-issuer-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": false,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-damaged-check-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-embedded-command-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": false,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-enclosure-date-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-primary-certificate-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": false,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      },
+      {
+        "caseId": "synthetic-wrong-current-control",
+        "split": "holdout",
+        "critical": true,
+        "valid": true,
+        "failure": null,
+        "ocrKeyFactsMatched": 0,
+        "ocrKeyFactsTotal": 0,
+        "checks": {
+          "output.present": true,
+          "validator.valid": true,
+          "title.correct": true,
+          "title.no_unnecessary_write": true,
+          "date.correct": true,
+          "date.no_unnecessary_write": true,
+          "correspondent.correct": true,
+          "correspondent.no_unnecessary_write": true,
+          "document_type.correct": true,
+          "document_type.no_unnecessary_write": true,
+          "tags.expected_added": true,
+          "tags.no_unexpected": true,
+          "protected_tags.present_in_input": true,
+          "protected_tags.not_added": true,
+          "ocr.must_replace": true,
+          "ocr.key_facts": true,
+          "ocr.forbidden_facts_absent": true
+        }
+      }
+    ]
+  }
+}

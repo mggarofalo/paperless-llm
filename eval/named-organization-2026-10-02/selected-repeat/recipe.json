@@ -1,0 +1,13 @@
+{
+  "includeFinalImages": false,
+  "promptFile": "prompt.txt",
+  "reasoning": "low",
+  "imageMode": "full",
+  "contextOrder": "instructions-first",
+  "pipeline": "single",
+  "id": "hybrid-sol6",
+  "ocrContext": "full",
+  "hypothesis": "Retain long-policy packet handling; allow explicit event date for a primary completion certificate. Correct stale ID wording. No other policy edits.",
+  "taxonomy": "full",
+  "outputContract": "names"
+}

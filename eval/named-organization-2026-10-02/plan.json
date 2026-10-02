@@ -1,0 +1,29 @@
+{
+  "casesPerArm": 75,
+  "contract": "Same intent actions and evidence with exact taxonomy name strings; strict deterministic name-to-ID conversion followed by unchanged production validator. No output cleanup.",
+  "next": "Audit errors; use findings to freeze a decision/evidence contract or simpler policy before subsequent runs. Do not tune on fresh validation documents.",
+  "calls": 225,
+  "evaluation": "Frozen numeric references retained; inspect absent taxonomy mappings and policy disagreements separately. Rejected name conversion is counted as failure, not omitted.",
+  "policy": "V2 policy with name-binding wording changes only; bundled contract and payload representation change.",
+  "createdAt": "2026-10-02T11:12:29.4137184+00:00",
+  "arms": [
+    {
+      "id": "luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium"
+    },
+    {
+      "id": "sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low"
+    },
+    {
+      "id": "sol61",
+      "model": "gpt-6.1-sol",
+      "reasoning": "low"
+    }
+  ],
+  "sourceDocuments": 25,
+  "freshHoldout": false,
+  "noPaperlessWrites": true
+}
