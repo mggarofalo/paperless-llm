@@ -1,0 +1,22 @@
+{
+  "createdAt": "2026-10-02T10:51:59.2784455+00:00",
+  "model": "gpt-6-luna",
+  "reasoning": "medium",
+  "arms": [
+    "baseline",
+    "contract",
+    "policy",
+    "policy-repeat"
+  ],
+  "casesPerArm": 75,
+  "plannedCalls": 300,
+  "sourceDocuments": 25,
+  "freshHoldout": false,
+  "frozenReferences": true,
+  "images": 0,
+  "productionChanges": false,
+  "normalization": "None: primary results use raw production validator",
+  "selection": "No iterative edits after results. Compare all arms and policy repeat. Report validity, control regressions, challenge recovery, abstentions and extra tag additions separately; no single aggregate winner score.",
+  "policyStatus": "Taxonomy conventions are experimental hypotheses, not confirmed user preferences. Broad household/personal additions disabled, so suppression is policy enforcement rather than inferred precision.",
+  "limitations": "All source documents exposed previously. Same source repeated across conditions and arms. Existing labels are nonexhaustive tag targets. Dates/types can have legitimate focus disagreements. No deployment acceptance claim."
+}

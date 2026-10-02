@@ -123,3 +123,8 @@ The [first tuning report](evaluations/2026-10-01-pilot.md) records a 16/4 real-d
 The [100-configuration context search](evaluations/2026-10-01-context-search.md) compares prompting, image views and multi-stage transcription. Its [recipe bundle](../eval/context-search-2026-10-01/README.md) contains reproducible configurations and aggregate results; it does not change production defaults.
 
 The [existing-OCR organization experiment](evaluations/2026-10-02-ocr-text.md) tests a single Luna call on unchanged, missing, and incorrect metadata, including positive tag-recovery cases. It reports raw validator results separately from a deterministic formatting-cleanup diagnostic.
+
+The [v2 organization experiment](evaluations/2026-10-02-ocr-text-v2.md) compares a
+serialization template and conservative taxonomy/date policy, with an identical
+repeat. It reports gains in validity and tag restraint alongside date abstentions,
+taxonomy-ID mismatches, and remaining unsupported changes.
