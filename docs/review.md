@@ -12,7 +12,7 @@ The model cannot remove tags, clear correspondent/type assignments, create taxon
 
 ## Document notes
 
-New development feature (not in v0.2.0): the default prompt can propose one short
+Starting in v0.3.0: the default prompt can propose one short
 summary of useful facts from existing OCR. Typical content includes repairs and
 warranty terms, significant purchased items, distinct billed/paid/patient amounts,
 contract periods, or a letter's decision and deadline. It describes what the

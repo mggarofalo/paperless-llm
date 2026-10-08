@@ -1,12 +1,15 @@
-# Current development
+# v0.3.0 delivery checklist
 
-- [ ] PPLLM-33: append useful OCR-grounded summary notes with durable POST recovery,
+- [x] PPLLM-33: append useful OCR-grounded summary notes with durable POST recovery,
   human-note preservation, duplicate prevention, documentation, synthetic tests,
-  Linux acceptance and passing PR CI. Not released or deployed.
+  Linux acceptance and passing PR CI. Merged in PR #16; not deployed.
 - [x] PPLLM-33 implementation and local validation: 276 Linux .NET tests, 22
   JavaScript tests, complexity at most 10, coverage gates and Linux container acceptance.
-- [ ] PPLLM-33: merge through PR after passing CI; evaluate real summary quality
-  and service-account Notes permissions before deployment/backfill.
+- [ ] PPLLM-34: publish v0.3.0; verify versioned image, latest/stable channels,
+  anonymous pulls, both architectures and checksummed assets.
+- [x] PPLLM-34: document upgrade and bounded backfill queueing for completed jobs.
+- [ ] Deployment acceptance (PPLLM-8/PPLLM-20): evaluate real summary quality
+  and service-account Notes permissions before live backfill.
 
 # v0.2.0 delivery checklist
 

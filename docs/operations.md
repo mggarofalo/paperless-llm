@@ -58,10 +58,130 @@ Private state contains document metadata, prompts and results. Older versions ma
 
 This initial filesystem implementation is intended for a personal library. It retains at most 10,000 enrolled jobs; reaching that cap pauses processing until capacity is addressed in a later version. Status and polls load full job records, so memory use grows with retained OCR. Do not discard completed-job indexes to reclaim space: they prevent duplicate processing. Capacity errors are exposed through the health pause reason.
 
+## Backfill notes on an existing installation
+
+Run these Bash commands **on the Docker host, in your existing Compose directory**.
+They assume the service is named `worker`, and use `curl`, `sha256sum` and `jq`.
+Preserve your Compose project name, token and auth/state/audit volumes. Back up
+Paperless and the worker volumes before upgrading; do not delete state or use
+`docker compose down -v`.
+
+### Upgrade and check permissions
+
+Stop the worker and set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.3.0`
+in your existing `.env`. In Paperless, grant its dedicated service account
+**Add Notes** and **View Notes**, keeping document View/Change access.
+
+```sh
+docker compose stop worker
+umask 077
+mkdir -p notes-release-0.3.0
+for file in compose.yaml env.example organization.txt image-digest.txt SHA256SUMS; do
+  curl -fL "https://github.com/mggarofalo/paperless-llm/releases/download/v0.3.0/$file" \
+    -o "notes-release-0.3.0/$file" || break
+done
+(cd notes-release-0.3.0 && sha256sum --check SHA256SUMS)
+```
+
+Continue only if every checksum passes. Merge the release Compose asset with
+your installation's overrides; do not replace your `.env` with `env.example`.
+If you use the bundled prompt, pulling the image updates it. If you mount a custom
+prompt, back it up and merge the release `organization.txt`, including its v2
+template and long-term note instructions. An old prompt can still return v1
+metadata-only proposals, producing no notes. Keep the worker stopped while editing.
+
+```sh
+docker compose pull worker
+docker compose run --rm -T worker --version
+docker compose run --rm -T worker check
+docker compose run --rm -T worker probe organization
+docker compose run --rm -T worker status > notes-status.json
+```
+
+Version must be `0.3.0`. `check` does not prove Add Notes permission, and the
+synthetic probe does not measure note accuracy. Resolve any pending/failed old
+writes before the backfill; do not discard their saved intents or journals.
+This command lists non-completed jobs without OCR or document titles:
+
+```sh
+jq '.Jobs[] | select(.State != 3) | {DocumentId, State, ErrorCode, Outcome}' notes-status.json
+```
+
+### Queue a small pilot, then bounded batches
+
+Take one snapshot of already-completed job IDs (`State == 3`) and inspect it:
+
+```sh
+jq -r '.Jobs | map(select(.State == 3)) | sort_by(.DocumentId) | .[].DocumentId' \
+  notes-status.json > notes-remaining.ids
+head -n 10 notes-remaining.ids
+wc -l notes-remaining.ids
+```
+
+You may edit the file to select specific completed documents. These are
+candidates, not a verified list of documents missing notes: existing generated
+summaries will be skipped. Human notes do not prevent adding the first summary.
+Do not regenerate this list between batches, or you will include documents
+already processed by the backfill.
+
+Define this helper in the same shell. It queues at most 50 IDs per invocation and
+removes each successfully queued ID from the remaining list. The worker must
+remain stopped while queueing. If interrupted or a command fails, inspect status
+before continuing; never reprocess an unresolved write merely to get past it.
+
+```sh
+queue_notes_batch() {
+  local count="$1" id i
+  case "$count" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$count" -ge 1 ] && [ "$count" -le 50 ] || return 1
+  for ((i=0; i<count; i++)); do
+    IFS= read -r id < notes-remaining.ids || break
+    case "$id" in ''|*[!0-9]*) echo 'Invalid document ID'; return 1 ;; esac
+    docker compose run --rm -T worker reprocess "$id" || return 1
+    tail -n +2 notes-remaining.ids > notes-remaining.ids.next || return 1
+    mv notes-remaining.ids.next notes-remaining.ids || return 1
+  done
+}
+
+queue_notes_batch 3
+docker compose run --rm -T -e PPLLM_DRY_RUN=false -e PPLLM_BATCH_SIZE=3 worker once
+docker compose run --rm -T worker status
+```
+
+`once` discovers new documents too, and selects eligible queued jobs; its batch
+size is not a filter for just the three IDs. Verify the intended jobs completed,
+then inspect their Notes and `needs review` entries in Paperless. Check amounts,
+dates, warranty qualifications and factual wording against the document. A
+`no_change` or skipped note can be a valid result. Reprocessing runs the normal
+organizer and **can also change metadata**; v0.3.0 has no notes-only command.
+
+When satisfied, queue up to 50 more and resume the normal worker. Ensure `.env`
+has `PPLLM_DRY_RUN=false` for the background service; the one-off override above
+does not persist. The default is five jobs per cycle, one cycle on startup and
+then hourly. Leave those bounds unchanged initially and inspect results before
+queueing another batch.
+
+```sh
+queue_notes_batch 50
+docker compose up -d worker
+docker compose logs -f worker
+# Later, before queueing the next batch:
+docker compose stop worker
+docker compose run --rm -T worker status
+# After reviewing the prior batch, repeat queue_notes_batch 50 and up -d.
+```
+
+`retry ID` reuses an old proposal and will not add notes to a saved v1 proposal;
+`reprocess ID` requests fresh inference. Changing `PPLLM_BACKFILL_LIMIT` after
+initialization does not enroll history. IDs absent from `status` are not enrolled
+and cannot be queued with `reprocess` in v0.3.0; arbitrary historical enrollment
+remains PPLLM-32. Do not reset the state volume to work around this limitation.
+For a failed note POST, follow [note recovery](review.md#document-notes).
+
 ## Upgrade from v0.1.0
 
 v0.1.0 generated read-only proposals. This release applies validated updates automatically. Stop the old worker and back up its volumes first. Update Compose and `.env`; the new `organizer-state` volume preserves the old state volume for reference. Legacy checkpoint files are rejected instead of silently reused.
 
 Grant the dedicated Paperless account document-change permission and complete device login into the new Pi auth subdirectory. Run `check`, `probe`, and a bounded initial batch before leaving the worker unattended. Existing history is excluded by default. Keep old proposal evidence as long as you need it. Do not run `docker compose down -v` during an upgrade: it deletes deployment volumes.
 
-For v0.2.0, see [upgrade and image channels](releases.md) and [editable prompts](prompts.md).
+For v0.3.0, see [upgrade and image channels](releases.md) and [editable prompts](prompts.md).
