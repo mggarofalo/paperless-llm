@@ -5,11 +5,20 @@
   Linux acceptance and passing PR CI. Merged in PR #16; not deployed.
 - [x] PPLLM-33 implementation and local validation: 276 Linux .NET tests, 22
   JavaScript tests, complexity at most 10, coverage gates and Linux container acceptance.
-- [ ] PPLLM-34: publish v0.3.0; verify versioned image, latest/stable channels,
+- [x] PPLLM-34: publish v0.3.0; verify versioned image, latest/stable channels,
   anonymous pulls, both architectures and checksummed assets.
 - [x] PPLLM-34: document upgrade and bounded backfill queueing for completed jobs.
 - [ ] Deployment acceptance (PPLLM-8/PPLLM-20): evaluate real summary quality
   and service-account Notes permissions before live backfill.
+
+Delivery verified on 2026-10-08: [v0.3.0 release](https://github.com/mggarofalo/paperless-llm/releases/tag/v0.3.0),
+[release workflow](https://github.com/mggarofalo/paperless-llm/actions/runs/37766606199).
+Version, `latest` and `stable` share image index
+`sha256:408fcbf70a9631ed07ac6075471843aa21fc2e324c8fabafc1c7c8578c728376`.
+Anonymous digest/version/channel pulls, amd64/arm64 manifests, executable version,
+release-file checksums and released Compose configuration were verified.
+The local installation was not upgraded and no production backfill was queued.
+Follow [the existing-installation backfill guide](docs/operations.md#backfill-notes-on-an-existing-installation).
 
 # v0.2.0 delivery checklist
 
