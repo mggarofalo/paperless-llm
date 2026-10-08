@@ -4,7 +4,7 @@
 
 | Image reference | Meaning |
 | --- | --- |
-| `ghcr.io/mggarofalo/paperless-llm:v0.2.0` | Immutable release tag; default in the matching Compose asset |
+| `ghcr.io/mggarofalo/paperless-llm:v0.3.0` | Immutable release tag; default in the matching Compose asset |
 | `ghcr.io/mggarofalo/paperless-llm@sha256:…` | Exact immutable image index; digest is included in release assets |
 | `ghcr.io/mggarofalo/paperless-llm:stable` | Highest successfully published stable semantic version |
 | `ghcr.io/mggarofalo/paperless-llm:latest` | Same stable channel; not a nightly or development build |
@@ -21,7 +21,32 @@ set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:stable` in `.env`. This settin
 is consumed by Compose, not the worker. Pulling a tag does not update a running
 container until Compose recreates it.
 
-## Upgrade to 0.2.0
+## Upgrade to 0.3.0
+
+This minor release adds optional OCR-grounded document summary notes. It adds a
+version-2 prompt contract and journal fields while preserving saved version-1
+metadata jobs. Existing human notes are preserved, generated summaries are not
+duplicated, and ambiguous note POSTs require reconciliation rather than blind replay.
+See [note recovery](review.md#document-notes).
+
+Keep the same Compose project and auth, organizer-state and audit volumes. Pin
+`PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.3.0` in `.env` if it overrides
+Compose. Grant the dedicated account Add Notes and View Notes, retaining document
+View/Change permissions. Update any mounted prompt from the release's
+`organization.txt`; the bundled prompt updates with the image. Merge custom policy
+carefully so it uses schema version 2 and the new note instructions.
+
+Stop the worker, pull the image, run `check` and `probe organization`, then inspect
+a small batch before resuming. Neither the upgrade nor a changed backfill limit
+reprocesses completed documents. Follow the [existing-installation notes backfill
+procedure](operations.md#backfill-notes-on-an-existing-installation) to queue them.
+Reprocessing can also update metadata; there is no dedicated notes-only CLI mode.
+
+The remaining quality limitation is model interpretation: literal OCR quotations
+are checked, but summary factual accuracy needs review on representative documents.
+No authentication or volume migration is required from v0.2.0.
+
+## Upgrade to 0.2.0 (historical)
 
 Keep your project name and auth, organizer-state and audit volumes. Download the
 new Compose asset, preserve your actual Paperless URL, token file and model setting,

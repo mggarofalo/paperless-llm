@@ -8,6 +8,7 @@ the task you need to perform; the reference pages describe the current release.
 | Install and sign in with ChatGPT | [README](../README.md), then [authentication](authentication.md) |
 | Set Paperless permissions | [Authentication](authentication.md) |
 | Configure schedule, backlog, dry-run and storage | [Operations](operations.md) |
+| Backfill notes for completed documents | [Existing-installation procedure](operations.md#backfill-notes-on-an-existing-installation) |
 | Edit organization instructions without rebuilding | [Prompts](prompts.md) |
 | Inspect changes, no-change results and failures | [Review](review.md), [operations](operations.md#observe-and-recover) |
 | Improve the OCR supplied by Paperless | [OCR research and tuning](ocr.md) |
