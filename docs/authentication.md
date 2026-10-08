@@ -19,6 +19,14 @@ sudo chmod 600 secrets/paperless_token.txt
 
 Set `PPLLM_PAPERLESS_URL` in `.env`, using your instance's HTTPS URL. The token is never sent to the model process.
 
+For the new document-notes feature, also grant **Add Notes** and **View Notes**
+global permissions. Keep document View/Change object permissions. Note deletion
+and editing are not required. Paperless enforces `documents.add_note` on the
+[Notes POST endpoint](https://github.com/paperless-ngx/paperless-ngx/blob/v2.20.13/src/documents/permissions.py).
+`check` is read-only and does not prove note creation permission. A denied note
+write can leave the metadata/review marker applied; inspect the private journal
+and use the [note recovery procedure](review.md#document-notes) after fixing permissions.
+
 ## Sign In With ChatGPT: device-code login
 
 Run on the machine hosting Docker:

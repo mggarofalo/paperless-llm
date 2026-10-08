@@ -3,12 +3,14 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using PaperlessLlm.Paperless;
+using PaperlessLlm.Intent;
 
 namespace PaperlessLlm.Sync;
 
 public interface IPaperlessWriter
 {
     Task PatchAsync(int documentId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct);
+    Task AddNoteAsync(int documentId, string note, CancellationToken ct) => throw new NotSupportedException("Notes are not supported by this writer.");
 }
 
 /// <summary>Narrow mutation boundary; no model-provided paths, methods or field names.</summary>
@@ -25,17 +27,31 @@ public sealed class PaperlessWriter : IPaperlessWriter, IDisposable
         http = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false });
     }
 
-    public async Task PatchAsync(int documentId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct)
+    public Task PatchAsync(int documentId, IReadOnlyDictionary<string, object?> fields, CancellationToken ct)
     {
         if (documentId <= 0 || fields.Count == 0 || fields.Keys.Any(f => !Fields.Contains(f)))
             throw new ArgumentException("Invalid managed document patch.");
+        return SendAsync(documentId, "", HttpMethod.Patch, fields, ct);
+    }
+
+    public Task AddNoteAsync(int documentId, string note, CancellationToken ct)
+    {
+        if (documentId <= 0 || !note.StartsWith(DocumentNotes.Label + "\n", StringComparison.Ordinal) ||
+            note.Length > DocumentNotes.Label.Length + 1 + DocumentNotes.MaxCharacters ||
+            string.IsNullOrWhiteSpace(note[(DocumentNotes.Label.Length + 1)..]))
+            throw new ArgumentException("Invalid generated note.");
+        return SendAsync(documentId, "notes/", HttpMethod.Post, new Dictionary<string, object?> { ["note"] = note }, ct);
+    }
+
+    private async Task SendAsync(int documentId, string suffix, HttpMethod method, IReadOnlyDictionary<string, object?> fields, CancellationToken ct)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         deadline.CancelAfter(options.RequestTimeout);
         try
         {
-            var token = await ReadTokenAsync(ct);
-            var uri = new Uri(options.BaseUrl.AbsoluteUri.TrimEnd('/') + $"/api/documents/{documentId}/");
-            using var request = new HttpRequestMessage(HttpMethod.Patch, uri);
+            var token = await ReadTokenAsync(deadline.Token);
+            var uri = new Uri(options.BaseUrl.AbsoluteUri.TrimEnd('/') + $"/api/documents/{documentId}/{suffix}");
+            using var request = new HttpRequestMessage(method, uri);
             request.Headers.Authorization = new AuthenticationHeaderValue("Token", token);
             request.Content = new StringContent(JsonSerializer.Serialize(fields), Encoding.UTF8, "application/json");
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);

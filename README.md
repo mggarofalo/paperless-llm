@@ -25,6 +25,7 @@ The default is **Sol 6 low**, one call per document and five jobs per hourly cyc
 ## What it does
 
 - Uses Paperless OCR as evidence; the worker does not replace OCR or scan files.
+- Can append a concise, labeled [document summary note](docs/review.md#document-notes) with useful long-term facts, preserving existing notes. This feature is not in v0.2.0.
 - Selects exact existing taxonomy names; .NET resolves IDs and validates changes.
 - Preserves workflow tags, ownership, permissions and original files. It cannot delete documents, remove tags, create taxonomy or import receipts.
 - Loads an [editable prompt file](docs/prompts.md) before each new inference; policy changes require no image rebuild or restart. The default keeps titles.

@@ -38,14 +38,21 @@ if run once; then echo 'Setup should fail with a hidden review tag' >&2; exit 1;
 docker run --rm --entrypoint sh -v "$volume:/data" "$image" -c 'test ! -f /data/state/organizer.json && test ! -f /data/state/organizer-bootstrap.json'
 control "await fetch('http://localhost:8080/test/show-tag')"
 control "await fetch('http://localhost:8080/test/disconnect')"
+control "await fetch('http://localhost:8080/test/disconnect-note')"
 run once
 run retry 1
 run once
-control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.document.title!=='Synthetic receipt'||s.patches!==1||s.inferences!==1||JSON.stringify([...s.document.tags].sort())!=='[1,2,3]')throw Error(JSON.stringify(s));"
+run retry 1
+run once
+control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.document.title!=='Synthetic receipt'||s.patches!==1||s.posts!==1||s.document.notes.length!==2||s.document.notes[0].note!=='Human note: keep for warranty.'||s.inferences!==1||JSON.stringify([...s.document.tags].sort())!=='[1,2,3]')throw Error(JSON.stringify(s));"
 # New containers reuse state; neither restart nor manually clearing the review marker triggers work.
 run once
 control "await fetch('http://localhost:8080/test/clear')"
 run once
-control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.patches!==1||s.inferences!==1||s.document.tags.includes(2)||!s.document.tags.includes(1))throw Error(JSON.stringify(s));"
+control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.patches!==1||s.posts!==1||s.document.notes.length!==2||s.document.notes[0].note!=='Human note: keep for warranty.'||s.inferences!==1||s.document.tags.includes(2)||!s.document.tags.includes(1))throw Error(JSON.stringify(s));"
+# Explicit reprocessing reads the existing generated note and is a true no-op.
+run reprocess 1
+run once
+control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.posts!==1||s.patches!==1||s.inferences!==2||s.document.tags.includes(2))throw Error(JSON.stringify(s));"
 run status
-printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH, ambiguous-write recovery, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'
+printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH and note POST, ambiguous-write recovery for both endpoints, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'

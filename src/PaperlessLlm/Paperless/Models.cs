@@ -5,7 +5,12 @@ public sealed record PaperlessTaxonomy(IReadOnlyList<NamedEntity> Tags, IReadOnl
 public sealed record PaperlessDocument(int Id, string Title, string Content, string? Created, string? Modified,
     int? CorrespondentId, int? DocumentTypeId, IReadOnlyList<int> Tags, string? MimeType,
     string? OriginalFileName, string RevisionHash)
-{ }
+{
+    // Null means notes were not returned (or this is a pre-notes saved job).
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<PaperlessNote>? Notes { get; init; }
+}
+public sealed record PaperlessNote(int Id, string Note) { }
 public sealed record OriginalDocument(string Path, string MediaType, string Sha256, long Bytes) { }
 public sealed record RenderedPage(string Path, string MediaType, string Sha256, int PageNumber) { }
 

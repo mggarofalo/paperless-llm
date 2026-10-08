@@ -37,6 +37,33 @@ public sealed class PaperlessClientTests : IDisposable
     }
 
     [Fact]
+    public async Task NotesAreReadWithoutChangingLegacyMetadataHash()
+    {
+        var noteDocument = JsonSerializer.SerializeToNode(Doc(1))!;
+        noteDocument["notes"] = JsonSerializer.SerializeToNode(new[] { new { id = 7, note = "Human note", created = "2026-01-02", user = new { id = 5 } } });
+        using var handler = Sequence(Json(Doc(1)), Json(noteDocument));
+        using var client = new PaperlessClient(Options(), handler);
+        var old = await client.GetDocumentAsync(1);
+        var current = await client.GetDocumentAsync(1);
+        Assert.Equal(old.RevisionHash, current.RevisionHash);
+        Assert.Null(old.Notes);
+        Assert.Equal(new PaperlessNote(7, "Human note"), Assert.Single(current.Notes!));
+    }
+
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{}")]
+    [InlineData("[{\"id\":1,\"note\":42}]")]
+    [InlineData("[{\"id\":1,\"note\":\"a\"},{\"id\":1,\"note\":\"b\"}]")]
+    public async Task InvalidNotesFailClosed(string notes)
+    {
+        var document = JsonSerializer.SerializeToNode(Doc(1))!;
+        document["notes"] = System.Text.Json.Nodes.JsonNode.Parse(notes);
+        using var client = new PaperlessClient(Options(), Sequence(Json(document)));
+        await Assert.ThrowsAsync<PaperlessException>(() => client.GetDocumentAsync(1));
+    }
+
+    [Fact]
     public async Task DiscoveryResolvesTagPreservesOldestOrderAndRebuildsSafePagination()
     {
         using var handler = Sequence(Page([new { id = 2, name = "Needs Review" }]),

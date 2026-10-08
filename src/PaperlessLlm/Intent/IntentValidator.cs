@@ -18,18 +18,36 @@ public static class IntentValidator
         using (parsed)
         {
             var root = parsed.RootElement;
-            Fields(root, "schema_version", "title", "date", "correspondent", "document_type", "add_tags", "ocr", "uncertainty");
-            if (root.GetProperty("schema_version").ValueKind != JsonValueKind.String || root.GetProperty("schema_version").GetString() != DocumentIntent.Version)
-                Fail("unsupported_intent_version");
+            ValidateVersion(root);
             var tags = Index(taxonomy.Tags);
             var correspondents = Index(taxonomy.Correspondents);
             var types = Index(taxonomy.DocumentTypes);
             ValidateFields(root, correspondents, types);
             ValidateTags(root.GetProperty("add_tags"), document, tags);
             ValidateOcr(root.GetProperty("ocr"), pageCount);
+            ValidateNote(root, document);
             TextArray(root.GetProperty("uncertainty"));
             return root.Clone();
         }
+    }
+
+    private static void ValidateNote(JsonElement root, PaperlessDocument document)
+    {
+        if (!root.TryGetProperty("note", out var note)) return;
+        DocumentNotes.Validate(note, document);
+        if (note.GetProperty("action").GetString() == "set" && root.GetProperty("ocr").GetProperty("action").GetString() != "keep")
+            Fail("note_requires_existing_ocr");
+    }
+
+    private static void ValidateVersion(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("schema_version", out var version) ||
+            version.ValueKind != JsonValueKind.String) Fail("unsupported_intent_version");
+        string[] fields = ["schema_version", "title", "date", "correspondent", "document_type", "add_tags", "ocr", "uncertainty"];
+        var text = root.GetProperty("schema_version").GetString();
+        if (text == DocumentIntent.Version) fields = [.. fields, "note"];
+        else if (text != "1") Fail("unsupported_intent_version");
+        Fields(root, fields);
     }
 
     private static void ValidateFields(JsonElement root, Dictionary<int, NamedEntity> correspondents, Dictionary<int, NamedEntity> types)
