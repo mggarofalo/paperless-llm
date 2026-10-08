@@ -4,10 +4,12 @@
 
 The worker defaults to **Sol 6 low**, one request per document, using existing
 Paperless OCR. The bundled [organization.txt](../src/PaperlessLlm/prompts/organization.txt)
-is the selected evaluation policy, preserved verbatim (including its experiment
-wording). It keeps titles and OCR unchanged and proposes dates, correspondents,
-document types and additive subject tags. Accuracy depends on the OCR and the
-organization conventions; the evaluation does not establish perfect accuracy.
+retains the selected metadata evaluation policy, extended with optional document
+summary notes and schema version 2. Notes have not yet had a representative
+model-quality evaluation. It keeps titles and OCR unchanged and proposes dates,
+correspondents, document types, additive subject tags and useful long-term notes.
+Accuracy depends on OCR and organization conventions; the evaluation does not
+establish perfect accuracy.
 
 ## Edit without rebuilding
 
@@ -88,3 +90,27 @@ Saved metadata-only intents remain resumable. Saved legacy OCR replacements stop
 as `sync_conflict`: inspect their private operation journal and Paperless history
 before using `reprocess ID`, especially if an older write may already have applied.
 No upgrade automatically replays completed documents or discards audit records.
+
+## Document-note contract and upgrade
+
+The supplied version-2 schema adds `note` with `action` (`keep` or `set`),
+`value` (null or text), and `evidence`. Keep requires null and an empty evidence
+array. Set requires a single paragraph of at most 1,200 characters and 1-20 exact
+nonempty OCR quotations, each at most 4,096 characters. Evidence strings are
+literal substrings, without the commentary used for metadata evidence. The worker
+adds the AI heading and never edits or deletes existing notes. See
+[notes and recovery](review.md#document-notes) for scope and limitations.
+
+The model receives `notes_available`, `has_generated_summary`, and
+`content_truncated` flags. It should keep the note when notes are unavailable,
+a generated summary already exists, OCR is truncated, or the summary would add
+little useful information. To disable note generation, customize the prompt to
+always return `note` keep. The worker also suppresses additional summaries when
+its heading already exists, even if a model proposes a different body.
+
+Upgrade mounted prompt files to the version-2 template and note instructions
+from the matching release; an old mounted prompt can continue emitting legacy
+metadata-only proposals. Saved version-1 jobs and journals remain resumable;
+notes are never retroactively injected into them. Completed documents are not
+automatically reprocessed or backfilled. Use explicit bounded reprocessing only
+after reviewing initial note quality and the additional Notes permissions.

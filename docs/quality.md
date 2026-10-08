@@ -66,6 +66,20 @@ Install `poppler-utils` and Node before running the suite on Linux. Use a fresh 
 - JPEG/PNG bounds reject truncated or oversized input; Linux tests render every page of a synthetic PDF and reject page-cap truncation.
 - All seven evaluation pipelines run offline against synthetic responses, retain failed raw output, and preserve provenance. Fake child processes cover Unicode stdin, usage capture, stderr truncation, stdout limits, timeout, cancellation, and tool rejection.
 
+## Document notes (2026-10-08 development change)
+
+The Linux .NET 10 Release run passed **276 tests, zero skipped**, including note
+validation, existing-note preservation, note-only changes, absent/truncated source
+abstention, legacy journal compatibility, interrupted metadata/POST recovery,
+no blind POST replay, source conflicts, dry runs and reprocessing. Worker coverage
+was **92.35% line / 80.49% branch**; evaluator coverage remained **82.99% / 75.72%**.
+All 22 JavaScript tests passed, and maximum production function complexity was 10.
+The Linux container acceptance fixture drops responses after both metadata and
+note writes and verifies a single summary survives restart and reprocessing.
+These checks exercise deterministic behavior with synthetic data. They do not
+establish summary quality on real OCR or permission compatibility with a live
+Paperless deployment.
+
 ## Remaining limits
 
 The largest uncovered runtime area is CLI host construction/setup dispatch (65 uncovered sequence-point lines in this run). The independent Docker smoke suite exercises actual container setup, organization, and crash recovery, but those subprocesses are outside this Coverlet run. Additional uncovered runtime branches include unusual filesystem/access failures, alternate OS paths, and race/error handling that is difficult to force deterministically.

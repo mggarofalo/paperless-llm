@@ -1,8 +1,8 @@
 import http from 'node:http';
 const keep = { action: 'keep', value: null, evidence: [] };
-export const intent = { schema_version:'1', title:{action:'set',value:'Synthetic receipt',evidence:['Page 1 synthetic receipt']}, date:keep, correspondent:keep, document_type:keep, add_tags:[{name:'receipt',evidence:['Synthetic fixture category']}], ocr:{action:'keep',pages:[],evidence:[]}, uncertainty:[] };
-let document = {id:1,title:'Untitled',content:'Synthetic receipt',created:'2026-10-01',modified:'2026-10-01T00:00:00Z',correspondent:null,document_type:null,tags:[1],mime_type:'image/png',original_file_name:'synthetic.png'};
-let patches=0,inferences=0,disconnect=false,tagVisible=true;
+export const intent = { schema_version:'2', title:{action:'set',value:'Synthetic receipt',evidence:['Page 1 synthetic receipt']}, note:{action:'set',value:'The receipt records a blower motor replacement for $684.20, marked paid by card.',evidence:['Blower motor replacement $684.20. Paid by card.']}, date:keep, correspondent:keep, document_type:keep, add_tags:[{name:'receipt',evidence:['Synthetic fixture category']}], ocr:{action:'keep',pages:[],evidence:[]}, uncertainty:[] };
+let document = {id:1,title:'Untitled',content:'Synthetic receipt. Blower motor replacement $684.20. Paid by card.',notes:[{id:10,note:'Human note: keep for warranty.'}],created:'2026-10-01',modified:'2026-10-01T00:00:00Z',correspondent:null,document_type:null,tags:[1],mime_type:'image/png',original_file_name:'synthetic.png'};
+let patches=0,posts=0,inferences=0,disconnect=false,disconnectNote=false,tagVisible=true;
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=','base64');
 const server=http.createServer(async(req,res)=>{
   let raw=''; for await(const chunk of req) raw+=chunk;
@@ -11,10 +11,11 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/test/ready') return json({ready:true});
   if(url.pathname==='/test/hide-tag') {tagVisible=false;return json({});}
   if(url.pathname==='/test/show-tag') {tagVisible=true;return json({});}
-  if(url.pathname==='/test/infer') {inferences++; return json(intent);}
+  if(url.pathname==='/test/infer') {inferences++; return json(document.notes.some(n=>n.note.startsWith('AI-generated document summary (Paperless LLM)'))?{...intent,title:keep,add_tags:[],note:keep}:intent);}
   if(url.pathname==='/test/clear') {document.tags=document.tags.filter(x=>x!==2); document.modified='2026-10-02T00:00:00Z';return json({});}
   if(url.pathname==='/test/disconnect') {disconnect=true;return json({});}
-  if(url.pathname==='/test/state') return json({document,patches,inferences});
+  if(url.pathname==='/test/disconnect-note') {disconnectNote=true;return json({});}
+  if(url.pathname==='/test/state') return json({document,patches,posts,inferences});
   if(req.headers.authorization!=='Token synthetic-only') return json({},401);
   if(url.pathname==='/api/documents/1/download/') {res.writeHead(200,{'Content-Type':'image/png','Content-Length':png.length});return res.end(png);}
   if(url.pathname==='/api/documents/1/' && req.method==='PATCH') {
@@ -22,6 +23,13 @@ const server=http.createServer(async(req,res)=>{
     document={...document,...patch,modified:'2026-10-01T01:00:00Z'};patches++;
     if(disconnect) {disconnect=false;req.socket.destroy();return;}
     return json(document);
+  }
+  if(url.pathname==='/api/documents/1/notes/' && req.method==='POST') {
+    const body=JSON.parse(raw);
+    if(Object.keys(body).join()!=='note'||!body.note.startsWith('AI-generated document summary (Paperless LLM)\n')) return json({},400);
+    document.notes.push({id:11,note:body.note}); document.modified='2026-10-01T02:00:00Z'; posts++;
+    if(disconnectNote) {disconnectNote=false;req.socket.destroy();return;}
+    return json(document.notes);
   }
   if(url.pathname==='/api/documents/1/') return json(document);
   let rows;

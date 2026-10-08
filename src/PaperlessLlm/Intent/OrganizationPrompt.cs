@@ -47,14 +47,14 @@ public sealed class OrganizationPrompt(string path, string model) : IIntentConte
                 model,
                 prompt = hash,
                 schema,
-                contract = "names-1",
+                contract = "names-2-notes",
                 reasoning = "low",
                 runner = "pi-0.99.2",
                 maxOutputTokens = 16000,
-                context = "existing-ocr-1",
+                context = "existing-ocr-2-notes",
                 IntentPrompt.MaxOcrCharacters,
                 IntentPrompt.MaxEntities,
-                validator = "intent-validator-1"
+                validator = "intent-validator-2-notes"
             }))));
         return new(instructions, NamedIntentContract.Payload(IntentPrompt.Build(source, taxonomy, 0), taxonomy),
             schema, fingerprint, true, hash);

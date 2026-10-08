@@ -328,7 +328,23 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         var document = new PaperlessDocument(id, RequiredString(value, "title"), RequiredString(value, "content"), OptionalString(value, "created"),
             OptionalString(value, "modified"), OptionalId(value, "correspondent"), OptionalId(value, "document_type"),
             tags.EnumerateArray().Select(x => x.GetInt32()).Distinct().Order().ToArray(), OptionalString(value, "mime_type"), OptionalString(value, "original_file_name"), "");
-        return document with { RevisionHash = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(document))) };
+        // Preserve the metadata hash used by saved v1 jobs; notes are compared separately.
+        return document with
+        {
+            RevisionHash = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(document))),
+            Notes = ParseNotes(value)
+        };
+    }
+
+    private static IReadOnlyList<PaperlessNote>? ParseNotes(JsonElement value)
+    {
+        if (!value.TryGetProperty("notes", out var notes)) return null;
+        if (notes.ValueKind != JsonValueKind.Array) throw new PaperlessException("Invalid document notes.");
+        var parsed = notes.EnumerateArray().Select(n => new PaperlessNote(RequiredId(n, "id"), RequiredString(n, "note")))
+            .OrderBy(n => n.Id).ToArray();
+        if (parsed.Select(n => n.Id).Distinct().Count() != parsed.Length)
+            throw new PaperlessException("Duplicate document note identity.");
+        return parsed;
     }
 
     private static void RequireNewDestination(string destination)
@@ -360,4 +376,3 @@ public sealed class PaperlessClient : IPaperlessClient, IDisposable
         finally { if (File.Exists(stage)) File.Delete(stage); }
     }
 }
-

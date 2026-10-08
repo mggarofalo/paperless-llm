@@ -9,7 +9,7 @@ flowchart LR
   J --> C[Existing OCR and current taxonomy]
   C --> L[Pi provider SDK / Sol 6 low]
   L --> V[.NET intent validation]
-  V --> S[Journal and minimal PATCH]
+  V --> S[Journal, minimal PATCH and optional note POST]
   S --> R[Readback verification]
   R --> H[Paperless needs review and history]
 ```
@@ -28,9 +28,18 @@ The [prompt file](prompts.md) reloads before each inference. Exact taxonomy name
 
 ## Durable flow
 
-A whole-worker filesystem lock serializes processing. Atomic JSON replacements record job state and checkpoints. The saved intent separates model work from sync retries; the write-ahead operation journal handles uncertain PATCH responses. Completed IDs remain complete until explicit reprocessing. See [discovery semantics](operations.md#discovery-and-jobs).
+A whole-worker filesystem lock serializes processing. Atomic JSON replacements record job state and checkpoints. The saved intent separates model work from sync retries; the write-ahead operation journal handles uncertain PATCH responses and separate note POST attempts. Completed IDs remain complete until explicit reprocessing. See [discovery semantics](operations.md#discovery-and-jobs).
 
 Prompt fingerprints cover instructions, schema and inference settings. Jobs retain source revision, taxonomy context, prompt text and hash and proposal. Validation checks the current taxonomy before sync and before replay. The final GET/PATCH race remains a documented [limitation](review.md#history-and-journals).
+
+Notes use a separate append-only write, after metadata and the review marker.
+The operation journal adds optional `Note` and `NoteAttempted` fields and a
+`metadata_verified` phase. Persisting the attempt before POST prevents blind
+replay of a non-idempotent endpoint; an absent attempted note stops for inspection.
+Document notes are compared separately from the existing metadata revision hash,
+so pre-notes saved jobs retain their hash identity. Missing notes context is not
+assumed to be an empty collection. The model receives presence flags, not human
+note text. See [recovery and concurrency limitations](review.md#document-notes).
 
 ## Code map and development
 

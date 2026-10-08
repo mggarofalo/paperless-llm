@@ -88,6 +88,11 @@ public sealed class SyncTests : IDisposable
         var source = api.Document;
         var sync = new IntentSynchronizer(api, api, directory);
         await Assert.ThrowsAsync<PaperlessException>(() => sync.ApplyAsync("retry", source, Intent("New title"), 1, default));
+        // Pre-notes journals lack these optional fields and must retain replay identity.
+        var path = Path.Combine(directory, "retry.json");
+        var saved = JsonNode.Parse(await File.ReadAllTextAsync(path))!.AsObject();
+        saved.Remove("Note"); saved.Remove("NoteAttempted");
+        await File.WriteAllTextAsync(path, saved.ToJsonString());
         var result = await new IntentSynchronizer(api, api, directory).ApplyAsync("retry", source, Intent("New title"), 1, default);
         Assert.Equal("applied", result.Outcome);
         Assert.Equal(1, api.Writes);

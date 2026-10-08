@@ -6,7 +6,7 @@ namespace PaperlessLlm.Intent;
 /// <summary>Managed fields only. There is deliberately no clear, delete or taxonomy creation operation.</summary>
 public static class DocumentIntent
 {
-    public const string Version = "1";
+    public const string Version = "2";
     public static JsonElement Schema { get; } = CreateSchema();
 
     private static JsonElement CreateSchema()
@@ -24,7 +24,7 @@ public static class DocumentIntent
             ("value", new JsonObject { ["type"] = new JsonArray(type, "null") }), ("evidence", Texts()));
         var schema = Object(
             ("schema_version", new JsonObject { ["type"] = "string", ["enum"] = new JsonArray(Version) }),
-            ("title", Field("string")), ("date", Field("string")),
+            ("title", Field("string")), ("date", Field("string")), ("note", Field("string")),
             ("correspondent", Field("integer")), ("document_type", Field("integer")),
             ("add_tags", new JsonObject
             {

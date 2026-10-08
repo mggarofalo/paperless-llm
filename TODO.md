@@ -1,3 +1,13 @@
+# Current development
+
+- [ ] PPLLM-33: append useful OCR-grounded summary notes with durable POST recovery,
+  human-note preservation, duplicate prevention, documentation, synthetic tests,
+  Linux acceptance and passing PR CI. Not released or deployed.
+- [x] PPLLM-33 implementation and local validation: 276 Linux .NET tests, 22
+  JavaScript tests, complexity at most 10, coverage gates and Linux container acceptance.
+- [ ] PPLLM-33: merge through PR after passing CI; evaluate real summary quality
+  and service-account Notes permissions before deployment/backfill.
+
 # v0.2.0 delivery checklist
 
 Source of work status: existing Plane project **PPLLM**, parent **PPLLM-21**.

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using PaperlessLlm.Paperless;
 using PaperlessLlm.Sync;
+using PaperlessLlm.Intent;
 
 namespace PaperlessLlm.Tests;
 
@@ -63,6 +64,41 @@ public sealed class PaperlessWriterTests : IDisposable
         Assert.Equal(code, error.Code);
         Assert.DoesNotContain("sensitive-response", error.Message);
         Assert.Equal(1, requests);
+    }
+
+    [Fact]
+    public async Task NoteUsesAppendEndpointAndCannotReplaceHumanNotes()
+    {
+        var note = DocumentNotes.Label + "\nSynthetic repair details.";
+        using var writer = new PaperlessWriter(Options(), new Handler(async (request, ct) =>
+        {
+            Assert.Equal(HttpMethod.Post, request.Method);
+            Assert.Equal("https://paperless.example/prefix/api/documents/42/notes/", request.RequestUri!.AbsoluteUri);
+            Assert.Equal("synthetic-token", request.Headers.Authorization!.Parameter);
+            using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(ct));
+            Assert.Single(json.RootElement.EnumerateObject());
+            Assert.Equal(note, json.RootElement.GetProperty("note").GetString());
+            return new(HttpStatusCode.OK);
+        }));
+        await writer.AddNoteAsync(42, note, default);
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AddNoteAsync(0, note, default));
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AddNoteAsync(42, "Human note", default));
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AddNoteAsync(42, DocumentNotes.Label + "\n ", default));
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AddNoteAsync(42, DocumentNotes.Label + "\n" + new string('x', 1201), default));
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.PatchAsync(42, new Dictionary<string, object?> { ["notes"] = new[] { note } }, default));
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden, "paperless_authentication_failed")]
+    [InlineData(HttpStatusCode.TooManyRequests, "paperless_rate_limited")]
+    [InlineData(HttpStatusCode.InternalServerError, "paperless_write_unconfirmed")]
+    public async Task NoteErrorsUseSafeCodes(HttpStatusCode status, string code)
+    {
+        using var writer = new PaperlessWriter(Options(), new Handler((_, _) => Task.FromResult(new HttpResponseMessage(status)
+            { Content = new StringContent("private document text") })));
+        var error = await Assert.ThrowsAsync<PaperlessException>(() => writer.AddNoteAsync(1, DocumentNotes.Label + "\nSummary", default));
+        Assert.Equal(code, error.Code);
+        Assert.DoesNotContain("private document text", error.Message);
     }
     [Theory]
     [InlineData("")]

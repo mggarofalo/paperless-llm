@@ -13,7 +13,8 @@ private scans, OCR, metadata snapshots, local auth state, or generated run data.
 
 On Windows, every exec_command call must use tty: true. Keep background helpers hidden.
 
-The current product updates title/date/correspondent/type/additive tags using
+The current product updates title/date/correspondent/type/additive tags and can append
+one labeled document-summary note using
 existing Paperless OCR. Do not reintroduce model-generated OCR into production
 without a separately evaluated design change.
 Deterministic code validates and applies proposals, then adds `needs review` for

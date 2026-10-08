@@ -10,9 +10,11 @@ bash tests/container/run.sh paperless-llm:test
 The script runs the actual .NET entrypoint, renderer, runner subprocess transport,
 validation, sync journal and filesystem jobs. A fake Paperless HTTP service and
 fake inference bridge provide a synthetic one-page document. It verifies a
-validated title/tag update, preservation of `inbox`, addition of `needs review`,
-reconciliation after the server commits a PATCH then disconnects, restart
-idempotence, and immunity to manually clearing `needs review`.
+validated title/tag update and a labeled summary note, preservation of `inbox`
+and a human note, and addition of `needs review`. The server disconnects after
+committing both PATCH and note POST; fresh worker containers reconcile each
+without repeating writes. Restart and explicit reprocessing preserve the single
+summary and do not restore a manually cleared `needs review` marker.
 
 Both containers use the image under test. An internal Docker network prevents
 external calls; no ports are published. Only disposable test volumes and fake

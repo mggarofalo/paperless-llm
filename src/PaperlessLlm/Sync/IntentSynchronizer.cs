@@ -7,11 +7,11 @@ using PaperlessLlm.Review;
 namespace PaperlessLlm.Sync;
 
 /// <summary>Durable intent, minimal PATCH, read-back verification; never treats a response as proof of commit.</summary>
-public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter writer, string journalDirectory,
+public sealed partial class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter writer, string journalDirectory,
     string reviewTag = "needs review", bool dryRun = false) : IIntentSynchronizer
 {
     private sealed record Operation(string JobId, PaperlessDocument Before, JsonElement Intent, int PageCount, JsonElement Patch, string Status,
-        DateTimeOffset CreatedAt, PaperlessDocument? After = null)
+        DateTimeOffset CreatedAt, PaperlessDocument? After = null, string? Note = null, bool NoteAttempted = false)
     { }
 
     public async Task<SyncResult> ApplyAsync(string jobId, PaperlessDocument source, JsonElement intent, int pageCount, CancellationToken ct)
@@ -36,14 +36,28 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
             operation = prepared.Operation!;
         }
 
-        var latest = await reader.GetDocumentAsync(source.Id, ct);
+        return await ResumeAsync(path, operation, ct);
+    }
+
+    private async Task<SyncResult> ResumeAsync(string path, Operation operation, CancellationToken ct)
+    {
+        if (operation.Status == "metadata_verified") return await FinishNoteAsync(path, operation, ct);
+        var latest = await reader.GetDocumentAsync(operation.Before.Id, ct);
         if (!Matches(latest, operation.Patch))
         {
             // A pending intent may already have committed despite an HTTP timeout. Only replay
             // against the exact before-state; never overwrite a subsequent human correction.
-            if (latest.RevisionHash != operation.Before.RevisionHash) throw new SyncConflictException("sync_conflict");
+            if (!SameSource(operation.Before, latest)) throw new SyncConflictException("sync_conflict");
             if (dryRun) return new("dry_run", latest);
             latest = await CommitAsync(operation, ct);
+        }
+        if (operation.Note is not null)
+        {
+            VerifyNoteSource(operation.Before, latest);
+            operation = operation with { Status = "metadata_verified", After = latest };
+            if (dryRun) return new("dry_run", latest);
+            await SaveAsync(path, operation, ct);
+            return await FinishNoteAsync(path, operation, ct);
         }
         await SaveAsync(path, operation with { Status = "verified", After = latest }, ct);
         return new("applied", latest);
@@ -54,10 +68,11 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
         if (new FileInfo(path).Length > 64 * 1024 * 1024) throw new InvalidOperationException("sync_journal_too_large");
         var operation = JsonSerializer.Deserialize<Operation>(await File.ReadAllTextAsync(path, ct))
             ?? throw new InvalidOperationException("invalid_sync_journal");
-        if (operation.JobId != jobId || operation.Before.Id != source.Id || operation.Before.RevisionHash != source.RevisionHash)
+        if (operation.JobId != jobId || operation.Before.Id != source.Id || !SameSource(operation.Before, source))
             throw new InvalidOperationException("sync_job_identity_mismatch");
         if (!JsonElement.DeepEquals(operation.Intent, intent) || operation.PageCount != pageCount)
             throw new InvalidOperationException("sync_intent_identity_mismatch");
+        ValidateNoteJournal(operation);
         return operation;
     }
 
@@ -66,15 +81,16 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
         var taxonomy = await reader.GetTaxonomyAsync(ct);
         var validated = IntentValidator.Validate(intent.GetRawText(), source, taxonomy, pageCount);
         var current = await reader.GetDocumentAsync(source.Id, ct);
-        if (current.RevisionHash != source.RevisionHash) throw new SyncConflictException("stale_source");
+        if (!SameSource(source, current)) throw new SyncConflictException("stale_source");
         var patch = BuildPatch(validated, current);
-        if (patch.Count == 0) return (null, new("no_change", current));
+        var note = DocumentNotes.Proposed(validated, current);
+        if (patch.Count == 0 && note is null) return (null, new("no_change", current));
         var matches = taxonomy.Tags.Where(t => t.Name.Equals(reviewTag, StringComparison.OrdinalIgnoreCase)).ToArray();
         if (matches.Length != 1) throw new ProposalValidationException("review_tag_missing_or_ambiguous");
         var tags = patch.TryGetValue("tags", out var proposedTags) ? (int[])proposedTags! : current.Tags.ToArray();
         patch["tags"] = tags.Append(matches[0].Id).Distinct().Order().ToArray();
         if (dryRun) return (null, new("dry_run", current));
-        var operation = new Operation(jobId, current, validated, pageCount, JsonSerializer.SerializeToElement(patch), "pending", DateTimeOffset.UtcNow);
+        var operation = new Operation(jobId, current, validated, pageCount, JsonSerializer.SerializeToElement(patch), "pending", DateTimeOffset.UtcNow, Note: note);
         await SaveAsync(path, operation, ct);
         return (operation, null);
     }
@@ -89,7 +105,7 @@ public sealed class IntentSynchronizer(IPaperlessClient reader, IPaperlessWriter
         if (marker.Length != 1 || !operation.Patch.GetProperty("tags").EnumerateArray().Any(t => t.GetInt32() == marker[0].Id))
             throw new SyncConflictException("sync_review_tag_changed");
         var latest = await reader.GetDocumentAsync(operation.Before.Id, ct);
-        if (latest.RevisionHash != operation.Before.RevisionHash) throw new SyncConflictException("sync_conflict");
+        if (!SameSource(operation.Before, latest)) throw new SyncConflictException("sync_conflict");
         var patch = operation.Patch.EnumerateObject().ToDictionary(p => p.Name, p => (object?)p.Value.Clone());
         await writer.PatchAsync(operation.Before.Id, patch, ct);
         latest = await reader.GetDocumentAsync(operation.Before.Id, ct);

@@ -75,6 +75,8 @@ public static class IntentPrompt
                 title = Bounded(document.Title, 512),
                 content = Bounded(document.Content, MaxOcrCharacters),
                 content_truncated = document.Content.Length > MaxOcrCharacters,
+                notes_available = document.Notes is not null,
+                has_generated_summary = DocumentNotes.HasSummary(document),
                 created = document.Created,
                 correspondent = document.CorrespondentId,
                 document_type = document.DocumentTypeId,
