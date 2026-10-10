@@ -11,7 +11,8 @@ const server=http.createServer(async(req,res)=>{
   if(url.pathname==='/test/ready') return json({ready:true});
   if(url.pathname==='/test/hide-tag') {tagVisible=false;return json({});}
   if(url.pathname==='/test/show-tag') {tagVisible=true;return json({});}
-  if(url.pathname==='/test/infer') {inferences++; return json(document.notes.some(n=>n.note.startsWith('AI-generated document summary (Paperless LLM)'))?{...intent,title:keep,add_tags:[],note:keep}:intent);}
+  if(url.pathname==='/test/infer') {inferences++; return json(document.notes.some(n=>n.note.startsWith('AI-generated document summary (Paperless LLM)'))?{...intent,title:keep,add_tags:[],note:keep}:{...intent,add_tags:document.tags.includes(3)?[]:intent.add_tags});}
+  if(url.pathname==='/test/prepare-notes-only') {document.title='Human title';document.notes=document.notes.slice(0,1);return json({});}
   if(url.pathname==='/test/clear') {document.tags=document.tags.filter(x=>x!==2); document.modified='2026-10-02T00:00:00Z';return json({});}
   if(url.pathname==='/test/disconnect') {disconnect=true;return json({});}
   if(url.pathname==='/test/disconnect-note') {disconnectNote=true;return json({});}

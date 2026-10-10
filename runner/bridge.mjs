@@ -65,8 +65,14 @@ function emitResult(result, model) {
   } else {
     const text = result.content.filter(x => x.type === 'text').map(x => x.text).join('');
     // Preserve raw text for private diagnostics; .NET validates before any write.
-    emit({ type: 'result', text });
+    emit({ type: 'result', text, ...safeUsage(result.usage) });
   }
+}
+
+function safeUsage(usage) {
+  const names = ['input', 'output', 'cacheRead', 'cacheWrite'];
+  if (!usage || !names.every(name => Number.isSafeInteger(usage[name]) && usage[name] >= 0)) return {};
+  return { usage: Object.fromEntries(names.map(name => [name, usage[name]])) };
 }
 
 async function infer(runtime) {

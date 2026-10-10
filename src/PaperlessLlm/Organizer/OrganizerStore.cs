@@ -13,6 +13,7 @@ internal sealed class OrganizerCheckpoint
     public DateTimeOffset? LastActivityAt { get; set; }
     public DateTimeOffset? NextRunAt { get; set; }
     public string? PauseReason { get; set; }
+    public bool ManualNext { get; set; }
 }
 internal sealed class OrganizerStore(string directory)
 {
@@ -66,7 +67,15 @@ public static class OrganizerStatusReader
         var jobs = await store.JobsAsync(ct);
         return new(state?.BaselineId ?? 0, state?.CursorId ?? 0, state?.LastPollAt,
             jobs.Select(j => new OrganizerJobSummary(j.DocumentId, j.JobId, j.State, j.Attempts, j.ErrorCode, j.NextAttemptAt, j.Outcome,
-                j.CreatedAt, j.UpdatedAt, j.CompletedAt, j.InferenceMilliseconds, j.SyncMilliseconds)).ToArray(), state?.LastActivityAt, state?.NextRunAt, state?.PauseReason);
+                j.CreatedAt, j.UpdatedAt, j.CompletedAt, j.InferenceMilliseconds, j.SyncMilliseconds, j.RunId, j.Decisions, j.Usage, Phase(j))).ToArray(), state?.LastActivityAt, state?.NextRunAt, state?.PauseReason);
     }
+    internal static string Phase(OrganizerJob job) => job.State switch
+    {
+        OrganizerJobState.Running => job.Intent is null ? "inference" : "synchronization",
+        OrganizerJobState.Completed => "completed",
+        OrganizerJobState.Failed => "failed",
+        OrganizerJobState.RetryWaiting => "waiting",
+        _ => "queued"
+    };
 }
 

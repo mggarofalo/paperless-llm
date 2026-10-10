@@ -34,7 +34,18 @@ public static class OrganizerCli
                 status                 Show durable jobs and schedule without network access
                 health                 Check schedule freshness and pauses
                 retry ID               Retry a failed job with its saved intent
-                reprocess ID           Explicitly regenerate an enrolled document (stop worker first)
+                reprocess ID           Submit one completed document while the worker runs
+                reprocess --all        Submit all completed enrolled documents in one command
+                  --ids 1,4-9          Select explicit IDs instead of --all
+                  --preview --json     Preview selection without inference or writes
+                  --processed-before ISO-TIMESTAMP / --missing-summary   Filter selection
+                  --notes-only         Only append a missing summary (never replace one)
+                  --request-id GUID    Idempotent submission ID (32 hexadecimal characters)
+                  --include-unenrolled --limit N   Explicitly include visible history with --all
+                runs                   List manual runs
+                status --run ID [--json] [--watch]   Reconnect to run progress
+                runs cancel ID         Cancel unstarted work; started writes finish safely
+                runs resume ID         Restore cancelled unstarted work
                 auth login             Print a device code to approve in any browser; no inbound port
                 auth status            Report whether this deployment has saved ChatGPT auth
                 auth logout            Remove this deployment's local ChatGPT credentials
@@ -51,6 +62,8 @@ public static class OrganizerCli
         }
         var stateDirectory = Setting("STATE_DIRECTORY", "/data/state");
         var interval = TimeSpan.FromSeconds(Integer("POLL_SECONDS", 3600, 60, 86400));
+        if (IsReprocessingCommand(command, args))
+            return await ReprocessingCli.RunAsync(args, stateDirectory, (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024, ct);
         if (command is "status" or "health") return await ReadStatusAsync(command, stateDirectory, interval, ct);
 
         var model = Setting("MODEL", "gpt-6-sol");
@@ -62,6 +75,9 @@ public static class OrganizerCli
         if (command == "probe") return await ProbeAsync(args, runner, model, ct);
         return await RunWorkerAsync(command, args, runner, model, stateDirectory, interval, ct);
     }
+
+    private static bool IsReprocessingCommand(string command, string[] args) =>
+        command is "reprocess" or "runs" || command == "status" && args.Length > 1;
 
     private static async Task<int> ReadStatusAsync(string command, string stateDirectory, TimeSpan interval, CancellationToken ct)
     {
@@ -108,7 +124,7 @@ public static class OrganizerCli
 
     private static async Task<int> RunWorkerAsync(string command, string[] args, PiRunner runner, string model, string stateDirectory, TimeSpan interval, CancellationToken ct)
     {
-        if (command is not ("worker" or "once" or "check" or "retry" or "reprocess")) throw new ArgumentException("Unknown command. Run --help.");
+        if (command is not ("worker" or "once" or "check" or "retry")) throw new ArgumentException("Unknown command. Run --help.");
         var paperlessOptions = new PaperlessOptions { BaseUrl = new Uri(Required("PAPERLESS_URL")), TokenFile = Required("PAPERLESS_TOKEN_FILE") };
         using var reader = new PaperlessClient(paperlessOptions);
         using var writer = new PaperlessWriter(paperlessOptions);
@@ -197,7 +213,7 @@ public static class OrganizerCli
 
     private static async Task ExecuteWorkerCommandAsync(string command, string[] args, OrganizerWorker worker, IHost host, CancellationToken ct)
     {
-        if (command is "retry" or "reprocess")
+        if (command == "retry")
         {
             if (args.Length != 2 || !int.TryParse(args[1], out int id) || id <= 0) throw new ArgumentException("Specify a positive enrolled document ID.");
             await worker.RetryAsync(id, command == "reprocess", ct);
@@ -209,6 +225,8 @@ public static class OrganizerCli
 
     private sealed class RunnerAdapter(PiRunner runner) : IIntentRunner
     {
+        public Task<IntentResult> GenerateWithUsageAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
+            => runner.RunWithUsageAsync(model, instructions, prompt, images, schema, ct);
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
             => runner.RunAsync(model, instructions, prompt, images, schema, ct);
     }

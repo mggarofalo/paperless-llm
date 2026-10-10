@@ -1,5 +1,6 @@
 using PaperlessLlm.Runner;
 using System.Text.Json;
+using PaperlessLlm.Organizer;
 
 namespace PaperlessLlm.Tests;
 
@@ -91,5 +92,69 @@ public sealed class CliTests : IDisposable
     {
         Set("POLL_SECONDS", "not an integer");
         Assert.Equal(1, await Program.Main(["worker"]));
+    }
+    [Fact]
+    public async Task BulkCommandsWorkOfflineWithActiveWorkerAndExposeDurableProgress()
+    {
+        var state = Path.Combine(directory, "state");
+        var store = new OrganizerStore(state);
+        using var held = store.Lock();
+        await store.SaveAsync(store.CheckpointPath, new OrganizerCheckpoint { SourceUrl = "https://example.test/" }, default);
+        await store.SaveAsync(store.JobPath(1), new OrganizerJob { DocumentId = 1, State = OrganizerJobState.Completed }, default);
+        await store.SaveAsync(store.JobPath(2), new OrganizerJob { DocumentId = 2, State = OrganizerJobState.Failed }, default);
+        Set("PAPERLESS_URL", ""); Set("PAPERLESS_TOKEN_FILE", ""); Set("NODE", "nonexistent");
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "--all", "--preview", "--json"], default));
+        Assert.Empty(await new ReprocessingQueue(state).ListAsync());
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "--all", "--preview"], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "--ids", "1-2,1", "--notes-only", "--json"], default));
+        var run = Assert.Single(await new ReprocessingQueue(state).ListAsync());
+        Assert.Equal(2, run.Items.Length);
+        Assert.Equal(0, await OrganizerCli.RunAsync(["status", "--run", run.RunId], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["status", "--run", run.RunId, "--json"], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["runs"], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["runs", "cancel", run.RunId], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["status", "--run", run.RunId, "--watch"], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["runs", "resume", run.RunId], default));
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "1"], default));
+        Assert.Equal(2, (await new ReprocessingQueue(state).ListAsync()).Count);
+        var requestId = Guid.NewGuid().ToString("N");
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "--all", "--request-id", requestId], default));
+        await store.SaveAsync(store.JobPath(1), new OrganizerJob { DocumentId = 1, State = OrganizerJobState.Running }, default);
+        Assert.Equal(0, await OrganizerCli.RunAsync(["reprocess", "--all", "--request-id", requestId], default));
+        Assert.Equal(3, (await new ReprocessingQueue(state).ListAsync()).Count);
+        Assert.Null((await new ReprocessingQueue(state).GetAsync(requestId)).Items[0].SkipReason);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => OrganizerCli.RunAsync(["status", "--run", run.RunId, "--watch"], cancellation.Token));
+    }
+    [Theory]
+    [InlineData("reprocess")]
+    [InlineData("reprocess", "--all", "--ids", "1")]
+    [InlineData("reprocess", "--ids")]
+    [InlineData("reprocess", "--ids", "0")]
+    [InlineData("reprocess", "--ids", "1-0")]
+    [InlineData("reprocess", "--ids", "1-10001")]
+    [InlineData("reprocess", "--ids", "1-x")]
+    [InlineData("reprocess", "--ids", "1-2-3")]
+    [InlineData("reprocess", "--ids", "x")]
+    [InlineData("reprocess", "--all", "--processed-before", "nonsense")]
+    [InlineData("reprocess", "--all", "--limit", "bad")]
+    [InlineData("reprocess", "--all", "--limit", "0")]
+    [InlineData("reprocess", "--all", "--all")]
+    [InlineData("reprocess", "--all", "--wat")]
+    [InlineData("reprocess", "--all", "--request-id", "bad")]
+    [InlineData("reprocess", "--all", "--include-unenrolled")]
+    [InlineData("reprocess", "--ids", "1", "--include-unenrolled", "--limit", "2")]
+    [InlineData("runs", "stop")]
+    [InlineData("status", "--run")]
+    [InlineData("status", "--run", "invalid", "--bogus")]
+    public async Task InvalidBulkOptionsFailBeforeNetworkOrStateWrites(params string[] args) =>
+        await Assert.ThrowsAsync<ArgumentException>(() => OrganizerCli.RunAsync(args, default));
+
+    [Fact] public void SelectionArgumentsKeepUtcCutoffAndDeduplicateRanges()
+    {
+        var args = ReprocessingArguments.Parse(["--ids", "2,1-3", "--processed-before", "2026-10-01T00:00:00Z", "--limit", "3"]);
+        Assert.Equal(new[] { 1, 2, 3 }, args.Selection.Ids);
+        Assert.Equal(TimeSpan.Zero, args.Selection.ProcessedBefore!.Value.Offset);
+        Assert.Equal(3, args.Selection.Limit);
     }
 }

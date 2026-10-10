@@ -20,6 +20,8 @@ public sealed class OrganizerWorker : BackgroundService
     private readonly ILogger<OrganizerWorker> logger;
     private readonly TimeProvider clock;
     private readonly OrganizerStore store;
+    private readonly ReprocessingProcessor requests;
+    private readonly ReprocessingSchedule schedule;
     public OrganizerWorker(IPaperlessClient paperless, IIntentRunner runner, IIntentContextBuilder context,
         IIntentSynchronizer synchronizer, IDocumentRenderer renderer, OrganizerOptions options,
         ILogger<OrganizerWorker> logger, TimeProvider? clock = null)
@@ -28,14 +30,17 @@ public sealed class OrganizerWorker : BackgroundService
         this.paperless = paperless; this.runner = runner; this.context = context; this.synchronizer = synchronizer;
         this.renderer = renderer; this.options = options; this.logger = logger; this.clock = clock ?? TimeProvider.System;
         store = new(options.StateDirectory);
+        requests = new(new(options.StateDirectory));
+        schedule = new(options.StateDirectory, this.clock);
     }
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var signal = schedule.Signal();
             try
             {
-                var result = await RunOnceAsync(stoppingToken);
+                var result = await RunOnceAsync(stoppingToken, scheduled: true);
                 logger.LogInformation("Organizer poll: completed {Completed}, failed {Failed}", result.Completed, result.Failed);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
@@ -57,31 +62,36 @@ public sealed class OrganizerWorker : BackgroundService
                 }
                 catch (Exception) { logger.LogWarning("Could not persist poll failure status"); }
             }
-            try { await Task.Delay(options.PollInterval, clock, stoppingToken); }
+            try { await WaitForWorkAsync(signal, stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
-    public async Task<OrganizerPollResult> RunOnceAsync(CancellationToken ct = default)
+    private async Task WaitForWorkAsync(string signal, CancellationToken ct)
+    {
+        var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
+        await schedule.WaitAsync(state?.NextRunAt ?? clock.GetUtcNow() + options.PollInterval,
+            signal, state?.PauseReason is not null, ct);
+    }
+    public async Task<OrganizerPollResult> RunOnceAsync(CancellationToken ct = default, bool scheduled = false)
     {
         using var stateLock = store.Lock();
         CheckCapacity();
         if (File.Exists(Path.Combine(store.DirectoryPath, "checkpoint.json")))
             throw new InvalidOperationException("legacy_review_state_use_new_organizer_directory");
+        var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
+        if (scheduled && IsPaused(state)) return new(0, 0, false);
         var taxonomy = await paperless.GetTaxonomyAsync(ct);
         SetupValidation.RequireReviewTag(taxonomy, options.ReviewTag);
-        var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
         var initialized = state is null;
         var jobs = await store.JobsAsync(ct);
         state ??= await InitializeAsync(jobs, ct);
-        if (state.Version != 1 || state.SourceUrl != options.SourceUrl || state.CursorId < state.BaselineId)
-            throw new InvalidOperationException("organizer_scope_changed_or_invalid");
-        await DiscoverAsync(state, jobs, ct);
+        await PrepareCycleAsync(state, jobs, scheduled, ct);
+        var eligible = await requests.EligibleAsync(jobs, ct);
         int completed = 0, failed = 0;
-        foreach (var job in jobs.Where(IsDue).Take(options.BatchSize))
+        foreach (var job in FairOrder(eligible.Where(IsDue), state).Take(options.BatchSize))
         {
             CheckCapacity();
-            job.State = OrganizerJobState.Running; job.Attempts++; job.ErrorCode = null;
-            await SaveAsync(job, ct);
+            if (!await requests.StartAsync(job, clock.GetUtcNow(), ct)) continue;
             await HeartbeatAsync(state, ct);
             logger.LogInformation("Organizer job {JobId} document {DocumentId} started attempt {Attempt}", job.JobId, job.DocumentId, job.Attempts);
             try
@@ -102,12 +112,53 @@ public sealed class OrganizerWorker : BackgroundService
                 failed++;
             }
         }
-        state.NextRunAt = clock.GetUtcNow() + options.PollInterval;
+        await SetNextRunAsync(state, ct);
         await HeartbeatAsync(state, ct);
         return new(completed, failed, initialized);
     }
+    private bool IsPaused(OrganizerCheckpoint? state) => state?.PauseReason is not null && state.NextRunAt > clock.GetUtcNow();
+    private async Task PrepareCycleAsync(OrganizerCheckpoint state, List<OrganizerJob> jobs, bool scheduled, CancellationToken ct)
+    {
+        if (state.Version is not (1 or 2) || state.SourceUrl != options.SourceUrl || state.CursorId < state.BaselineId)
+            throw new InvalidOperationException("organizer_scope_changed_or_invalid");
+        await RecoverAsync(jobs, ct);
+        if (!scheduled || state.LastPollAt is null || state.LastPollAt + options.PollInterval <= clock.GetUtcNow())
+            await DiscoverAsync(state, jobs, ct);
+        state.PauseReason = null;
+        await GuardManualStateAsync(state, ct);
+        await requests.MaterializeAsync(jobs, options, ct);
+    }
+    private async Task GuardManualStateAsync(OrganizerCheckpoint state, CancellationToken ct)
+    {
+        if (state.Version == 2) return;
+        // Older workers must not ignore NotesOnly/RunId on materialized jobs after a downgrade.
+        state.Version = 2;
+        await store.SaveAsync(store.CheckpointPath, state, ct);
+    }
+    private async Task SetNextRunAsync(OrganizerCheckpoint state, CancellationToken ct)
+    {
+        state.NextRunAt = clock.GetUtcNow() + options.PollInterval;
+        if (state.PauseReason is null)
+        {
+            var discovery = (state.LastPollAt ?? clock.GetUtcNow()) + options.PollInterval;
+            state.NextRunAt = await schedule.NextAsync(discovery, ct);
+        }
+    }
     private bool IsDue(OrganizerJob job) => job.State == OrganizerJobState.Pending ||
         job.State == OrganizerJobState.RetryWaiting && job.NextAttemptAt <= clock.GetUtcNow();
+
+    private static IEnumerable<OrganizerJob> FairOrder(IEnumerable<OrganizerJob> jobs, OrganizerCheckpoint state)
+    {
+        var normal = new Queue<OrganizerJob>(jobs.Where(j => j.RunId is null).OrderBy(j => j.CreatedAt));
+        var manual = new Queue<OrganizerJob>(jobs.Where(j => j.RunId is not null).OrderBy(j => j.CreatedAt));
+        while (normal.Count + manual.Count > 0)
+        {
+            var selected = state.ManualNext ? manual : normal;
+            if (selected.Count == 0) selected = state.ManualNext ? normal : manual;
+            state.ManualNext = !state.ManualNext;
+            yield return selected.Dequeue();
+        }
+    }
 
     private async Task<OrganizerCheckpoint> InitializeAsync(List<OrganizerJob> jobs, CancellationToken ct)
     {
@@ -136,13 +187,16 @@ public sealed class OrganizerWorker : BackgroundService
         return state;
     }
 
-    private async Task DiscoverAsync(OrganizerCheckpoint state, List<OrganizerJob> jobs, CancellationToken ct)
+    private async Task RecoverAsync(List<OrganizerJob> jobs, CancellationToken ct)
     {
         foreach (var job in jobs.Where(j => j.State == OrganizerJobState.Running))
         {
             job.State = OrganizerJobState.Pending; // Saved intent resumes sync with the same idempotency key.
             await SaveAsync(job, ct);
         }
+    }
+    private async Task DiscoverAsync(OrganizerCheckpoint state, List<OrganizerJob> jobs, CancellationToken ct)
+    {
         var discovered = await paperless.ListDocumentsAsync(null, options.DiscoveryLimit, state.CursorId, ct);
         foreach (var doc in discovered.OrderBy(d => d.Id))
         {
@@ -190,13 +244,17 @@ public sealed class OrganizerWorker : BackgroundService
         foreach (var page in pages)
             images.Add($"data:{page.MediaType};base64,{Convert.ToBase64String(await File.ReadAllBytesAsync(page.Path, ct))}");
         var inferenceTimer = Stopwatch.StartNew();
-        var raw = await runner.GenerateAsync(options.Model, input.Instructions, input.Prompt, images, input.Schema, ct);
+        var generated = await runner.GenerateWithUsageAsync(options.Model, input.Instructions, input.Prompt, images, input.Schema, ct);
+        var raw = generated.Text;
+        job.Usage = generated.Usage;
         job.InferenceMilliseconds = inferenceTimer.ElapsedMilliseconds;
         if (raw.Length > 2 * 1024 * 1024) throw new InvalidOperationException("intent_too_large");
         await AuditWriter.WritePrivateAsync(Path.Combine(attemptPath, "response.txt"), raw, ct);
         using var parsed = JsonDocument.Parse(input.NamedOutput
             ? NamedIntentContract.Resolve(raw, job.Source, taxonomy, pages.Count) : raw);
-        job.Intent = parsed.RootElement.Clone(); job.PolicyVersion = input.PolicyVersion;
+        job.Decisions = IntentDiagnostics.Summarize(parsed.RootElement, input.NamedOutput ? raw : null);
+        job.Intent = job.NotesOnly ? IntentDiagnostics.NotesOnly(IntentValidator.Validate(parsed.RootElement.GetRawText(), job.Source, taxonomy, pages.Count)) : parsed.RootElement.Clone();
+        job.PolicyVersion = input.PolicyVersion;
         job.PageCount = pages.Count; job.OriginalSha256 = originalHash;
         job.Model = options.Model; job.RenderedPages = pages;
         await SaveAsync(job, ct); // Never repeat inference merely because sync was interrupted.
@@ -225,13 +283,19 @@ public sealed class OrganizerWorker : BackgroundService
         if (exception is ProposalValidationException) job.Intent = null;
         // Raw provider exceptions may contain prompts, OCR or credentials; persist only fixed codes.
         bool conflict = exception is SyncConflictException;
-        job.ErrorCode = conflict ? "sync_conflict" : job.Intent is null ? "inference_failed" : "sync_failed";
+        job.ErrorCode = FailureCode(job, exception);
         job.State = conflict || job.Attempts >= options.MaxAttempts ? OrganizerJobState.Failed : OrganizerJobState.RetryWaiting;
         job.NextAttemptAt = job.State == OrganizerJobState.RetryWaiting
             ? clock.GetUtcNow() + TimeSpan.FromTicks(options.RetryBaseDelay.Ticks * (1L << Math.Min(job.Attempts - 1, 9))) : null;
         await SaveAsync(job, ct);
         logger.LogWarning("Organizer job {JobId} document {DocumentId} stopped with {Code}", job.JobId, job.DocumentId, job.ErrorCode);
     }
+    private static string FailureCode(OrganizerJob job, Exception exception) => exception switch
+    {
+        SyncConflictException => "sync_conflict",
+        PaperlessException { Code: "paperless_not_found" } => "document_not_visible",
+        _ => job.Intent is null ? "inference_failed" : "sync_failed"
+    };
 
     private static string? PauseCode(Exception exception) => exception switch
     {
@@ -258,6 +322,7 @@ public sealed class OrganizerWorker : BackgroundService
         var job = await store.ReadAsync<OrganizerJob>(store.JobPath(documentId), ct) ?? throw new InvalidOperationException("job_not_found");
         if (regenerate)
         {
+            if (job.State != OrganizerJobState.Completed) throw new ArgumentException("Only completed jobs can be reprocessed; retry unresolved jobs with their saved intent.");
             // Preserve the previous job's evidence before replacing its current index entry.
             var history = Path.Combine(store.DirectoryPath, "history");
             AuditWriter.PrivateDirectory(history);
@@ -265,6 +330,7 @@ public sealed class OrganizerWorker : BackgroundService
             job.Intent = null; job.Source = null; job.After = null; job.JobId = Guid.NewGuid().ToString("N");
             job.CreatedAt = clock.GetUtcNow(); job.CompletedAt = null; job.Outcome = null;
             job.InferenceMilliseconds = null; job.SyncMilliseconds = null;
+            job.RunId = null; job.NotesOnly = false; job.StartedAt = null; job.Decisions = null; job.Usage = null;
         }
         job.State = OrganizerJobState.Pending; job.Attempts = 0; job.ErrorCode = null; job.NextAttemptAt = null;
         await SaveAsync(job, ct);

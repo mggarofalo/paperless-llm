@@ -61,6 +61,12 @@ Install `poppler-utils` and Node before running the suite on Linux. Use a fresh 
 - Invalid credential files never reach the network. Caller cancellation stays distinct from an uncertain write outcome.
 - Corrupt job identities/state fail closed. Cancelled atomic writes preserve the previous checkpoint and remove temporary files.
 - Explicit reprocessing archives the previous evidence and creates a new job identity.
+- Manual bulk submission uses one durable snapshot while the worker runs. Tests
+  exercise overlapping submissions, bounded materialization, interrupted sync,
+  cancellation/resume, historical pagination, capacity, provider pauses across
+  restart, and wake-up without the normal hourly delay.
+- Run diagnostics expose only categorical field dispositions and numeric provider
+  usage; model text stays private. Contradictory decision/action pairs are rejected.
 - Model subprocess output is bounded, malformed output is rejected, timeouts/cancellation release resources, and only fixed diagnostic codes reach ordinary logs.
 - Device codes cannot redirect users to an untrusted URL. The bridge configures device-code OAuth, no model tools, and no provider-network catalog refresh; tool-call and incomplete responses are rejected.
 - JPEG/PNG bounds reject truncated or oversized input; Linux tests render every page of a synthetic PDF and reject page-cap truncation.

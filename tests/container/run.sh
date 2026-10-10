@@ -7,8 +7,10 @@ if command -v cygpath >/dev/null 2>&1; then fixture_dir="$(cygpath -m "$fixture_
 suffix="$$-$RANDOM"
 network="ppllm-e2e-$suffix"
 server="ppllm-fixture-$suffix"
+worker="ppllm-worker-$suffix"
 volume="ppllm-data-$suffix"
 cleanup() {
+  docker rm -f "$worker" >/dev/null 2>&1 || true
   docker rm -f "$server" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
   docker volume rm "$volume" >/dev/null 2>&1 || true
@@ -55,4 +57,39 @@ run reprocess 1
 run once
 control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.posts!==1||s.patches!==1||s.inferences!==2||s.document.tags.includes(2))throw Error(JSON.stringify(s));"
 run status
+# Bulk preview is read-only; cancellation and resume work against a live worker.
+preview="$(run reprocess --all --missing-summary --notes-only --preview --json)"
+node -e 'const p=JSON.parse(process.argv[1]);if(p.Eligible!==0||p.Skipped!==1||p.RunId!==null)process.exit(1)' "$preview"
+submitted="$(run reprocess --all --json)"
+run_id="$(node -e 'console.log(JSON.parse(process.argv[1]).RunId)' "$submitted")"
+run runs cancel "$run_id"
+docker run -d --name "$worker" --network "$network" -v "$volume:/data" -v "$fixture_dir:/fixtures:ro" \
+  -e PPLLM_PAPERLESS_URL=http://paperless:8080 -e PPLLM_PAPERLESS_TOKEN_FILE=/data/token \
+  -e PPLLM_RUNNER_BRIDGE=/fixtures/fake-bridge.mjs -e PPLLM_DRY_RUN=false "$image" worker >/dev/null
+for i in $(seq 1 30); do
+  if docker exec "$worker" dotnet PaperlessLlm.dll health >/dev/null 2>&1; then break; fi
+  if [ "$i" = 30 ]; then docker logs "$worker"; exit 1; fi
+  sleep 1
+done
+docker exec "$worker" dotnet PaperlessLlm.dll runs resume "$run_id"
+for i in $(seq 1 30); do
+  status="$(docker exec "$worker" dotnet PaperlessLlm.dll status --run "$run_id" --json)"
+  if node -e 'const s=JSON.parse(process.argv[1]);if(s.Phase!=="completed"||s.NoChange!==1)process.exit(1)' "$status"; then break; fi
+  if [ "$i" = 30 ]; then docker logs "$worker"; exit 1; fi
+  sleep 1
+done
+control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.posts!==1||s.patches!==1||s.inferences!==3||s.document.tags.includes(2))throw Error(JSON.stringify(s));"
+# Submit through the live container: no worker lock or per-document containers.
+docker exec "$worker" dotnet PaperlessLlm.dll reprocess --all --preview
+control "await fetch('http://localhost:8080/test/prepare-notes-only')"
+submitted="$(docker exec "$worker" dotnet PaperlessLlm.dll reprocess --all --missing-summary --notes-only --json)"
+run_id="$(node -e 'console.log(JSON.parse(process.argv[1]).RunId)' "$submitted")"
+for i in $(seq 1 30); do
+  status="$(docker exec "$worker" dotnet PaperlessLlm.dll status --run "$run_id" --json)"
+  if node -e 'const s=JSON.parse(process.argv[1]);if(s.Phase!=="completed"||s.Applied!==1)process.exit(1)' "$status"; then break; fi
+  if [ "$i" = 30 ]; then docker logs "$worker"; exit 1; fi
+  sleep 1
+done
+docker exec "$worker" dotnet PaperlessLlm.dll reprocess --all --missing-summary --notes-only --request-id "$run_id" --json
+control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.document.title!=='Human title'||s.posts!==2||s.patches!==2||s.inferences!==4||s.document.notes.length!==2||s.document.notes[0].note!=='Human note: keep for warranty.'||JSON.stringify([...s.document.tags].sort())!=='[1,2,3]')throw Error(JSON.stringify(s));"
 printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH and note POST, ambiguous-write recovery for both endpoints, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'

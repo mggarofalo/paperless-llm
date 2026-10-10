@@ -47,9 +47,11 @@ over automatic recovery in that small window.
 
 For an unresolved note, stop the worker, inspect the Paperless Notes and private
 journal, and establish that the original request has finished. If the exact note
-exists, `retry ID` can reconcile it. If it is definitively absent, `reprocess ID`
-creates a fresh proposal; do not use reprocessing to bypass an uncertain in-flight
-write. Dry runs never send a note or mark an absent attempt as complete.
+exists, `retry ID` can reconcile it. Reprocessing now accepts only completed jobs;
+it cannot bypass a failed or uncertain journal, even when a note appears absent.
+An absent attempted note needs explicit journal recovery, which has no automatic
+fresh-proposal command yet. Preserve the evidence for inspection. Dry runs never
+send a note or mark an absent attempt as complete.
 
 The source check and POST are separate requests. One worker/state volume per
 instance is required for duplicate prevention; independent workers and concurrent
