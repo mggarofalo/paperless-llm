@@ -41,4 +41,4 @@ Start at the [documentation index](docs/index.md). Operators get setup, configur
 - [Paperless OCR configuration recommendations](docs/ocr.md)
 - [Architecture and contributing](docs/architecture.md)
 - [Roadmap](docs/roadmap.md): local OpenAI-compatible models and a run-review UI with SQLite-backed settings are planned, not shipped.
-- [Current delivery checklist](TODO.md) and [documentation strategy](docs/documentation-strategy.md)
+- [Product roadmap](docs/roadmap.md) and [documentation strategy](docs/documentation-strategy.md)

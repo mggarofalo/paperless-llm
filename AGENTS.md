@@ -37,8 +37,10 @@ small and commands bounded. Document limitations honestly.
 
 Start with `docs/index.md` for task routing, `docs/architecture.md` for code
 boundaries, `docs/quality.md` for reproducible complexity/coverage checks, and
-`docs/documentation-strategy.md` for documentation ownership. Maintain `TODO.md`
-and the existing Plane PPLLM project; do not create duplicate project trackers.
+`docs/documentation-strategy.md` for documentation ownership. Track tasks and
+delivery status only in the existing Plane PPLLM project; do not maintain a repo
+to-do list or duplicate project tracker. Keep `docs/roadmap.md` as a high-level
+GitHub-facing overview, linked from README.
 Production C#/JavaScript functions must stay at cyclomatic complexity 10 or less.
 Use synthetic fixtures and Linux container acceptance; coverage is evidence of
 exercised behavior, not a reason to add meaningless assertions.
