@@ -4,7 +4,7 @@
 
 | Image reference | Meaning |
 | --- | --- |
-| `ghcr.io/mggarofalo/paperless-llm:v0.3.0` | Immutable release tag; default in the matching Compose asset |
+| `ghcr.io/mggarofalo/paperless-llm:v0.3.1` | Immutable release tag; default in the matching Compose asset |
 | `ghcr.io/mggarofalo/paperless-llm@sha256:…` | Exact immutable image index; digest is included in release assets |
 | `ghcr.io/mggarofalo/paperless-llm:stable` | Highest successfully published stable semantic version |
 | `ghcr.io/mggarofalo/paperless-llm:latest` | Same stable channel; not a nightly or development build |
@@ -21,7 +21,20 @@ set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:stable` in `.env`. This settin
 is consumed by Compose, not the worker. Pulling a tag does not update a running
 container until Compose recreates it.
 
-## Upgrade to 0.3.0
+## Upgrade to 0.3.1
+
+This patch removes the redundant `{OriginalFormat}` template from console JSON
+logs while preserving rendered messages and typed event fields. Log timestamps
+are explicitly UTC. Log consumers using `{OriginalFormat}` should use `Message`
+and structured `State` fields instead.
+
+Set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.3.1` in your existing `.env`,
+then run `docker compose pull worker` and `docker compose up -d worker`.
+Keep the existing project and volumes. Queued reprocessing jobs survive the
+container replacement and continue normally; no job, auth, prompt or configuration
+migration is required from v0.3.0.
+
+## Upgrade to 0.3.0 (notes feature)
 
 This minor release adds optional OCR-grounded document summary notes. It adds a
 version-2 prompt contract and journal fields while preserving saved version-1
