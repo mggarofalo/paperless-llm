@@ -10,6 +10,20 @@ public sealed class RunnerTests : IDisposable
     private readonly string directory = Path.Combine(Path.GetTempPath(), "ppllm-runner-test-" + Guid.NewGuid().ToString("N"));
     private static readonly JsonElement Schema = JsonSerializer.SerializeToElement(new { type = "object" });
     private const string Image = "data:image/png;base64,aGVsbG8=";
+    [Theory]
+    [InlineData("{\"input\":12,\"output\":3,\"cacheRead\":2,\"cacheWrite\":0}", true)]
+    [InlineData("null", false)]
+    [InlineData("{\"input\":-1}", false)]
+    [InlineData("{\"input\":\"secret\"}", false)]
+    [InlineData("{\"input\":0.5}", false)]
+    public async Task ProviderUsageIsOptionalAndNumericOnly(string usage, bool reported)
+    {
+        var runner = Runner("let input='';for await(const c of process.stdin)input+=c;console.log(JSON.stringify({type:'result',text:'{}',usage:" + usage + "}));");
+        var result = await runner.RunWithUsageAsync("model", "policy", "text", [], Schema);
+        Assert.Equal(reported, result.Usage is not null);
+        if (reported) Assert.Equal(new PaperlessLlm.Organizer.ProviderUsage(12, 3, 2, 0), result.Usage);
+        Assert.Equal("{}", result.Text);
+    }
     private PiRunner Runner(string script, TimeSpan? timeout = null)
     {
         Directory.CreateDirectory(directory);

@@ -87,11 +87,19 @@ Pull the image, run `check` and `probe organization`, then start a small batch.
 See [operations](operations.md) for status and retries.
 
 Saved metadata-only intents remain resumable. Saved legacy OCR replacements stop
-as `sync_conflict`: inspect their private operation journal and Paperless history
-before using `reprocess ID`, especially if an older write may already have applied.
+as `sync_conflict`: inspect their private operation journal and Paperless history.
+Reprocessing cannot replace these unresolved jobs; recovery must preserve any
+older write that may already have applied.
 No upgrade automatically replays completed documents or discards audit records.
 
 ## Document-note contract and upgrade
+
+The named model contract additionally requests categorical `decisions` for title,
+date, correspondent, document type and note. `unchanged`, `uncertain`, `policy`,
+`not_applicable` and `change` explain why a field was kept or proposed. Code checks
+that `change` agrees with `set`, strips these diagnostics before synchronization,
+and exposes only the categories in status. They do not certify factual accuracy.
+Old/custom prompts that omit them still work and report unknown dispositions.
 
 The supplied version-2 schema adds `note` with `action` (`keep` or `set`),
 `value` (null or text), and `evidence`. Keep requires null and an empty evidence

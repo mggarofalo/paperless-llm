@@ -21,6 +21,40 @@ public sealed class NamedIntentContractTests
         """;
 
     [Fact]
+    public void FieldDecisionsDistinguishUnchangedFromAbstentionWithoutExpandingWrites()
+    {
+        var raw = JsonNode.Parse(Intent)!;
+        raw["decisions"] = JsonNode.Parse("""{"title":"policy","date":"uncertain","correspondent":"change","document_type":"change","note":"not_applicable"}""");
+        using var parsed = System.Text.Json.JsonDocument.Parse(raw.ToJsonString());
+        var decisions = FieldDecisions.Read(parsed.RootElement)!;
+        Assert.Equal("uncertain", decisions["date"]);
+        var resolved = NamedIntentContract.Resolve(raw.ToJsonString(), Document, Taxonomy, 0);
+        Assert.DoesNotContain("decisions", resolved);
+        using var intent = System.Text.Json.JsonDocument.Parse(resolved);
+        var summary = PaperlessLlm.Organizer.IntentDiagnostics.Summarize(intent.RootElement, raw.ToJsonString());
+        Assert.Equal("policy", summary.Fields!["title"]);
+        raw["decisions"]!["date"] = "unchanged";
+        Assert.Contains("schema_version", NamedIntentContract.Resolve(raw.ToJsonString(), Document, Taxonomy, 0));
+    }
+    [Theory]
+    [InlineData("uncertain")]
+    [InlineData("private reasoning text")]
+    [InlineData(null)]
+    public void RejectsDecisionTextOrDispositionsThatContradictSet(string? value)
+    {
+        var raw = JsonNode.Parse(Intent)!;
+        raw["decisions"] = JsonNode.Parse("""{"title":"policy","date":"unchanged","correspondent":"change","document_type":"change","note":"not_applicable"}""");
+        raw["decisions"]!["correspondent"] = value;
+        Assert.Throws<InvalidDataException>(() => NamedIntentContract.Resolve(raw.ToJsonString(), Document, Taxonomy, 0));
+    }
+    [Fact] public void RejectsPartialDecisionObjects()
+    {
+        var raw = JsonNode.Parse(Intent)!;
+        raw["decisions"] = new JsonObject { ["date"] = "uncertain" };
+        Assert.Throws<InvalidDataException>(() => NamedIntentContract.Resolve(raw.ToJsonString(), Document, Taxonomy, 0));
+    }
+
+    [Fact]
     public void TextOnlyContractRejectsOcrWritesEvenWhenCustomPromptRequestsThem()
     {
         var raw = JsonNode.Parse(Intent)!;

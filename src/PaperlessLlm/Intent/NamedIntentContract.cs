@@ -17,6 +17,8 @@ public static class NamedIntentContract
         properties.Remove("id");
         properties["name"] = new JsonObject { ["type"] = "string" };
         tag["required"] = new JsonArray("name", "evidence");
+        schema["properties"]!["decisions"] = FieldDecisions.Schema();
+        schema["required"]!.AsArray().Add("decisions");
         return schema.ToJsonString();
     }
 
@@ -42,7 +44,9 @@ public static class NamedIntentContract
         // Parse with JsonDocument first to reject duplicate keys before JsonNode lookup.
         using var parsed = System.Text.Json.JsonDocument.Parse(raw);
         RejectDuplicateKeys(parsed.RootElement);
+        _ = FieldDecisions.Read(parsed.RootElement);
         var intent = JsonNode.Parse(raw) as JsonObject ?? throw new InvalidDataException("named_intent_object_required");
+        intent.Remove("decisions"); // Diagnostics never expand the write contract or affect journal identity.
         foreach (var (field, entities) in new[] { ("correspondent", taxonomy.Correspondents), ("document_type", taxonomy.DocumentTypes) })
         {
             if (intent[field] is not JsonObject item) throw new InvalidDataException("named_field_required");

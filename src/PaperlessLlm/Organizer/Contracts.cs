@@ -5,6 +5,8 @@ namespace PaperlessLlm.Organizer;
 public interface IIntentRunner
 {
     Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken ct);
+    async Task<IntentResult> GenerateWithUsageAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
+        => new(await GenerateAsync(model, instructions, prompt, images, schema, ct));
 }
 public interface IIntentSynchronizer
 {
@@ -59,6 +61,11 @@ public sealed class OrganizerOptions
 public enum OrganizerJobState { Pending, Running, RetryWaiting, Completed, Failed }
 public sealed class OrganizerJob
 {
+    public string? RunId { get; set; }
+    public bool NotesOnly { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
+    public DecisionSummary? Decisions { get; set; }
+    public ProviderUsage? Usage { get; set; }
     public int DocumentId { get; set; }
     public string JobId { get; set; } = Guid.NewGuid().ToString("N");
     public OrganizerJobState State { get; set; }
@@ -83,6 +90,15 @@ public sealed class OrganizerJob
 public sealed record OrganizerPollResult(int Completed, int Failed, bool Initialized) { }
 public sealed record OrganizerJobSummary(int DocumentId, string JobId, OrganizerJobState State, int Attempts, string? ErrorCode, DateTimeOffset? NextAttemptAt, string? Outcome,
     DateTimeOffset CreatedAt = default, DateTimeOffset? UpdatedAt = null, DateTimeOffset? CompletedAt = null,
-    long? InferenceMilliseconds = null, long? SyncMilliseconds = null)
+    long? InferenceMilliseconds = null, long? SyncMilliseconds = null, string? RunId = null,
+    DecisionSummary? Decisions = null, ProviderUsage? Usage = null, string? Phase = null)
 { }
-public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null) { }
+public sealed record OrganizerStatus(int BaselineId, int CursorId, DateTimeOffset? LastPollAt, IReadOnlyList<OrganizerJobSummary> Jobs, DateTimeOffset? LastActivityAt = null, DateTimeOffset? NextRunAt = null, string? PauseReason = null)
+{
+    public int QueueDepth => Jobs.Count(j => j.State is OrganizerJobState.Pending or OrganizerJobState.RetryWaiting);
+    public DateTimeOffset? OldestQueuedAt => Jobs.Where(j => j.State is OrganizerJobState.Pending or OrganizerJobState.RetryWaiting)
+        .Select(j => (DateTimeOffset?)j.CreatedAt).DefaultIfEmpty().Min();
+    public DateTimeOffset? LastSuccessfulDiscoveryAt => LastPollAt;
+    public DateTimeOffset? LastSuccessfulSyncAt => Jobs.Select(j => j.CompletedAt).DefaultIfEmpty().Max();
+    public string Phase => PauseReason is not null ? "paused" : Jobs.FirstOrDefault(j => j.State == OrganizerJobState.Running)?.Phase ?? "waiting";
+}

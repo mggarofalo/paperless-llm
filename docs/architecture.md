@@ -30,6 +30,20 @@ The [prompt file](prompts.md) reloads before each inference. Exact taxonomy name
 
 A whole-worker filesystem lock serializes processing. Atomic JSON replacements record job state and checkpoints. The saved intent separates model work from sync retries; the write-ahead operation journal handles uncertain PATCH responses and separate note POST attempts. Completed IDs remain complete until explicit reprocessing. See [discovery semantics](operations.md#discovery-and-jobs).
 
+Manual reprocessing uses immutable `runs/<run-id>.json` requests on the private
+state volume. Each selected item carries the previous and planned next job IDs.
+Submission needs only a short submission lock, never the inference/worker lock.
+Under the worker lock, materialization archives the completed job before atomically
+replacing its index. Replay recognizes the planned identity or its archived result.
+The worker first upgrades the checkpoint to version 2 so older binaries cannot
+silently ignore the new job restrictions after a downgrade.
+Only the worker writes skip progress; cancellation/resume use a separate atomic
+control file and a short per-run lock shared with job start. This permits live
+submission and cancellation without racing a model call or unresolved write.
+Run read models reconcile current jobs and archived jobs without exposing their
+document contents. Small-library limits remain explicit; there is no recurring
+reprocessing scheduler or automatic history deletion.
+
 Prompt fingerprints cover instructions, schema and inference settings. Jobs retain source revision, taxonomy context, prompt text and hash and proposal. Validation checks the current taxonomy before sync and before replay. The final GET/PATCH race remains a documented [limitation](review.md#history-and-journals).
 
 Notes use a separate append-only write, after metadata and the review marker.

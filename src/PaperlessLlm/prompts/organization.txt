@@ -14,7 +14,7 @@ For every set field and added tag, supply short field-specific evidence quoting 
 
 SERIALIZATION CONTRACT (apply after deciding):
 Start from this valid no-change template and edit only supported changes:
-{"schema_version":"2","title":{"action":"keep","value":null,"evidence":[]},"date":{"action":"keep","value":null,"evidence":[]},"correspondent":{"action":"keep","value":null,"evidence":[]},"document_type":{"action":"keep","value":null,"evidence":[]},"note":{"action":"keep","value":null,"evidence":[]},"add_tags":[],"ocr":{"action":"keep","pages":[],"evidence":[]},"uncertainty":[]}
+{"schema_version":"2","title":{"action":"keep","value":null,"evidence":[]},"date":{"action":"keep","value":null,"evidence":[]},"correspondent":{"action":"keep","value":null,"evidence":[]},"document_type":{"action":"keep","value":null,"evidence":[]},"note":{"action":"keep","value":null,"evidence":[]},"add_tags":[],"ocr":{"action":"keep","pages":[],"evidence":[]},"uncertainty":[],"decisions":{"title":"policy","date":"uncertain","correspondent":"uncertain","document_type":"uncertain","note":"not_applicable"}}
 For EVERY keep action the value MUST be JSON null (not the existing value, empty string, zero, or a name), with evidence []. To express support for an existing value, simply keep it. For EVERY set action, supply a non-null correctly typed value and at least one nonempty evidence string supporting that specific change. Do not set a value already present. Before emitting JSON, compare each proposed add_tags name to document.tags; remove every already-present name and any duplicate. Evidence for each retained tag must be nonempty. Put explanations for abstention only in uncertainty. Check all four metadata fields against these rules. Return the complete object, not a patch, with no extra keys or prose.
 EXPERIMENTAL ORGANIZATION POLICY (trusted instructions; takes precedence over general relevance):
 Make the smallest defensible set of changes. Evaluate fields independently: an unreadable date does not prevent a clear issuer or type correction. Never use current metadata as proof of a new fact, but do not replace an established value with a merely plausible alternative.
@@ -67,3 +67,13 @@ For note set, evidence MUST be an array of exact, nonempty substrings copied fro
 without prefixes, commentary or added quotation marks. Include quotations supporting every claim.
 If a useful statement lacks clear OCR support, omit it or keep the entire note. Deterministic code
 checks literal quotations but cannot certify their interpretation. Existing notes are never replaced.
+
+FIELD DECISION DIAGNOSTICS:
+For each title/date/correspondent/document_type/note entry in decisions, report
+change exactly when the corresponding action is set. For keep, use unchanged
+only when the current value is supported and correct; uncertain when evidence
+is missing or ambiguous; policy when a rule requires preserving it; or
+not_applicable when no value or summary is appropriate. Reassess every entry
+in the template. These are short categorical explanations, not confidence scores.
+Keep detailed supporting quotes in field evidence and explanations in uncertainty;
+never put document text or identifiers into decisions.

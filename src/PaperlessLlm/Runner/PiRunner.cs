@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using PaperlessLlm.Auth;
 using PaperlessLlm.Inference;
+using PaperlessLlm.Organizer;
 
 namespace PaperlessLlm.Runner;
 
@@ -15,6 +16,9 @@ public sealed class PiRunner(PiRunnerOptions options)
 {
     private const int MaxOutput = 4 * 1024 * 1024;
     public async Task<string> RunAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken cancellationToken = default)
+        => (await RunWithUsageAsync(model, instructions, prompt, imageDataUrls, schema, cancellationToken)).Text;
+
+    public async Task<IntentResult> RunWithUsageAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(model) || imageDataUrls.Count > 10 || prompt.Length > 2_000_000)
             throw new InferenceException("runner_input_invalid");
@@ -32,7 +36,18 @@ public sealed class PiRunner(PiRunnerOptions options)
         var message = result.LastOrDefault(x => x.GetProperty("type").GetString() == "result");
         if (message.ValueKind == JsonValueKind.Undefined) throw new InferenceException("runner_missing_result");
         var text = message.GetProperty("text").GetString()!;
-        return text;
+        return new(text, ReadUsage(message));
+    }
+    private static ProviderUsage? ReadUsage(JsonElement message)
+    {
+        if (!message.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object) return null;
+        var counts = new List<long>();
+        foreach (var key in new[] { "input", "output", "cacheRead", "cacheWrite" })
+        {
+            if (!usage.TryGetProperty(key, out var value) || value.ValueKind != JsonValueKind.Number || !value.TryGetInt64(out var count) || count < 0) return null;
+            counts.Add(count);
+        }
+        return new(counts[0], counts[1], counts[2], counts[3]);
     }
 
     public async Task LoginAsync(Action<DeviceLogin> displayCode, CancellationToken cancellationToken = default)

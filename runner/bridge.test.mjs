@@ -32,7 +32,9 @@ async function bridge(command, request = {}) {
           if(context.tools.length || options.reasoning!=='low' || options.maxTokens!==16000) throw Error('unsafe inference');
           if(!context.systemPrompt.includes('No Markdown.')) throw Error('missing schema contract');
           if(model.id==='rate') return {stopReason:'error',errorMessage:'429 private-provider-secret'};
-          return {model:model.id,provider:'openai-codex',stopReason:'stop',content:
+          const usage = model.id==='usage' ? {input:12,output:7,cacheRead:3,cacheWrite:0,secret:'private-provider-secret'}
+            : model.id==='bad-usage' ? {input:-1,output:7,cacheRead:3,cacheWrite:0} : undefined;
+          return {model:model.id,provider:'openai-codex',stopReason:'stop',usage,content:
             model.id==='tool'?[{type:'toolCall',name:'shell'}]:[{type:'text',text:'{"ok":true}'}]};
         }
       }
@@ -62,6 +64,12 @@ test('metadata inference has no tools and preserves raw JSON', async () => {
   const result = await bridge('infer');
   assert.equal(result.code, 0);
   assert.deepEqual(result.messages, [{type:'result',text:'{"ok":true}'}]);
+});
+test('usage forwards only validated token counts', async () => {
+  const result = await bridge('infer', {model:'usage'});
+  assert.deepEqual(result.messages[0].usage, {input:12,output:7,cacheRead:3,cacheWrite:0});
+  assert.ok(!result.stdout.includes('private-provider-secret'));
+  assert.equal((await bridge('infer', {model:'bad-usage'})).messages[0].usage, undefined);
 });
 for (const [model, code, exit] of [['missing','model_unavailable',21],['tool','incomplete_response',21],['rate','rate_limited',22]]) {
   test(`rejects ${model} without leaking provider details`, async () => {
