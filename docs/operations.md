@@ -63,8 +63,7 @@ This initial filesystem implementation is intended for a personal library. It re
 
 ## Manual bulk reprocessing
 
-These commands are implemented for the next release; v0.3.1 only supports the old
-single-ID command. Upgrade the image before using the bulk workflow.
+These commands require v0.4.0 or newer. See the [upgrade guide](releases.md#upgrade-to-040) before upgrading an existing worker.
 
 Leave the worker running. Preview and submit all completed enrolled documents:
 

@@ -86,6 +86,18 @@ These checks exercise deterministic behavior with synthetic data. They do not
 establish summary quality on real OCR or permission compatibility with a live
 Paperless deployment.
 
+## Manual reprocessing (v0.4.0)
+
+The Linux .NET 10 Release run passed **329 tests, zero skipped**, and all **23
+JavaScript tests** passed. Worker coverage is **93.48% line / 83.73% branch**;
+evaluator coverage is **82.99% line / 75.72% branch**. Maximum production function
+complexity remains 10. Coverage includes durable submissions, overlapping
+selections, checkpoint migration, cancellation/resumption, provider pauses and
+notes-only preservation. Container acceptance additionally exercises these
+commands in a live synthetic worker and verifies uncertain-write recovery without
+duplicate notes. These checks do not establish real-document model accuracy or
+live authentication renewal.
+
 ## Remaining limits
 
 The largest uncovered runtime area is CLI host construction/setup dispatch (65 uncovered sequence-point lines in this run). The independent Docker smoke suite exercises actual container setup, organization, and crash recovery, but those subprocesses are outside this Coverlet run. Additional uncovered runtime branches include unusual filesystem/access failures, alternate OS paths, and race/error handling that is difficult to force deterministically.
