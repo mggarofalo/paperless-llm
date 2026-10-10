@@ -1,3 +1,8 @@
+# Pending maintenance
+
+- [ ] PPLLM-35: omit redundant `{OriginalFormat}` from console JSON; preserve
+  rendered messages and typed event fields. PR validation in progress.
+
 # v0.3.0 delivery checklist
 
 - [x] PPLLM-33: append useful OCR-grounded summary notes with durable POST recovery,

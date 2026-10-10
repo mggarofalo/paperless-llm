@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using PaperlessLlm.Auth;
 using PaperlessLlm.Inference;
 using PaperlessLlm.Intent;
+using PaperlessLlm.Logging;
+using Microsoft.Extensions.Logging.Console;
 using PaperlessLlm.Organizer;
 using PaperlessLlm.Paperless;
 using PaperlessLlm.Runner;
@@ -128,7 +130,8 @@ public static class OrganizerCli
         };
         var builder = Host.CreateApplicationBuilder(Array.Empty<string>());
         builder.Logging.ClearProviders();
-        builder.Logging.AddJsonConsole(o => o.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ");
+        builder.Logging.AddConsole(o => o.FormatterName = CompactJsonConsoleFormatter.FormatterName)
+            .AddConsoleFormatter<CompactJsonConsoleFormatter, ConsoleFormatterOptions>();
         builder.Services.AddSingleton(options);
         builder.Services.AddSingleton<IPaperlessClient>(reader);
         builder.Services.AddSingleton<IIntentRunner>(new RunnerAdapter(runner));
