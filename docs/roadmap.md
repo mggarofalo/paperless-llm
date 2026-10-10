@@ -1,6 +1,6 @@
 # Roadmap
 
-[Index](index.md) · [Architecture](architecture.md) · [Delivery checklist](../TODO.md)
+[Index](index.md) · [Architecture](architecture.md)
 
 Plane project **PPLLM** owns detailed status and acceptance. This page distinguishes
 shipped behavior from planned work; a roadmap entry is not a supported configuration.
@@ -56,6 +56,21 @@ Keep automatic validated application with retrospective review as the default.
 A UI must not accidentally introduce a mandatory approval queue or reinterpret the
 `needs review` tag as job state.
 
+## First-class bulk and periodic reprocessing — PPLLM-32
+
+Reprocessing should be a normal product operation: submit a selection once,
+receive a run ID, disconnect, and check progress later. The planned bulk command
+will support previews and useful selections, while a durable request queue lets
+users submit work without stopping the worker or launching a container per document.
+Run-level progress will distinguish queueing from actual processing and support
+safe resumption. Optional recurring policies can later automate periodic refreshes.
+
+The existing notes, protected metadata and recovery guarantees remain in force.
+Historical enrollment will be an explicit scope; review tags and state-file deletion
+will never act as requeue controls. These capabilities are planned, not available
+in v0.3.1. Detailed scope, acceptance and delivery order live in Plane PPLLM-32,
+its children PPLLM-36/37/38, and existing progress/UI items PPLLM-30/28.
+
 ## Remaining operational work
 
 - **PPLLM-8 / PPLLM-20:** broader live accuracy review, actual write/readback proof
@@ -68,4 +83,5 @@ A UI must not accidentally introduce a mandatory approval queue or reinterpret t
 - **PPLLM-29:** retention/compaction of private evidence without deleting recovery records.
 - **PPLLM-30:** useful run summaries, abstentions, no-change explanations and provider usage.
 - **PPLLM-31:** outgoing-correspondence and ambiguous document-type conventions.
-- **PPLLM-32:** bounded history enrollment and explicit reprocessing controls.
+- **PPLLM-32:** bulk and periodic reprocessing, delivered through PPLLM-36/37/38
+  and existing progress work in PPLLM-30 above.

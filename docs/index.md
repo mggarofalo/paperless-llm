@@ -16,7 +16,7 @@ the task you need to perform; the reference pages describe the current release.
 | Change implementation | [AGENTS.md](../AGENTS.md), [architecture](architecture.md), [quality](quality.md) |
 | Run offline model evaluations | [Offline evaluation](offline-evaluation.md) |
 | Prepare and publish a release | [Release agent skill](../.agents/skills/release/SKILL.md) |
-| Understand future features | [Roadmap](roadmap.md), [delivery checklist](../TODO.md) |
+| Understand future features | [Roadmap](roadmap.md); detailed work is tracked in Plane PPLLM |
 
 Evaluation reports under `evaluations/` are dated evidence, not current setup
 instructions. Their model configurations and historical limitations are preserved

@@ -21,7 +21,8 @@ defaults and invariants—not a separate unreadable manual.
 | Complexity, coverage and test policy | quality.md | Quality tooling/refactor changes |
 | Version and channel semantics | releases.md and release skill | Release workflow changes |
 | Measured model evidence | Dated evaluations | A completed experiment |
-| Planned features and acceptance criteria | roadmap.md and Plane PPLLM | Scope/status changes |
+| Planned product direction | roadmap.md | Product direction changes |
+| Tasks, acceptance criteria and delivery status | Plane PPLLM only | Scope/status changes |
 
 Keep commands beside their use case. Cross-link configuration and authentication
 instead of copying entire tables. Preserve historical reports; add a pointer to
