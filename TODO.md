@@ -1,7 +1,9 @@
-# Pending maintenance
+# v0.3.1 delivery checklist
 
-- [ ] PPLLM-35: omit redundant `{OriginalFormat}` from console JSON; preserve
-  rendered messages and typed event fields. PR validation in progress.
+- [x] PPLLM-35: omit redundant `{OriginalFormat}` from console JSON; preserve
+  rendered messages and typed event fields. Merged PR #19 with passing Linux CI,
+  279 .NET tests, coverage/complexity gates and amd64/arm64 container acceptance.
+- [ ] Publish and verify v0.3.1 image, release assets and latest/stable channels.
 
 # v0.3.0 delivery checklist
 
