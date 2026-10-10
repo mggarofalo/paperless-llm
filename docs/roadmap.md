@@ -58,18 +58,14 @@ A UI must not accidentally introduce a mandatory approval queue or reinterpret t
 
 ## First-class manual reprocessing — PPLLM-32
 
-Reprocessing should be a normal product operation: submit a selection once,
-receive a run ID, disconnect, and check progress later. The planned bulk command
-will support previews and useful selections, while a durable request queue lets
-users submit work without stopping the worker or launching a container per document.
-Run-level progress will distinguish queueing from actual processing and support
-safe resumption. Reprocessing stays manual; recurring policies are out of scope.
+Shipped in **v0.4.0**: submit a durable selection once, receive a run ID,
+disconnect, and check progress later. Previews, bounded historical enrollment,
+notes-only runs, cancellation/resumption and categorical run diagnostics are
+supported while the worker runs. Existing notes, protected metadata and recovery
+guarantees remain in force. Reprocessing stays manual; recurring policies are
+out of scope. See [operations](operations.md#manual-bulk-reprocessing).
 
-The existing notes, protected metadata and recovery guarantees remain in force.
-Historical enrollment will be an explicit scope; review tags and state-file deletion
-will never act as requeue controls. These capabilities are planned, not available
-in v0.3.1. Detailed scope, acceptance and delivery order live in Plane PPLLM-32,
-its children PPLLM-36/37, and existing progress/UI items PPLLM-30/28.
+Delivery evidence lives in Plane PPLLM-32, PPLLM-36/37 and PPLLM-30.
 
 ## Remaining operational work
 
@@ -81,7 +77,4 @@ its children PPLLM-36/37, and existing progress/UI items PPLLM-30/28.
 - **PPLLM-9:** future receipt-tracker integration must avoid duplicate imports and
   preserve the distinct receipt-logging workflow.
 - **PPLLM-29:** retention/compaction of private evidence without deleting recovery records.
-- **PPLLM-30:** useful run summaries, abstentions, no-change explanations and provider usage.
 - **PPLLM-31:** outgoing-correspondence and ambiguous document-type conventions.
-- **PPLLM-32:** manual bulk reprocessing, delivered through PPLLM-36/37
-  and existing progress work in PPLLM-30 above.
