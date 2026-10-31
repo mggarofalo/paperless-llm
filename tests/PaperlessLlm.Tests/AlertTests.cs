@@ -84,6 +84,19 @@ public sealed class AlertTests : IDisposable
     }
 
     [Fact]
+    public async Task UnwritableStateDirectoryNeverEscapesTheMonitor()
+    {
+        await File.WriteAllTextAsync(root, "a file where the state directory should be");
+        try
+        {
+            await Monitor().RaiseAsync("auth_required", default);
+            await Monitor().ResolveAsync(true, default);
+            Assert.Single(sink.Sent); // Delivered, but not persisted; never thrown into the worker.
+        }
+        finally { File.Delete(root); }
+    }
+
+    [Fact]
     public async Task UnreadableStateIsTreatedAsNoOutstandingAlert()
     {
         Directory.CreateDirectory(root);

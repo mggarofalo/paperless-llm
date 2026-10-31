@@ -18,9 +18,10 @@ internal static class AlertsCli
         return new NtfyAlertSink(new NtfyOptions(topic, tokenFile.Length > 0 ? tokenFile : null));
     }
 
-    public static async Task<int> RunAsync(string[] args, NtfyAlertSink? sink, CancellationToken ct)
+    public static async Task<int> RunAsync(string[] args, string url, string tokenFile, CancellationToken ct)
     {
         if (args.Length != 2 || args[1] != "test") throw new ArgumentException("Use alerts test.");
+        using var sink = CreateSink(url, tokenFile);
         if (sink is null) throw new ArgumentException("Set PPLLM_NTFY_URL to enable alerts.");
         await sink.SendAsync(new("Paperless LLM test alert", "Alert delivery works. No Paperless documents were accessed.", AlertPriority.Default, "bell"), ct);
         Console.WriteLine("Test alert delivered.");

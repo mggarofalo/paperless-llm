@@ -72,7 +72,19 @@ public sealed class CliTests : IDisposable
     {
         Set("PAPERLESS_URL", "");
         Set("PAPERLESS_TOKEN_FILE", "");
+        Set("NTFY_URL", "not a url"); // Alert configuration only matters to alerting commands.
         Assert.Equal(0, await OrganizerCli.RunAsync(args, default));
+    }
+
+    [Theory]
+    [InlineData("alerts", "test")]
+    [InlineData("check")]
+    public async Task InvalidAlertConfigurationFailsCommandsThatAlert(params string[] args)
+    {
+        Set("PAPERLESS_URL", "https://paperless.invalid");
+        Set("PAPERLESS_TOKEN_FILE", Path.Combine(directory, "token"));
+        Set("NTFY_URL", "not a url");
+        await Assert.ThrowsAsync<ArgumentException>(() => OrganizerCli.RunAsync(args, default));
     }
 
     [Fact]

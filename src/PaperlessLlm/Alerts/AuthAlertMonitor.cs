@@ -75,15 +75,23 @@ public sealed class AuthAlertMonitor(IAlertSink sink, string stateDirectory, str
         catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException) { return null; }
     }
 
+    // Best effort: an unwritable state volume may repeat an alert, but must never stop the worker.
     private async Task WriteAsync(Outstanding value, CancellationToken ct)
     {
-        AuditWriter.PrivateDirectory(Path.GetDirectoryName(StatePath)!);
         var temporary = StatePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
+            AuditWriter.PrivateDirectory(Path.GetDirectoryName(StatePath)!);
             await AuditWriter.WritePrivateAsync(temporary, JsonSerializer.Serialize(value), ct);
             File.Move(temporary, StatePath, true);
         }
-        finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { logger.LogWarning("Operator alert state could not be saved"); }
+        finally { TryDelete(temporary); }
+    }
+
+    private static void TryDelete(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

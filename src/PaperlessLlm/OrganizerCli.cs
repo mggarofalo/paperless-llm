@@ -68,8 +68,8 @@ public static class OrganizerCli
         if (IsReprocessingCommand(command, args))
             return await ReprocessingCli.RunAsync(args, stateDirectory, (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024, ct);
         if (command is "status" or "health") return await ReadStatusAsync(command, stateDirectory, interval, ct);
-        using var alertSink = AlertsCli.CreateSink(Setting("NTFY_URL", ""), Setting("NTFY_TOKEN_FILE", ""));
-        if (command == "alerts") return await AlertsCli.RunAsync(args, alertSink, ct);
+        // Alert settings are read only by commands that alert, so a typo cannot block auth or probes.
+        if (command == "alerts") return await AlertsCli.RunAsync(args, Setting("NTFY_URL", ""), Setting("NTFY_TOKEN_FILE", ""), ct);
 
         var harness = RunnerHarness.Parse(Setting("HARNESS", RunnerHarness.Codex.Name));
         var model = Setting("MODEL", harness.DefaultModel);
@@ -77,7 +77,7 @@ public static class OrganizerCli
         if (command == "auth") return await AuthAsync(args, runner, harness, ct);
         if (command == "models") { Console.WriteLine(JsonSerializer.Serialize(await runner.ListModelsAsync(ct))); return 0; }
         if (command == "probe") return await ProbeAsync(args, runner, harness, model, ct);
-        return await RunWorkerAsync(command, args, runner, harness, model, stateDirectory, interval, alertSink, ct);
+        return await RunWorkerAsync(command, args, runner, harness, model, stateDirectory, interval, ct);
     }
 
     private static void ConfigureLogging(ILoggingBuilder logging) =>
@@ -138,9 +138,10 @@ public static class OrganizerCli
         Console.WriteLine("Synthetic JSON/image transport probe passed. This does not measure OCR accuracy. No Paperless documents were accessed."); return 0;
     }
 
-    private static async Task<int> RunWorkerAsync(string command, string[] args, BridgeRunner runner, RunnerHarness harness, string model, string stateDirectory, TimeSpan interval, IAlertSink? alertSink, CancellationToken ct)
+    private static async Task<int> RunWorkerAsync(string command, string[] args, BridgeRunner runner, RunnerHarness harness, string model, string stateDirectory, TimeSpan interval, CancellationToken ct)
     {
         if (command is not ("worker" or "once" or "check" or "retry")) throw new ArgumentException("Unknown command. Run --help.");
+        using var alertSink = AlertsCli.CreateSink(Setting("NTFY_URL", ""), Setting("NTFY_TOKEN_FILE", ""));
         using var loggerFactory = LoggerFactory.Create(ConfigureLogging);
         var alerts = alertSink is null ? null
             : new AuthAlertMonitor(alertSink, stateDirectory, harness.AccountName, loggerFactory.CreateLogger<AuthAlertMonitor>());
