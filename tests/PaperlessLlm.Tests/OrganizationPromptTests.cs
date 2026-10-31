@@ -11,7 +11,7 @@ public sealed class OrganizationPromptTests : IDisposable
     public async Task ReloadsBetweenAttemptsButPreservesSnapshotAndHash()
     {
         await File.WriteAllTextAsync(path, "Policy A");
-        var prompt = new OrganizationPrompt(path, "gpt-6-sol");
+        var prompt = new OrganizationPrompt(path, "gpt-6-sol", "pi-0.99.2");
         var first = await prompt.BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
         await File.WriteAllTextAsync(path, "Policy B");
         var second = await prompt.BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
@@ -25,6 +25,17 @@ public sealed class OrganizationPromptTests : IDisposable
         Assert.Equal(second.PolicyVersion, repeat.PolicyVersion);
     }
 
+    [Fact]
+    public async Task HarnessIdentityIsPartOfThePolicyFingerprint()
+    {
+        await File.WriteAllTextAsync(path, "Policy A");
+        var codex = await new OrganizationPrompt(path, "model", Runner.RunnerHarness.Codex.Fingerprint).BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
+        var claude = await new OrganizationPrompt(path, "model", Runner.RunnerHarness.Claude.Fingerprint).BuildAsync(SyntheticDocuments.Document(), SyntheticDocuments.Taxonomy, 0, default);
+        Assert.NotEqual(codex.PolicyVersion, claude.PolicyVersion);
+        // Existing Codex jobs keep their saved identity across this release.
+        Assert.Equal("pi-0.99.2", Runner.RunnerHarness.Codex.Fingerprint);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData(" \n\t")]
@@ -32,13 +43,13 @@ public sealed class OrganizationPromptTests : IDisposable
     public async Task InvalidFileFailsWithoutFallback(string text)
     {
         await File.WriteAllTextAsync(path, text);
-        await Assert.ThrowsAsync<OrganizationPromptException>(() => new OrganizationPrompt(path, "model").ReadAsync());
+        await Assert.ThrowsAsync<OrganizationPromptException>(() => new OrganizationPrompt(path, "model", "runner").ReadAsync());
     }
 
     [Fact]
     public async Task MissingOversizedAndNonUtf8FilesFailWithoutLeakingContents()
     {
-        var prompt = new OrganizationPrompt(path, "model");
+        var prompt = new OrganizationPrompt(path, "model", "runner");
         await Assert.ThrowsAsync<OrganizationPromptException>(() => prompt.ReadAsync());
         await File.WriteAllBytesAsync(path, new byte[OrganizationPrompt.MaxBytes + 1]);
         await Assert.ThrowsAsync<OrganizationPromptException>(() => prompt.ReadAsync());

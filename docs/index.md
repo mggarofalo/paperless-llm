@@ -5,7 +5,7 @@ the task you need to perform; the reference pages describe the current release.
 
 | Task | Read |
 | --- | --- |
-| Install and sign in with ChatGPT | [README](../README.md), then [authentication](authentication.md) |
+| Install and sign in with ChatGPT or Claude | [README](../README.md), then [authentication](authentication.md) |
 | Set Paperless permissions | [Authentication](authentication.md) |
 | Configure schedule, backlog, dry-run and storage | [Operations](operations.md) |
 | Backfill notes for completed documents | [Existing-installation procedure](operations.md#backfill-notes-on-an-existing-installation) |

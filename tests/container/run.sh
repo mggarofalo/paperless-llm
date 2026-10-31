@@ -92,4 +92,4 @@ for i in $(seq 1 30); do
 done
 docker exec "$worker" dotnet PaperlessLlm.dll reprocess --all --missing-summary --notes-only --request-id "$run_id" --json
 control "const s=await fetch('http://localhost:8080/test/state').then(r=>r.json()); if(s.document.title!=='Human title'||s.posts!==2||s.patches!==2||s.inferences!==4||s.document.notes.length!==2||s.document.notes[0].note!=='Human note: keep for warranty.'||JSON.stringify([...s.document.tags].sort())!=='[1,2,3]')throw Error(JSON.stringify(s));"
-printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH and note POST, ambiguous-write recovery for both endpoints, restart deduplication, review-marker clearing. This does not test live ChatGPT authentication or model accuracy.'
+printf '%s\n' 'Synthetic container E2E passed: existing OCR, name resolution, proposal, validated PATCH and note POST, ambiguous-write recovery for both endpoints, restart deduplication, review-marker clearing. This does not test live harness authentication or model accuracy.'

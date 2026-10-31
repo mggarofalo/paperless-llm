@@ -10,5 +10,7 @@ src/PaperlessLlm/obj/
 !runner/package.json
 !runner/package-lock.json
 !runner/bridge.mjs
+!runner/claude-bridge.mjs
+!runner/protocol.mjs
 !runner/errors.mjs
 !runner/repair-shrinkwrap.mjs

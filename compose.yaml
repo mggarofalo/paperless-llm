@@ -21,7 +21,8 @@ services:
     environment:
       PPLLM_PAPERLESS_URL: ${PPLLM_PAPERLESS_URL:?Set the Paperless URL in .env}
       PPLLM_PAPERLESS_TOKEN_FILE: /run/secrets/paperless_token
-      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-sol}
+      PPLLM_HARNESS: ${PPLLM_HARNESS:-codex}
+      PPLLM_MODEL: ${PPLLM_MODEL:-}
       PPLLM_PROMPT_FILE: ${PPLLM_PROMPT_FILE:-/app/prompts/organization.txt}
       PPLLM_TAG: ${PPLLM_TAG:-needs review}
       PPLLM_POLL_SECONDS: ${PPLLM_POLL_SECONDS:-3600}
@@ -42,13 +43,14 @@ services:
       retries: 3
       start_period: 60s
 
-  # Run only during device-code sign-in. No listening ports or SSH tunnel.
+  # Run only during sign-in (device code or pasted code). No listening ports or SSH tunnel.
   auth:
     <<: *runtime
     profiles: [setup]
     command: [auth, login]
     environment:
-      PPLLM_MODEL: ${PPLLM_MODEL:-gpt-6-sol}
+      PPLLM_HARNESS: ${PPLLM_HARNESS:-codex}
+      PPLLM_MODEL: ${PPLLM_MODEL:-}
     volumes:
       - auth:/data/auth
 

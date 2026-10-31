@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/claude-code": "2.1.314",
     "@earendil-works/pi-coding-agent": "0.99.2",
     "brace-expansion": "5.0.12"
   }

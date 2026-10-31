@@ -6,7 +6,7 @@ The 0.2.0 refactor keeps the organizer behavior and on-disk job format. It separ
 
 ## Scope and architecture cleanup
 
-The supported CLI enters `OrganizerCli`, which uses `OrganizerWorker` and the isolated `PiRunner`. The older loopback OAuth/Responses client, review-only worker/checkpoint format, and HTML review generator had no path from that CLI. They and their dedicated tests were removed. Current private request/response evidence, synchronization journals, retrospective review tags, and protected workflow-tag rules remain. The obsolete JWT and HTTP-factory package references were also removed.
+The supported CLI enters `OrganizerCli`, which uses `OrganizerWorker` and the isolated, harness-neutral `BridgeRunner`. The older loopback OAuth/Responses client, review-only worker/checkpoint format, and HTML review generator had no path from that CLI. They and their dedicated tests were removed. Current private request/response evidence, synchronization journals, retrospective review tags, and protected workflow-tag rules remain. The obsolete JWT and HTTP-factory package references were also removed.
 
 The worker still rejects a legacy review checkpoint instead of silently adopting it. No job-state migration, new model request, live document update, or auth-volume migration is part of this refactor.
 
@@ -104,4 +104,4 @@ The largest uncovered runtime area is CLI host construction/setup dispatch (65 u
 
 Evaluator gaps are mainly full batch orchestration/export CLI, rich-region scoring edge cases, and less-used image-variant validation paths. The measured per-file uncovered line counts are 73 for `ExperimentRunner.cs`, 50 for evaluator `Program.cs`, 32 for `RegionScorer.cs`, and 15 for `ExperimentImages.cs`. Future coverage work should target concrete regressions in those areas; assertions that merely repeat getters, record equality, or every configuration constant are not useful progress.
 
-Tests do not establish model accuracy or exercise real ChatGPT authorization/renewal. Keep model-quality evaluation and a deployment's synthetic probe separate from deterministic code tests. Nothing here requires private documents or credentials.
+Tests do not establish model accuracy or exercise real ChatGPT or Claude authorization/renewal. Bridge tests replace Pi and the Claude Code binary with synthetic fakes. Keep model-quality evaluation and a deployment's synthetic probe separate from deterministic code tests. Nothing here requires private documents or credentials.

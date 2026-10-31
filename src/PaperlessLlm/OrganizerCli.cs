@@ -46,15 +46,16 @@ public static class OrganizerCli
                 status --run ID [--json] [--watch]   Reconnect to run progress
                 runs cancel ID         Cancel unstarted work; started writes finish safely
                 runs resume ID         Restore cancelled unstarted work
-                auth login             Print a device code to approve in any browser; no inbound port
-                auth status            Report whether this deployment has saved ChatGPT auth
-                auth logout            Remove this deployment's local ChatGPT credentials
+                auth login             Sign in to the configured harness from any browser; no inbound port
+                auth status            Report whether this deployment has saved harness auth
+                auth logout            Remove this deployment's local harness credentials
                 models                 Show the provider's model catalog (not entitlement proof)
                 probe                  Check model/image transport with a synthetic JSON request
                 probe organization     Check the configured text policy and name resolution with a synthetic receipt
                 check                  Check Paperless access, review tag and saved auth
                 --version              Show release version
 
+                Set PPLLM_HARNESS=codex (ChatGPT, default) or claude (Claude Code) to choose inference.
                 Set PPLLM_DRY_RUN=true to suppress mutations. Changed documents receive needs review.
                 Configuration and deployment: docs/operations.md and docs/authentication.md.
                 """);
@@ -66,15 +67,20 @@ public static class OrganizerCli
             return await ReprocessingCli.RunAsync(args, stateDirectory, (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024, ct);
         if (command is "status" or "health") return await ReadStatusAsync(command, stateDirectory, interval, ct);
 
-        var model = Setting("MODEL", "gpt-6-sol");
-        var runner = new PiRunner(new(Setting("RUNNER_HOME", Path.Combine(Setting("AUTH_DIRECTORY", "/data/auth"), "pi")),
-            Setting("RUNNER_BRIDGE", Path.Combine(AppContext.BaseDirectory, "runner", "bridge.mjs")),
-            Setting("NODE", "node"), Reasoning: "low"));
-        if (command == "auth") return await AuthAsync(args, runner, ct);
+        var harness = RunnerHarness.Parse(Setting("HARNESS", RunnerHarness.Codex.Name));
+        var model = Setting("MODEL", harness.DefaultModel);
+        var runner = CreateRunner(harness);
+        if (command == "auth") return await AuthAsync(args, runner, harness, ct);
         if (command == "models") { Console.WriteLine(JsonSerializer.Serialize(await runner.ListModelsAsync(ct))); return 0; }
-        if (command == "probe") return await ProbeAsync(args, runner, model, ct);
-        return await RunWorkerAsync(command, args, runner, model, stateDirectory, interval, ct);
+        if (command == "probe") return await ProbeAsync(args, runner, harness, model, ct);
+        return await RunWorkerAsync(command, args, runner, harness, model, stateDirectory, interval, ct);
     }
+
+    private static BridgeRunner CreateRunner(RunnerHarness harness) =>
+        new(new(Setting("RUNNER_HOME", Path.Combine(Setting("AUTH_DIRECTORY", "/data/auth"), harness.AuthSubdirectory)),
+            Setting("RUNNER_BRIDGE", Path.Combine(AppContext.BaseDirectory, "runner", harness.BridgeFile)),
+            Setting("NODE", "node"), Reasoning: "low", DeviceLoginUrl: harness.DeviceLoginUrl,
+            TerminalLogin: harness.Login == HarnessLogin.Terminal));
 
     private static bool IsReprocessingCommand(string command, string[] args) =>
         command is "reprocess" or "runs" || command == "status" && args.Length > 1;
@@ -87,29 +93,31 @@ public static class OrganizerCli
             && DateTimeOffset.UtcNow - activity < interval + TimeSpan.FromMinutes(15) ? 0 : 1;
     }
 
-    private static async Task<int> AuthAsync(string[] args, PiRunner runner, CancellationToken ct)
+    private static async Task<int> AuthAsync(string[] args, BridgeRunner runner, RunnerHarness harness, CancellationToken ct)
     {
         if (args.Length != 2) throw new ArgumentException("Use auth login, auth status or auth logout.");
         switch (args[1])
         {
             case "login":
+                if (harness.Login == HarnessLogin.Terminal)
+                    Console.WriteLine($"Signing in to {harness.AccountName}. Open the printed link in any browser, approve, then paste the code here.");
                 await runner.LoginAsync(code =>
                 {
                     Console.WriteLine($"Open {code.Url} in your browser and enter code: {code.Code}");
                     Console.WriteLine("Waiting for approval. Keep this command running.");
                 }, ct);
                 Console.WriteLine("Sign-in completed. Credentials are stored in the auth volume."); return 0;
-            case "status": Console.WriteLine(JsonSerializer.Serialize(new { SignedIn = await runner.StatusAsync(ct) })); return 0;
-            case "logout": await runner.LogoutAsync(ct); Console.WriteLine("Local credentials removed. Use your ChatGPT account settings for remote revocation."); return 0;
+            case "status": Console.WriteLine(JsonSerializer.Serialize(new { Harness = harness.Name, SignedIn = await runner.StatusAsync(ct) })); return 0;
+            case "logout": await runner.LogoutAsync(ct); Console.WriteLine($"Local credentials removed. Use your {harness.AccountName} account settings for remote revocation."); return 0;
             default: throw new ArgumentException("Use auth login, auth status or auth logout.");
         }
     }
 
-    private static async Task<int> ProbeAsync(string[] args, PiRunner runner, string model, CancellationToken ct)
+    private static async Task<int> ProbeAsync(string[] args, BridgeRunner runner, RunnerHarness harness, string model, CancellationToken ct)
     {
         if (args.Length == 2 && args[1] == "organization")
         {
-            return await ProbeOrganizationAsync(runner, model, ct);
+            return await ProbeOrganizationAsync(runner, harness, model, ct);
         }
         if (args.Length != 1) throw new ArgumentException("Use probe or probe organization.");
         var schema = JsonDocument.Parse("""{"type":"object","properties":{"ready":{"type":"boolean"}},"required":["ready"],"additionalProperties":false}""").RootElement.Clone();
@@ -122,16 +130,16 @@ public static class OrganizerCli
         Console.WriteLine("Synthetic JSON/image transport probe passed. This does not measure OCR accuracy. No Paperless documents were accessed."); return 0;
     }
 
-    private static async Task<int> RunWorkerAsync(string command, string[] args, PiRunner runner, string model, string stateDirectory, TimeSpan interval, CancellationToken ct)
+    private static async Task<int> RunWorkerAsync(string command, string[] args, BridgeRunner runner, RunnerHarness harness, string model, string stateDirectory, TimeSpan interval, CancellationToken ct)
     {
         if (command is not ("worker" or "once" or "check" or "retry")) throw new ArgumentException("Unknown command. Run --help.");
         var paperlessOptions = new PaperlessOptions { BaseUrl = new Uri(Required("PAPERLESS_URL")), TokenFile = Required("PAPERLESS_TOKEN_FILE") };
         using var reader = new PaperlessClient(paperlessOptions);
         using var writer = new PaperlessWriter(paperlessOptions);
         var reviewTag = Setting("TAG", "needs review");
-        var prompt = new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model);
+        var prompt = new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model, harness.Fingerprint);
         if (command is "check" or "worker" or "once")
-            if (await CheckSetupAsync(command, prompt, runner, reader, reviewTag, model, ct)) return 0;
+            if (await CheckSetupAsync(command, prompt, runner, harness, reader, reviewTag, model, ct)) return 0;
         var options = new OrganizerOptions
         {
             StateDirectory = stateDirectory,
@@ -163,13 +171,13 @@ public static class OrganizerCli
         return 0;
     }
 
-    private static async Task<int> ProbeOrganizationAsync(PiRunner runner, string model, CancellationToken ct)
+    private static async Task<int> ProbeOrganizationAsync(BridgeRunner runner, RunnerHarness harness, string model, CancellationToken ct)
     {
         var synthetic = new PaperlessDocument(1, "Synthetic receipt", "CEDAR MARKET\nReceipt\nTransaction date: 2026-04-02\nTOTAL $15.99\nPaid cash",
             "2025-01-01", null, null, null, [], null, null, "synthetic");
         var taxonomy = new PaperlessTaxonomy([new(1, "receipts"), new(2, "inbox", true)],
             [new(1, "Cedar Market")], [new(1, "Receipt")]);
-        var context = await new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model)
+        var context = await new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model, harness.Fingerprint)
             .BuildAsync(synthetic, taxonomy, 0, ct);
         var raw = await runner.RunAsync(model, context.Instructions, context.Prompt, [], context.Schema, ct);
         using var parsedIntent = JsonDocument.Parse(NamedIntentContract.Resolve(raw, synthetic, taxonomy, 0));
@@ -183,6 +191,7 @@ public static class OrganizerCli
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             OrganizationProbe = "passed",
+            Harness = harness.Name,
             Model = model,
             Reasoning = "low",
             context.PromptSha256,
@@ -191,18 +200,20 @@ public static class OrganizerCli
         return 0;
     }
 
-    private static async Task<bool> CheckSetupAsync(string command, OrganizationPrompt prompt, PiRunner runner, PaperlessClient reader, string reviewTag, string model, CancellationToken ct)
+    private static async Task<bool> CheckSetupAsync(string command, OrganizationPrompt prompt, BridgeRunner runner, RunnerHarness harness, PaperlessClient reader, string reviewTag, string model, CancellationToken ct)
     {
         await prompt.ReadAsync(ct);
-        if (!await runner.StatusAsync(ct)) throw new AuthException("Sign in with auth login before starting the worker.", true);
+        if (!await runner.StatusAsync(ct)) throw new AuthException($"Sign in to {harness.AccountName} with auth login before starting the worker.", true);
         var taxonomy = await reader.GetTaxonomyAsync(ct);
         SetupValidation.RequireReviewTag(taxonomy, reviewTag);
-        if (!(await runner.ListModelsAsync(ct)).Contains(model)) throw new ArgumentException("The configured model is absent from the runner catalog.");
+        if (!(await runner.ListModelsAsync(ct)).Contains(model))
+            throw new ArgumentException($"PPLLM_MODEL is absent from the {harness.Name} harness catalog. Run models to list it.");
         if (command == "check")
         {
             var latest = await reader.GetLatestDocumentIdAsync(ct);
             Console.WriteLine(JsonSerializer.Serialize(new
             {
+                Harness = harness.Name,
                 SavedAuth = true,
                 VisibleLatestDocumentId = latest,
                 Note = "Read access checked. Run probe to verify inference. Confirm document change permissions separately; check makes no writes."
@@ -223,14 +234,15 @@ public static class OrganizerCli
         else await host.RunAsync(ct);
     }
 
-    private sealed class RunnerAdapter(PiRunner runner) : IIntentRunner
+    private sealed class RunnerAdapter(BridgeRunner runner) : IIntentRunner
     {
         public Task<IntentResult> GenerateWithUsageAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
             => runner.RunWithUsageAsync(model, instructions, prompt, images, schema, ct);
         public Task<string> GenerateAsync(string model, string instructions, string prompt, IReadOnlyList<string> images, JsonElement schema, CancellationToken ct)
             => runner.RunAsync(model, instructions, prompt, images, schema, ct);
     }
-    private static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable("PPLLM_" + name) ?? fallback;
+    // Compose passes unset optional values as empty strings; treat them as unset.
+    private static string Setting(string name, string fallback) => Environment.GetEnvironmentVariable("PPLLM_" + name) is { Length: > 0 } value ? value : fallback;
     private static string Required(string name) => Environment.GetEnvironmentVariable("PPLLM_" + name) is { Length: > 0 } value ? value : throw new ArgumentException($"Set PPLLM_{name}.");
     private static int Integer(string name, int fallback, int min, int max) => int.TryParse(Setting(name, fallback.ToString()), out int value) && value >= min && value <= max
         ? value : throw new ArgumentException($"PPLLM_{name} must be between {min} and {max}.");

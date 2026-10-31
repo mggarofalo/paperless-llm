@@ -3,7 +3,7 @@ export function classifyError(error, phase = 'inference') {
   const { message, cause } = diagnosticText(error);
   const matched = errorRules.find(rule => rule.pattern.test(rule.includeCause ? message + ' ' + cause : message));
   if (matched) return matched.code;
-  if (['context_limit', 'image_invalid', 'input_limit'].includes(message)) return message;
+  if (['context_limit', 'image_invalid', 'input_limit', 'incomplete_response', 'harness_unsafe', 'harness_unavailable'].includes(message)) return message;
   return phase === 'auth' ? 'auth_failed' : 'inference_failed';
 }
 

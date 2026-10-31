@@ -9,7 +9,7 @@ namespace PaperlessLlm.Intent;
 public sealed class OrganizationPromptException() : Exception("organization_prompt_unreadable_or_invalid");
 
 /// <summary>Snapshot the operator's policy once per inference; never interpolate document text into it.</summary>
-public sealed class OrganizationPrompt(string path, string model) : IIntentContextBuilder
+public sealed class OrganizationPrompt(string path, string model, string runner) : IIntentContextBuilder
 {
     public const int MaxBytes = 64 * 1024;
     public static string DefaultPath => Path.Combine(AppContext.BaseDirectory, "prompts", "organization.txt");
@@ -49,7 +49,7 @@ public sealed class OrganizationPrompt(string path, string model) : IIntentConte
                 schema,
                 contract = "names-2-notes",
                 reasoning = "low",
-                runner = "pi-0.99.2",
+                runner,
                 maxOutputTokens = 16000,
                 context = "existing-ocr-2-notes",
                 IntentPrompt.MaxOcrCharacters,
