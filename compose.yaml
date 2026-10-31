@@ -30,6 +30,8 @@ services:
       PPLLM_BACKFILL_LIMIT: ${PPLLM_BACKFILL_LIMIT:-0}
       PPLLM_MAX_STATE_MIB: ${PPLLM_MAX_STATE_MIB:-2048}
       PPLLM_DRY_RUN: ${PPLLM_DRY_RUN:-false}
+      PPLLM_NTFY_URL: ${PPLLM_NTFY_URL:-}
+      PPLLM_NTFY_TOKEN_FILE: ${PPLLM_NTFY_TOKEN_FILE:-}
     secrets: [paperless_token]
     volumes:
       - auth:/data/auth

@@ -86,7 +86,7 @@ Probe errors now preserve fixed categories: `runner_image_rejected`, `runner_mod
 
 ## Renewal and revocation
 
-The harness (Pi or Claude Code) refreshes credentials in the same volume when needed. Missing, expired or revoked authorization pauses processing without consuming job attempts. Repeat the device-login command, then restart the worker to resume.
+The harness (Pi or Claude Code) refreshes credentials in the same volume when needed. Missing, expired or revoked authorization pauses processing without consuming job attempts. Set `PPLLM_NTFY_URL` to be notified when that happens; see [credential alerts](operations.md#credential-alerts). Repeat the login command, then restart the worker to resume.
 
 ```sh
 docker compose stop worker

@@ -27,6 +27,8 @@ Once a valid proposal has been saved, sync retries reuse it. A crash before that
 | `PPLLM_BACKFILL_LIMIT` | `0` | Oldest visible historical documents enrolled on first initialization, at most 100 |
 | `PPLLM_DRY_RUN` | `false` | Validate proposals without writing Paperless |
 | `PPLLM_MAX_STATE_MIB` | `2048` | Soft state-directory cap before another attempt starts |
+| `PPLLM_NTFY_URL` | empty (off) | ntfy topic URL for [credential alerts](#credential-alerts) |
+| `PPLLM_NTFY_TOKEN_FILE` | empty | Optional ntfy access-token file; requires an https topic URL |
 
 Compose mounts `PPLLM_PAPERLESS_TOKEN_FILE` from its secret. Native deployments can also set `PPLLM_STATE_DIRECTORY`, `PPLLM_AUDIT_DIRECTORY`, `PPLLM_AUTH_DIRECTORY`, `PPLLM_RUNNER_HOME`, `PPLLM_RUNNER_BRIDGE` and `PPLLM_NODE`. The bridge path must identify the installed bridge for the configured harness and its locked dependencies. The runner home defaults to `$PPLLM_AUTH_DIRECTORY/pi` for codex and `$PPLLM_AUTH_DIRECTORY/claude` for claude.
 
@@ -173,6 +175,47 @@ Try `--ids 1,2,3` for a small pilot and inspect the results in Paperless first.
 Removing a note is not a queue signal. Changing `PPLLM_BACKFILL_LIMIT` after
 initialization does not enroll history. For uncertain note writes, follow
 [note recovery](review.md#document-notes); never discard pending intent or journals.
+
+## Credential alerts
+
+Missing, expired or revoked credentials pause processing without consuming job attempts, so the worker can sit idle unnoticed. Set `PPLLM_NTFY_URL` to an [ntfy](https://ntfy.sh) topic to get a notification when that happens:
+
+```sh
+# .env
+PPLLM_NTFY_URL=https://ntfy.sh/replace-with-a-long-random-topic
+```
+
+Subscribe to the same topic in the ntfy app, then check delivery without touching Paperless:
+
+```sh
+docker compose run --rm worker alerts test
+```
+
+The worker sends one high-priority alert per outage and one notice when it recovers:
+
+| Pause code | Alert | Recovery notice when |
+| --- | --- | --- |
+| `auth_required` | Harness sign-in missing, expired or revoked | An inference completes |
+| `auth_unavailable` | Harness sign-in could not be checked | An inference completes |
+| `paperless_authentication_failed` | Paperless rejected the service token | Any cycle reads Paperless again |
+
+The outstanding alert is stored in `alerts.json` in the state volume, so a worker that restarts repeatedly on missing sign-in does not repeat it. A failed delivery is logged as a fixed code such as `alert_transport_failed` and retried on the next poll or restart; it never stops processing. Alerts contain no document content, metadata or credentials. Other pauses, such as rate limits, do not alert.
+
+A public ntfy.sh topic is readable by anyone who knows its name, so treat the topic URL as private and use a long random name. For a protected topic on a self-hosted server, put an access token in a file and add a Compose override beside `compose.yaml`:
+
+```yaml
+# compose.override.yaml
+services:
+  worker:
+    environment:
+      PPLLM_NTFY_TOKEN_FILE: /run/secrets/ntfy_token
+    secrets: [paperless_token, ntfy_token]
+secrets:
+  ntfy_token:
+    file: ./secrets/ntfy_token.txt
+```
+
+A token requires an `https` topic URL so it never crosses the network in clear text.
 
 ## Upgrade from v0.1.0
 
