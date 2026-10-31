@@ -34,7 +34,8 @@ access must use each provider's supported authentication: Codex OAuth through Pi
 ChatGPT, and the unmodified, pinned Claude Code CLI with the user's own Claude
 subscription login (never subscription OAuth in Pi, the Agent SDK or our own code).
 No undocumented endpoints and no silent separately billed API fallback. Keep secrets
-out of command output/logs.
+out of command output/logs. Operator alerts go through `IAlertSink`; they must never
+carry document data or credentials, and delivery failure must never block processing.
 
 Run relevant tests. Tests must cover meaningful failure modes and invariants.
 Use synthetic fixtures; do not commit personal documents. Keep dependency footprint

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Diagnostics;
+using PaperlessLlm.Alerts;
 using PaperlessLlm.Auth;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -22,10 +23,13 @@ public sealed class OrganizerWorker : BackgroundService
     private readonly OrganizerStore store;
     private readonly ReprocessingProcessor requests;
     private readonly ReprocessingSchedule schedule;
+    private readonly AuthAlertMonitor? alerts;
+    private bool inferenceSucceeded; // Within one locked cycle: the harness answered at least once.
     public OrganizerWorker(IPaperlessClient paperless, IIntentRunner runner, IIntentContextBuilder context,
         IIntentSynchronizer synchronizer, IDocumentRenderer renderer, OrganizerOptions options,
-        ILogger<OrganizerWorker> logger, TimeProvider? clock = null)
+        ILogger<OrganizerWorker> logger, TimeProvider? clock = null, AuthAlertMonitor? alerts = null)
     {
+        this.alerts = alerts;
         options.Validate();
         this.paperless = paperless; this.runner = runner; this.context = context; this.synchronizer = synchronizer;
         this.renderer = renderer; this.options = options; this.logger = logger; this.clock = clock ?? TimeProvider.System;
@@ -50,21 +54,26 @@ public sealed class OrganizerWorker : BackgroundService
                     : exception is InvalidOperationException invalid && invalid.Message is "organizer_storage_capacity" or "organizer_job_capacity"
                     ? invalid.Message : "poll_failed";
                 logger.LogWarning("Organizer poll stopped with {Code}", code);
-                try
-                {
-                    using var stateLock = store.Lock();
-                    var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, stoppingToken);
-                    if (state is not null)
-                    {
-                        state.PauseReason = code; state.NextRunAt = clock.GetUtcNow() + options.PollInterval;
-                        await HeartbeatAsync(state, stoppingToken);
-                    }
-                }
-                catch (Exception) { logger.LogWarning("Could not persist poll failure status"); }
+                await RecordPollFailureAsync(code, stoppingToken);
             }
             try { await WaitForWorkAsync(signal, stoppingToken); }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
+    }
+    private async Task RecordPollFailureAsync(string code, CancellationToken ct)
+    {
+        try
+        {
+            using var stateLock = store.Lock();
+            var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
+            if (state is not null)
+            {
+                state.PauseReason = code; state.NextRunAt = clock.GetUtcNow() + options.PollInterval;
+                await HeartbeatAsync(state, ct);
+            }
+        }
+        catch (Exception) { logger.LogWarning("Could not persist poll failure status"); }
+        if (alerts is not null) await alerts.RaiseAsync(code, ct);
     }
     private async Task WaitForWorkAsync(string signal, CancellationToken ct)
     {
@@ -88,6 +97,7 @@ public sealed class OrganizerWorker : BackgroundService
         await PrepareCycleAsync(state, jobs, scheduled, ct);
         var eligible = await requests.EligibleAsync(jobs, ct);
         int completed = 0, failed = 0;
+        inferenceSucceeded = false;
         foreach (var job in FairOrder(eligible.Where(IsDue), state).Take(options.BatchSize))
         {
             CheckCapacity();
@@ -114,8 +124,12 @@ public sealed class OrganizerWorker : BackgroundService
         }
         await SetNextRunAsync(state, ct);
         await HeartbeatAsync(state, ct);
+        await ResolveAlertsAsync(state, ct);
         return new(completed, failed, initialized);
     }
+    // Paperless was reachable this cycle; harness sign-in is proven only by a completed inference.
+    private Task ResolveAlertsAsync(OrganizerCheckpoint state, CancellationToken ct) =>
+        alerts is not null && state.PauseReason is null ? alerts.ResolveAsync(inferenceSucceeded, ct) : Task.CompletedTask;
     private bool IsPaused(OrganizerCheckpoint? state) => state?.PauseReason is not null && state.NextRunAt > clock.GetUtcNow();
     private async Task PrepareCycleAsync(OrganizerCheckpoint state, List<OrganizerJob> jobs, bool scheduled, CancellationToken ct)
     {
@@ -245,6 +259,7 @@ public sealed class OrganizerWorker : BackgroundService
             images.Add($"data:{page.MediaType};base64,{Convert.ToBase64String(await File.ReadAllBytesAsync(page.Path, ct))}");
         var inferenceTimer = Stopwatch.StartNew();
         var generated = await runner.GenerateWithUsageAsync(options.Model, input.Instructions, input.Prompt, images, input.Schema, ct);
+        inferenceSucceeded = true;
         var raw = generated.Text;
         job.Usage = generated.Usage;
         job.InferenceMilliseconds = inferenceTimer.ElapsedMilliseconds;
@@ -313,6 +328,7 @@ public sealed class OrganizerWorker : BackgroundService
         state.PauseReason = code;
         await SaveAsync(job, ct);
         logger.LogWarning("Organizer paused until next poll: {Code}", code);
+        if (alerts is not null) await alerts.RaiseAsync(code, ct);
     }
 
     /// <summary>Explicit retry preserves a proposal for idempotent sync unless regenerate is deliberately selected.</summary>

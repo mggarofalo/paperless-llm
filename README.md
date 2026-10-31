@@ -32,6 +32,7 @@ The Codex default is **Sol 6 low**; the Claude default is **Sonnet 5.5 at low ef
 - Selects exact existing taxonomy names; .NET resolves IDs and validates changes.
 - Preserves workflow tags, ownership, permissions and original files. It cannot delete documents, remove tags, create taxonomy or import receipts.
 - Loads an [editable prompt file](docs/prompts.md) before each new inference; policy changes require no image rebuild or restart. The default keeps titles.
+- Can send an [ntfy alert](docs/operations.md#credential-alerts) when expired sign-in or a rejected Paperless token pauses processing.
 - Keeps durable jobs, prompt hashes and private before/after journals for [review and recovery](docs/review.md). Saved proposals survive sync retries.
 
 OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT or Claude subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md) and inspect early results in your own library.

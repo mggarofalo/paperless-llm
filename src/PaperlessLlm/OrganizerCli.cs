@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PaperlessLlm.Alerts;
 using PaperlessLlm.Auth;
 using PaperlessLlm.Inference;
 using PaperlessLlm.Intent;
@@ -53,6 +54,7 @@ public static class OrganizerCli
                 probe                  Check model/image transport with a synthetic JSON request
                 probe organization     Check the configured text policy and name resolution with a synthetic receipt
                 check                  Check Paperless access, review tag and saved auth
+                alerts test            Send a test notification to PPLLM_NTFY_URL (see docs/operations.md)
                 --version              Show release version
 
                 Set PPLLM_HARNESS=codex (ChatGPT, default) or claude (Claude Code) to choose inference.
@@ -66,6 +68,8 @@ public static class OrganizerCli
         if (IsReprocessingCommand(command, args))
             return await ReprocessingCli.RunAsync(args, stateDirectory, (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024, ct);
         if (command is "status" or "health") return await ReadStatusAsync(command, stateDirectory, interval, ct);
+        // Alert settings are read only by commands that alert, so a typo cannot block auth or probes.
+        if (command == "alerts") return await AlertsCli.RunAsync(args, Setting("NTFY_URL", ""), Setting("NTFY_TOKEN_FILE", ""), ct);
 
         var harness = RunnerHarness.Parse(Setting("HARNESS", RunnerHarness.Codex.Name));
         var model = Setting("MODEL", harness.DefaultModel);
@@ -75,6 +79,10 @@ public static class OrganizerCli
         if (command == "probe") return await ProbeAsync(args, runner, harness, model, ct);
         return await RunWorkerAsync(command, args, runner, harness, model, stateDirectory, interval, ct);
     }
+
+    private static void ConfigureLogging(ILoggingBuilder logging) =>
+        logging.ClearProviders().AddConsole(o => o.FormatterName = CompactJsonConsoleFormatter.FormatterName)
+            .AddConsoleFormatter<CompactJsonConsoleFormatter, ConsoleFormatterOptions>();
 
     private static BridgeRunner CreateRunner(RunnerHarness harness) =>
         new(new(Setting("RUNNER_HOME", Path.Combine(Setting("AUTH_DIRECTORY", "/data/auth"), harness.AuthSubdirectory)),
@@ -133,13 +141,17 @@ public static class OrganizerCli
     private static async Task<int> RunWorkerAsync(string command, string[] args, BridgeRunner runner, RunnerHarness harness, string model, string stateDirectory, TimeSpan interval, CancellationToken ct)
     {
         if (command is not ("worker" or "once" or "check" or "retry")) throw new ArgumentException("Unknown command. Run --help.");
+        using var alertSink = AlertsCli.CreateSink(Setting("NTFY_URL", ""), Setting("NTFY_TOKEN_FILE", ""));
+        using var loggerFactory = LoggerFactory.Create(ConfigureLogging);
+        var alerts = alertSink is null ? null
+            : new AuthAlertMonitor(alertSink, stateDirectory, harness.AccountName, loggerFactory.CreateLogger<AuthAlertMonitor>());
         var paperlessOptions = new PaperlessOptions { BaseUrl = new Uri(Required("PAPERLESS_URL")), TokenFile = Required("PAPERLESS_TOKEN_FILE") };
         using var reader = new PaperlessClient(paperlessOptions);
         using var writer = new PaperlessWriter(paperlessOptions);
         var reviewTag = Setting("TAG", "needs review");
         var prompt = new OrganizationPrompt(Setting("PROMPT_FILE", OrganizationPrompt.DefaultPath), model, harness.Fingerprint);
         if (command is "check" or "worker" or "once")
-            if (await CheckSetupAsync(command, prompt, runner, harness, reader, reviewTag, model, ct)) return 0;
+            if (await CheckSetupAsync(command, prompt, runner, harness, reader, reviewTag, model, command == "check" ? null : alerts, ct)) return 0;
         var options = new OrganizerOptions
         {
             StateDirectory = stateDirectory,
@@ -153,10 +165,9 @@ public static class OrganizerCli
             MaxStateBytes = (long)Integer("MAX_STATE_MIB", 2048, 100, 1048576) * 1024 * 1024
         };
         var builder = Host.CreateApplicationBuilder(Array.Empty<string>());
-        builder.Logging.ClearProviders();
-        builder.Logging.AddConsole(o => o.FormatterName = CompactJsonConsoleFormatter.FormatterName)
-            .AddConsoleFormatter<CompactJsonConsoleFormatter, ConsoleFormatterOptions>();
+        ConfigureLogging(builder.Logging);
         builder.Services.AddSingleton(options);
+        if (alerts is not null) builder.Services.AddSingleton(alerts);
         builder.Services.AddSingleton<IPaperlessClient>(reader);
         builder.Services.AddSingleton<IIntentRunner>(new RunnerAdapter(runner));
         builder.Services.AddSingleton<IIntentContextBuilder>(prompt);
@@ -200,11 +211,16 @@ public static class OrganizerCli
         return 0;
     }
 
-    private static async Task<bool> CheckSetupAsync(string command, OrganizationPrompt prompt, BridgeRunner runner, RunnerHarness harness, PaperlessClient reader, string reviewTag, string model, CancellationToken ct)
+    private static async Task<bool> CheckSetupAsync(string command, OrganizationPrompt prompt, BridgeRunner runner, RunnerHarness harness, PaperlessClient reader, string reviewTag, string model, AuthAlertMonitor? alerts, CancellationToken ct)
     {
         await prompt.ReadAsync(ct);
-        if (!await runner.StatusAsync(ct)) throw new AuthException($"Sign in to {harness.AccountName} with auth login before starting the worker.", true);
-        var taxonomy = await reader.GetTaxonomyAsync(ct);
+        var taxonomy = await AlertsCli.WatchAsync(alerts, async () =>
+        {
+            if (!await runner.StatusAsync(ct)) throw new AuthException($"Sign in to {harness.AccountName} with auth login before starting the worker.", true);
+            return await reader.GetTaxonomyAsync(ct);
+        }, ct);
+        // Saved sign-in is not proof that it still works; only Paperless access is confirmed here.
+        if (alerts is not null) await alerts.ResolveAsync(inferenceVerified: false, ct);
         SetupValidation.RequireReviewTag(taxonomy, reviewTag);
         if (!(await runner.ListModelsAsync(ct)).Contains(model))
             throw new ArgumentException($"PPLLM_MODEL is absent from the {harness.Name} harness catalog. Run models to list it.");

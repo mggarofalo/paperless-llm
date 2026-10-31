@@ -65,6 +65,7 @@ note text. See [recovery and concurrency limitations](review.md#document-notes).
 | `src/PaperlessLlm/Intent` | Desired-state schema, prompt and validation |
 | `src/PaperlessLlm/Runner`, `runner/` | Harness profiles, isolated bridge subprocess and per-harness bridges |
 | `src/PaperlessLlm/Sync` | Minimal writes, conflict checks and reconciliation |
+| `src/PaperlessLlm/Alerts` | `IAlertSink`, the ntfy sink and durable credential-pause alerts |
 | `src/PaperlessLlm/Paperless` | Bounded reads and downloads |
 | `src/PaperlessLlm/OrganizerCli.cs` | Current CLI wiring |
 | `src/PaperlessLlm.Eval` | Offline experiments, scoring and isolated experiment processes |

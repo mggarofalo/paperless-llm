@@ -168,6 +168,35 @@ public sealed class OrganizerTests : IDisposable
         Assert.All(status.Jobs, j => Assert.Equal(0, j.Attempts));
         Assert.Equal(1, source.Inferences);
     }
+    private OrganizerWorker AlertingWorker(PaperlessLlm.Alerts.AuthAlertMonitor alerts, int backfill = 0) => new(source, source, source, source, source,
+        new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = backfill }, NullLogger<OrganizerWorker>.Instance, alerts: alerts);
+    [Fact] public async Task CredentialPauseAlertsOnceAndRecoveryNeedsASuccessfulInference()
+    {
+        var sink = new RecordingSink();
+        var alerts = new PaperlessLlm.Alerts.AuthAlertMonitor(sink, root, "ChatGPT", NullLogger.Instance);
+        source.Docs[1] = SyntheticDocuments.Document(1); source.AuthFail = true;
+        using (var worker = AlertingWorker(alerts, 1)) await worker.RunOnceAsync();
+        source.AuthFail = false;
+        // A healthy cycle with no due job proves Paperless access only, not sign-in.
+        using (var worker = AlertingWorker(alerts)) await worker.RunOnceAsync();
+        Assert.Single(sink.Sent);
+        using (var worker = AlertingWorker(alerts))
+        {
+            await worker.RetryAsync(1);
+            Assert.Equal(1, (await worker.RunOnceAsync()).Completed);
+        }
+        Assert.Equal(["Paperless LLM paused: ChatGPT sign-in required", "Paperless LLM resumed"], sink.Sent.Select(x => x.Title));
+    }
+    [Fact] public async Task RejectedPaperlessTokenDuringPollingAlerts()
+    {
+        var sink = new RecordingSink();
+        source.TaxonomyFail = true;
+        using var worker = AlertingWorker(new PaperlessLlm.Alerts.AuthAlertMonitor(sink, root, "ChatGPT", NullLogger.Instance));
+        await worker.StartAsync(default);
+        for (var i = 0; i < 100 && sink.Sent.Count == 0; i++) await Task.Delay(50);
+        await worker.StopAsync(default);
+        Assert.Equal("Paperless LLM paused: Paperless token rejected", Assert.Single(sink.Sent).Title);
+    }
     [Fact] public async Task InvalidIntentRegeneratesOnRetry()
     {
         source.Docs[1] = SyntheticDocuments.Document(1); source.Invalid = true;

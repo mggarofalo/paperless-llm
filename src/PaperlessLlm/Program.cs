@@ -16,7 +16,8 @@ public static class Program
             return await OrganizerCli.RunAsync(args, cancellation.Token);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return 130; }
-        catch (Exception ex) when (ex is AuthException or InferenceException or PaperlessException or ArgumentException or Intent.OrganizationPromptException)
+        catch (Exception ex) when (ex is AuthException or InferenceException or PaperlessException or ArgumentException or Intent.OrganizationPromptException
+            or Alerts.AlertDeliveryException)
         {
             Console.Error.WriteLine(ex.Message);
             return 1;
