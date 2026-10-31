@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 
 // The fake stands in for the native Claude Code binary. It records each call and replays a scenario.
 const fakeClaude = `#!/usr/bin/env node
-const { appendFileSync, readFileSync } = require('node:fs');
+const { appendFileSync, readFileSync, writeFileSync } = require('node:fs');
 (async () => {
   const home = process.env.CLAUDE_CONFIG_DIR;
   const scenario = JSON.parse(readFileSync(home + '/scenario.json', 'utf8'));
@@ -20,6 +20,12 @@ const { appendFileSync, readFileSync } = require('node:fs');
   if (args[0] === 'auth' && args[1] === 'status') {
     console.log(JSON.stringify({ loggedIn: scenario.auth !== 'none', authMethod: scenario.auth }, null, 2));
     process.exit(scenario.auth === 'none' ? 1 : 0);
+  }
+  if (args[0] === 'auth' && args[1] === 'logout') {
+    if (scenario.logout === 'keep') process.exit(0); // Claims success but leaves the login behind.
+    if (scenario.logout) process.exit(scenario.logout);
+    writeFileSync(home + '/scenario.json', JSON.stringify({ ...scenario, auth: 'none' }));
+    process.exit(0);
   }
   if (args[0] === 'auth') process.exit(args[1] === 'login' ? scenario.login ?? 0 : 0);
   console.error('private-provider-secret');
@@ -156,6 +162,14 @@ test('catalog and logout need no network', options, async () => {
   assert.deepEqual((await bridge('models', {})).messages[0].models.includes(model), true);
   assert.deepEqual((await bridge('logout', {})).messages, [{ type: 'logged_out' }]);
 });
+
+for (const [name, logout] of [['a failed logout', 1], ['a logout that leaves the login behind', 'keep']]) {
+  test(`${name} is reported as a failure, not removed credentials`, options, async () => {
+    const run = await bridge('logout', { logout });
+    assert.equal(run.code, 21);
+    assert.deepEqual(run.messages, [{ type: 'error', code: 'auth_failed' }]);
+  });
+}
 
 test('a missing native binary is reported as unavailable', async () => {
   const run = await bridge('status', {}, {}, { binary: false });

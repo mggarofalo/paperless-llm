@@ -85,6 +85,13 @@ async function login() {
   if (await interactive(['auth', 'login', '--claudeai']) !== 0) throw new Error('auth_failed');
 }
 
+// A failed removal must never be reported as success; confirm the login is actually gone.
+async function logout() {
+  const { code } = await capture(['auth', 'logout'], '');
+  if (code !== 0 || await signedIn()) throw new Error('auth_failed');
+  emit({ type: 'logged_out' });
+}
+
 function userMessage(request) {
   const images = request.images.map(url => {
     const { mimeType, data } = parseImage(url);
@@ -147,7 +154,7 @@ async function infer() {
 async function run() {
   await dispatch({
     login,
-    logout: async () => { await capture(['auth', 'logout'], ''); emit({ type: 'logged_out' }); },
+    logout,
     status: async () => emit({ type: await signedIn() ? 'ready' : 'auth_required' }),
     models: async () => emit({ type: 'models', models }),
     infer,
