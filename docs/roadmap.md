@@ -8,7 +8,8 @@ shipped behavior from planned work; a roadmap entry is not a supported configura
 ## Shipped foundation
 
 Scheduled discovery, durable filesystem jobs, Sign In With ChatGPT through device
-codes, one bounded inference request per document, exact-name taxonomy resolution,
+codes or a Claude subscription through Claude Code (PPLLM-39), one bounded
+inference request per document, exact-name taxonomy resolution,
 validated automatic sync, private evidence/journals and retrospective `needs review`.
 The production policy uses existing Paperless OCR and keeps titles/OCR unchanged.
 
@@ -21,7 +22,8 @@ compatible differ in schema support, reasoning fields and error behavior.
 Acceptance:
 
 - Configure provider, base URL, model and optional secret-file key without sending
-  ChatGPT credentials or Paperless tokens to the local endpoint.
+  subscription credentials or Paperless tokens to the local endpoint. Add it as a
+  third `PPLLM_HARNESS` profile and bridge, keeping the worker generic.
 - Keep the same prompt snapshot, intended-state schema, taxonomy resolution and
   validator/synchronizer; transport selection must not weaken write boundaries.
 - Bound context, output, deadlines and retries; surface unsupported capabilities.

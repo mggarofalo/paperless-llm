@@ -10,6 +10,7 @@ public sealed class RunnerTests : IDisposable
     private readonly string directory = Path.Combine(Path.GetTempPath(), "ppllm-runner-test-" + Guid.NewGuid().ToString("N"));
     private static readonly JsonElement Schema = JsonSerializer.SerializeToElement(new { type = "object" });
     private const string Image = "data:image/png;base64,aGVsbG8=";
+    private static readonly string CodexDeviceUrl = RunnerHarness.Codex.DeviceLoginUrl!;
     [Theory]
     [InlineData("{\"input\":12,\"output\":3,\"cacheRead\":2,\"cacheWrite\":0}", true)]
     [InlineData("null", false)]
@@ -24,12 +25,12 @@ public sealed class RunnerTests : IDisposable
         if (reported) Assert.Equal(new PaperlessLlm.Organizer.ProviderUsage(12, 3, 2, 0), result.Usage);
         Assert.Equal("{}", result.Text);
     }
-    private PiRunner Runner(string script, TimeSpan? timeout = null)
+    private BridgeRunner Runner(string script, TimeSpan? timeout = null, bool terminalLogin = false)
     {
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, "fake.mjs");
         File.WriteAllText(path, script);
-        return new PiRunner(new PiRunnerOptions(Path.Combine(directory, "home"), path, Timeout: timeout));
+        return new BridgeRunner(new BridgeRunnerOptions(Path.Combine(directory, "home"), path, Timeout: timeout, DeviceLoginUrl: CodexDeviceUrl, TerminalLogin: terminalLogin));
     }
 
     [Fact]
@@ -41,7 +42,7 @@ public sealed class RunnerTests : IDisposable
             if(r.images.length!==0||r.reasoning!=='low') process.exit(21);
             console.log(JSON.stringify({type:'result',text:'{}'}));
             """);
-        var runner = new PiRunner(new(Path.Combine(directory, "home"), Path.Combine(directory, "fake.mjs"), Reasoning: "low"));
+        var runner = new BridgeRunner(new(Path.Combine(directory, "home"), Path.Combine(directory, "fake.mjs"), Reasoning: "low"));
         Assert.Equal("{}", await runner.RunAsync("gpt-6-sol", "policy", "OCR", [], Schema));
     }
 
@@ -64,13 +65,69 @@ public sealed class RunnerTests : IDisposable
     {
         var runner = Runner("""
             import { realpathSync } from 'node:fs';
-            const forbidden=Object.keys(process.env).filter(k=>/TOKEN|SECRET|OPENAI|PAPERLESS|NODE_OPTIONS|CODEX/i.test(k));
+            const forbidden=Object.keys(process.env).filter(k=>/TOKEN|SECRET|OPENAI|ANTHROPIC|CLAUDE|PAPERLESS|NODE_OPTIONS|CODEX|PI_/i.test(k));
             // macOS resolves /var to /private/var in cwd; compare the actual directories.
-            if(forbidden.length||realpathSync(process.env.HOME)!==realpathSync(process.cwd())||realpathSync(process.env.PI_CODING_AGENT_DIR)!==realpathSync(process.cwd())) process.exit(21);
+            if(forbidden.length||realpathSync(process.env.HOME)!==realpathSync(process.cwd())||!process.env.PPLLM_RUNNER_HOME) process.exit(21);
             console.log('{"type":"ready"}');
             """);
+        Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", "synthetic-separately-billed-key");
+        try { Assert.True(await runner.StatusAsync()); }
+        finally { Environment.SetEnvironmentVariable("ANTHROPIC_API_KEY", null); }
+    }
+
+    [Fact]
+    public async Task HarnessWithoutDeviceCodeLoginRejectsAnyDeviceCode()
+    {
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "fake.mjs");
+        File.WriteAllText(path, "console.log(JSON.stringify({type:'device_code',url:'https://auth.openai.com/codex/device',code:'ABCD'}));");
+        var runner = new BridgeRunner(new(Path.Combine(directory, "home"), path));
+        var error = await Assert.ThrowsAsync<AuthException>(() => runner.LoginAsync(_ => { }));
+        Assert.Equal("runner_device_code_invalid", error.Message);
+    }
+
+    [Fact]
+    public async Task TerminalLoginIsConfirmedBySavedStatus()
+    {
+        var marker = Path.Combine(directory, "home", "signed-in").Replace("\\", "/");
+        var runner = Runner($$"""
+            import { existsSync, writeFileSync } from 'node:fs';
+            if(process.argv[2]==='login') writeFileSync('{{marker}}','');
+            console.log(JSON.stringify({type:existsSync('{{marker}}')?'ready':'auth_required'}));
+            """, terminalLogin: true);
+        var displayed = false;
+        await runner.LoginAsync(_ => displayed = true);
+        Assert.False(displayed);
         Assert.True(await runner.StatusAsync());
     }
+
+    [Theory]
+    [InlineData("process.exitCode=0;", "runner_sign_in_incomplete")]
+    [InlineData("if(process.argv[2]==='login') process.exitCode=21;", "runner_sign_in_failed")]
+    public async Task TerminalLoginFailureRequiresSignIn(string script, string expected)
+    {
+        var runner = Runner(script + "if(process.argv[2]==='status') console.log('{\"type\":\"auth_required\"}');", terminalLogin: true);
+        var error = await Assert.ThrowsAsync<AuthException>(() => runner.LoginAsync(_ => { }));
+        Assert.Equal(expected, error.Message);
+        Assert.True(error.RequiresSignIn);
+    }
+
+    [Theory]
+    [InlineData("codex", "bridge.mjs", "pi", HarnessLogin.DeviceCode)]
+    [InlineData("claude", "claude-bridge.mjs", "claude", HarnessLogin.Terminal)]
+    public void HarnessNameSelectsBridgeAuthHomeAndLogin(string name, string bridge, string auth, HarnessLogin login)
+    {
+        var harness = RunnerHarness.Parse(name);
+        Assert.Equal((bridge, auth, login), (harness.BridgeFile, harness.AuthSubdirectory, harness.Login));
+        Assert.Equal(login == HarnessLogin.DeviceCode, harness.DeviceLoginUrl is not null);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Claude")]
+    [InlineData("openai")]
+    public void UnknownHarnessFailsWithoutFallback(string name) =>
+        Assert.Throws<ArgumentException>(() => RunnerHarness.Parse(name));
 
     [Fact]
     public async Task DeviceCodeCallbackIsDeliveredBeforeProcessCompletes()

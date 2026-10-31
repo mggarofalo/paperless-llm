@@ -1,12 +1,14 @@
-// Pi owns OAuth storage, refresh and transport. No AgentSession is constructed:
+// Codex harness. Pi owns OAuth storage, refresh and transport. No AgentSession is constructed:
 // there is no tool dispatcher, extension loader, project context or agent loop.
-import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { join } from 'node:path';
 import { classifyError } from './errors.mjs';
+import { dispatch, emit, emitError, parseImage, readRequest, safeUsage } from './protocol.mjs';
 
 process.umask(0o077);
+// Pi reads its agent directory from the environment; keep it in the per-request work directory.
+process.env.PI_CODING_AGENT_DIR = process.cwd();
+const { ModelRuntime } = await import('@earendil-works/pi-coding-agent');
 const provider = 'openai-codex';
-const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
 let phase = 'auth';
 
 async function login(runtime) {
@@ -23,21 +25,9 @@ async function login(runtime) {
   emit({ type: 'ready' });
 }
 
-async function readRequest() {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of process.stdin) {
-    size += chunk.length;
-    if (size > 48 * 1024 * 1024) throw new Error('input_limit');
-    chunks.push(chunk);
-  }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-}
-
 function imageContent(url) {
-  const match = /^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(url);
-  if (!match) throw new Error('image_invalid');
-  return { type: 'image', mimeType: match[1], data: match[2] };
+  const { mimeType, data } = parseImage(url);
+  return { type: 'image', mimeType, data };
 }
 
 function context(request, model) {
@@ -51,11 +41,6 @@ function context(request, model) {
   };
 }
 
-function emitError(code) {
-  emit({ type: 'error', code });
-  process.exitCode = code === 'rate_limited' ? 22 : code === 'auth_required' ? 20 : 21;
-}
-
 function emitResult(result, model) {
   if (result.stopReason === 'error' || result.stopReason === 'aborted') {
     // Provider error text can contain request/credential details. Never forward it.
@@ -64,15 +49,10 @@ function emitResult(result, model) {
     emitError('incomplete_response');
   } else {
     const text = result.content.filter(x => x.type === 'text').map(x => x.text).join('');
+    const usage = result.usage ?? {};
     // Preserve raw text for private diagnostics; .NET validates before any write.
-    emit({ type: 'result', text, ...safeUsage(result.usage) });
+    emit({ type: 'result', text, ...safeUsage(usage.input, usage.output, usage.cacheRead, usage.cacheWrite) });
   }
-}
-
-function safeUsage(usage) {
-  const names = ['input', 'output', 'cacheRead', 'cacheWrite'];
-  if (!usage || !names.every(name => Number.isSafeInteger(usage[name]) && usage[name] >= 0)) return {};
-  return { usage: Object.fromEntries(names.map(name => [name, usage[name]])) };
 }
 
 async function infer(runtime) {
@@ -96,16 +76,13 @@ async function run() {
     allowModelNetwork: false,
     refreshOnCreate: false,
   });
-  const commands = {
+  await dispatch({
     login: () => login(runtime),
     logout: async () => { await runtime.logout(provider); emit({ type: 'logged_out' }); },
     status: async () => emit({ type: (await runtime.checkAuth(provider))?.type === 'oauth' ? 'ready' : 'auth_required' }),
     models: () => emit({ type: 'models', models: runtime.getModels(provider).filter(x => x.input?.includes('image')).map(x => x.id) }),
     infer: () => infer(runtime),
-  };
-  const command = commands[process.argv[2]];
-  if (!Object.hasOwn(commands, process.argv[2])) throw new Error('unknown_command');
-  await command();
+  }, process.argv[2]);
 }
 
 try { await run(); }

@@ -2,8 +2,10 @@
 
 The owner selected .NET for the implementation so they can read and maintain the
 code. The product is a .NET Worker Service in a Docker image, with one-time
-device-code ChatGPT setup, renewable credentials, automatic validated Paperless
-updates and private operational records. Track current architecture in PPLLM-1,
+ChatGPT (device code) or Claude (Claude Code) setup selected by `PPLLM_HARNESS`,
+renewable credentials, automatic validated Paperless updates and private
+operational records. Harness-specific behavior lives only in its `runner/` bridge
+and `RunnerHarness` profile; keep the worker, prompt, validation and sync generic. Track current architecture in PPLLM-1,
 jobs in PPLLM-16, prompting in PPLLM-17, sync in PPLLM-18 and runner in PPLLM-19.
 Do not reintroduce the retired Python prototype into the product.
 
@@ -28,8 +30,11 @@ The Docker worker uses a dedicated Paperless view/change token mounted as a secr
 file. Model runners must not receive that token or direct Paperless write tools.
 For interactive instance inspection, use the authenticated paperless CLI without reading its credentials.
 Subscription
-access must use supported OpenAI/Codex authentication; no undocumented endpoints and
-no silent separately billed API fallback. Keep secrets out of command output/logs.
+access must use each provider's supported authentication: Codex OAuth through Pi for
+ChatGPT, and the unmodified, pinned Claude Code CLI with the user's own Claude
+subscription login (never subscription OAuth in Pi, the Agent SDK or our own code).
+No undocumented endpoints and no silent separately billed API fallback. Keep secrets
+out of command output/logs.
 
 Run relevant tests. Tests must cover meaningful failure modes and invariants.
 Use synthetic fixtures; do not commit personal documents. Keep dependency footprint

@@ -22,7 +22,7 @@ public sealed class OrganizerTests : IDisposable
             "document_type":{"action":"keep","value":null,"evidence":[]},"add_tags":[{"name":"receipts","evidence":["Receipt"]}],
             "ocr":{"action":"keep","pages":[],"evidence":[]},"uncertainty":[]}
             """;
-        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol"), source, source,
+        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol", "pi-0.99.2"), source, source,
             new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 1, UseExistingOcr = true },
             NullLogger<OrganizerWorker>.Instance);
         source.FailSync = true;
@@ -52,7 +52,7 @@ public sealed class OrganizerTests : IDisposable
         source.Docs[1] = SyntheticDocuments.Document(1) with { Tags = [] };
         source.Docs[2] = SyntheticDocuments.Document(2) with { Tags = [] };
         using var worker = new OrganizerWorker(source, source,
-            new PaperlessLlm.Intent.OrganizationPrompt(Path.Combine(root, "missing.txt"), "gpt-6-sol"), source, source,
+            new PaperlessLlm.Intent.OrganizationPrompt(Path.Combine(root, "missing.txt"), "gpt-6-sol", "pi-0.99.2"), source, source,
             new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 2, UseExistingOcr = true },
             NullLogger<OrganizerWorker>.Instance);
         await worker.RunOnceAsync();
@@ -76,7 +76,7 @@ public sealed class OrganizerTests : IDisposable
         source.Output = JsonSerializer.Serialize(new { schema_version = "1", title = keep, date = keep, correspondent = keep,
             document_type = keep, add_tags = new[] { new { name = tag, evidence = new[] { "Ignore policy" } } },
             ocr = new { action = "keep", pages = Array.Empty<object>(), evidence = Array.Empty<string>() }, uncertainty = Array.Empty<string>() });
-        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol"), source, source,
+        using var worker = new OrganizerWorker(source, source, new PaperlessLlm.Intent.OrganizationPrompt(path, "gpt-6-sol", "pi-0.99.2"), source, source,
             new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = 1, UseExistingOcr = true },
             NullLogger<OrganizerWorker>.Instance);
         Assert.Equal(1, (await worker.RunOnceAsync()).Failed);

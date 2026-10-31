@@ -1,26 +1,29 @@
 # Paperless LLM — AI document organization for Paperless-ngx
 
-A self-hosted **.NET worker for Paperless-ngx** that uses existing OCR to organize document dates, correspondents, document types and tags. Run it with Docker Compose on Linux, sign in with ChatGPT, and let it process new documents on a schedule. Validated changes apply automatically; changed documents receive `needs review` for retrospective inspection in Paperless.
+A self-hosted **.NET worker for Paperless-ngx** that uses existing OCR to organize document dates, correspondents, document types and tags. Run it with Docker Compose on Linux, sign in with ChatGPT or Claude, and let it process new documents on a schedule. Validated changes apply automatically; changed documents receive `needs review` for retrospective inspection in Paperless.
 
-## Sign In With ChatGPT
+## Sign in with ChatGPT or Claude
 
-Paperless LLM implements **Sign In With ChatGPT using a device-code flow** through the pinned Pi SDK's `openai-codex` provider. Start login on your server, open the printed link on any browser, and approve the code. Credentials persist in a Docker volume. No localhost callback, published port or SSH tunnel is needed.
+`PPLLM_HARNESS` chooses how inference runs. Both use your own subscription; there is no silent API-key billing fallback.
 
-This is an independent integration, not an OpenAI product or certification. Model access and limits depend on your account. There is no silent API-key billing fallback. See [authentication and data flow](docs/authentication.md).
+- **`codex` (default): Sign In With ChatGPT using a device-code flow** through the pinned Pi SDK's `openai-codex` provider. Start login on your server, open the printed link in any browser, and approve the code.
+- **`claude`: Claude Code with your Claude subscription.** The image bundles the unmodified, pinned Claude Code CLI. Start login on your server, open the printed link in any browser, and paste the returned code back into the terminal.
+
+Credentials persist in a Docker volume. No localhost callback, published port or SSH tunnel is needed. This is an independent integration, not an OpenAI or Anthropic product or certification. Model access and limits depend on your account. See [authentication and data flow](docs/authentication.md).
 
 ## Quick start
 
-Download `compose.yaml` and `env.example` from the [latest stable release](https://github.com/mggarofalo/paperless-llm/releases/latest). Save `env.example` as `.env`, set your Paperless URL, and put a dedicated Paperless view/change token in `secrets/paperless_token.txt`. The [setup guide](docs/authentication.md) explains global and object permissions.
+Download `compose.yaml` and `env.example` from the [latest stable release](https://github.com/mggarofalo/paperless-llm/releases/latest). Save `env.example` as `.env`, set your Paperless URL and `PPLLM_HARNESS`, and put a dedicated Paperless view/change token in `secrets/paperless_token.txt`. The [setup guide](docs/authentication.md) explains global and object permissions.
 
 ```sh
-docker compose --profile setup run --rm auth login
+docker compose --profile setup run --rm auth
 docker compose run --rm worker check
 docker compose run --rm worker probe organization
 docker compose up -d worker
 docker compose logs -f worker
 ```
 
-The default is **Sol 6 low**, one call per document and five jobs per hourly cycle. The first run records a baseline; historical backfill is opt-in and bounded. **Writes are enabled by default.** Use the [dry-run and upgrade guide](docs/operations.md) to control enrollment and rollout. Linux `amd64` and `arm64` images are available.
+The Codex default is **Sol 6 low**; the Claude default is **Sonnet 5.5 at low effort**, which has passed synthetic probes but not the private evaluation. Each makes one call per document, with five jobs per hourly cycle. The first run records a baseline; historical backfill is opt-in and bounded. **Writes are enabled by default.** Use the [dry-run and upgrade guide](docs/operations.md) to control enrollment and rollout. Linux `amd64` and `arm64` images are available.
 
 ## What it does
 
@@ -31,7 +34,7 @@ The default is **Sol 6 low**, one call per document and five jobs per hourly cyc
 - Loads an [editable prompt file](docs/prompts.md) before each new inference; policy changes require no image rebuild or restart. The default keeps titles.
 - Keeps durable jobs, prompt hashes and private before/after journals for [review and recovery](docs/review.md). Saved proposals survive sync retries.
 
-OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md) and inspect early results in your own library.
+OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT or Claude subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md) and inspect early results in your own library.
 
 ## Documentation
 

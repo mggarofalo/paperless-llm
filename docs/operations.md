@@ -18,7 +18,8 @@ Once a valid proposal has been saved, sync retries reuse it. A crash before that
 | --- | --- | --- |
 | `PPLLM_PAPERLESS_URL` | required | Paperless instance URL |
 | `PPLLM_IMAGE` | Version pinned in Compose | Compose-only image override; see [release channels](releases.md) |
-| `PPLLM_MODEL` | `gpt-6-sol` | Explicit model; no fallback |
+| `PPLLM_HARNESS` | `codex` | Inference harness: `codex` (ChatGPT through Pi) or `claude` (Claude Code); see [authentication](authentication.md) |
+| `PPLLM_MODEL` | harness default | Explicit model; no fallback. Empty selects `gpt-6-sol` (codex) or `claude-sonnet-5-5` (claude) |
 | `PPLLM_PROMPT_FILE` | `/app/prompts/organization.txt` | UTF-8 policy file, reloaded per inference; see [prompt configuration](prompts.md) |
 | `PPLLM_TAG` | `needs review` | Existing marker added after actual changes |
 | `PPLLM_POLL_SECONDS` | `3600` | Normal discovery interval and shared-service pause, 60–86400 seconds |
@@ -27,7 +28,7 @@ Once a valid proposal has been saved, sync retries reuse it. A crash before that
 | `PPLLM_DRY_RUN` | `false` | Validate proposals without writing Paperless |
 | `PPLLM_MAX_STATE_MIB` | `2048` | Soft state-directory cap before another attempt starts |
 
-Compose mounts `PPLLM_PAPERLESS_TOKEN_FILE` from its secret. Native deployments can also set `PPLLM_STATE_DIRECTORY`, `PPLLM_AUDIT_DIRECTORY`, `PPLLM_AUTH_DIRECTORY`, `PPLLM_RUNNER_HOME`, `PPLLM_RUNNER_BRIDGE` and `PPLLM_NODE`. The bridge path must identify the installed bridge and locked dependencies.
+Compose mounts `PPLLM_PAPERLESS_TOKEN_FILE` from its secret. Native deployments can also set `PPLLM_STATE_DIRECTORY`, `PPLLM_AUDIT_DIRECTORY`, `PPLLM_AUTH_DIRECTORY`, `PPLLM_RUNNER_HOME`, `PPLLM_RUNNER_BRIDGE` and `PPLLM_NODE`. The bridge path must identify the installed bridge for the configured harness and its locked dependencies. The runner home defaults to `$PPLLM_AUTH_DIRECTORY/pi` for codex and `$PPLLM_AUTH_DIRECTORY/claude` for claude.
 
 Dry-run jobs finish as completed. Use a separate state volume for a trial, or explicitly reprocess those documents when enabling writes. Switching `PPLLM_DRY_RUN` alone does not replay completed jobs.
 

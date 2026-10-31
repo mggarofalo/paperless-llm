@@ -33,7 +33,7 @@ credentials and deployment-specific private context out of published docs.
 
 Use standard Markdown with descriptive headings, relative links and searchable
 terms such as Paperless-ngx, AI document organization, Docker Compose, .NET,
-Sign In With ChatGPT and device-code authentication where they explain the product.
+Sign In With ChatGPT, device-code authentication and Claude Code where they explain the product.
 Do not promise unimplemented features, guaranteed accuracy or provider endorsement.
 The index maps common tasks to authoritative pages; AGENTS.md links only the
 references relevant to implementation and release work.

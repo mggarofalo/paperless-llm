@@ -7,12 +7,13 @@ using PaperlessLlm.Organizer;
 
 namespace PaperlessLlm.Runner;
 
-public sealed record PiRunnerOptions(string HomeDirectory, string BridgePath, string NodeExecutable = "node", TimeSpan? Timeout = null, string Reasoning = "medium") { }
+public sealed record BridgeRunnerOptions(string HomeDirectory, string BridgePath, string NodeExecutable = "node", TimeSpan? Timeout = null,
+    string Reasoning = "medium", string? DeviceLoginUrl = null, bool TerminalLogin = false) { }
 public sealed record DeviceLogin(string Url, string Code) { }
 public sealed class RunnerRateLimitException() : Exception("runner_rate_limited");
 
-/// <summary>One isolated Pi provider request. The child has no Paperless credentials or tool executor.</summary>
-public sealed class PiRunner(PiRunnerOptions options)
+/// <summary>One isolated harness bridge request. The child has no Paperless credentials or tool executor.</summary>
+public sealed class BridgeRunner(BridgeRunnerOptions options)
 {
     private const int MaxOutput = 4 * 1024 * 1024;
     public async Task<string> RunAsync(string model, string instructions, string prompt, IReadOnlyList<string> imageDataUrls, JsonElement schema, CancellationToken cancellationToken = default)
@@ -51,7 +52,16 @@ public sealed class PiRunner(PiRunnerOptions options)
     }
 
     public async Task LoginAsync(Action<DeviceLogin> displayCode, CancellationToken cancellationToken = default)
-        => await ExecuteAsync("login", null, displayCode, cancellationToken);
+    {
+        if (!options.TerminalLogin)
+        {
+            await ExecuteAsync("login", null, displayCode, cancellationToken);
+            return;
+        }
+        // The harness owns its sign-in prompt, so the terminal is attached directly and nothing is parsed.
+        await ExecuteTerminalAsync("login", cancellationToken);
+        if (!await StatusAsync(cancellationToken)) throw new AuthException("runner_sign_in_incomplete", requiresSignIn: true);
+    }
     public async Task<bool> StatusAsync(CancellationToken cancellationToken = default)
         => (await ExecuteAsync("status", null, null, cancellationToken)).Any(x => x.GetProperty("type").GetString() == "ready");
     public async Task LogoutAsync(CancellationToken cancellationToken = default)
@@ -64,23 +74,14 @@ public sealed class PiRunner(PiRunnerOptions options)
 
     private async Task<List<JsonElement>> ExecuteAsync(string command, string? input, Action<DeviceLogin>? displayCode, CancellationToken cancellationToken)
     {
-        var home = Path.GetFullPath(options.HomeDirectory);
-        Directory.CreateDirectory(home);
-        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        FileStream homeLock;
-        try { homeLock = new FileStream(Path.Combine(home, ".runner.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
-        catch (IOException) { throw new InferenceException("runner_busy"); }
-        await using var heldLock = homeLock;
-        var work = Path.Combine(home, "work", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(work);
-        var start = CreateStartInfo(command, home, work);
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(command == "login" ? TimeSpan.FromMinutes(20) : options.Timeout ?? TimeSpan.FromMinutes(5));
-        using var process = new Process { StartInfo = start };
+        var home = PrepareHome();
+        await using var heldLock = LockHome(home);
+        var work = CreateWork(home);
+        using var timeout = CreateTimeout(command, cancellationToken);
+        using var process = new Process { StartInfo = CreateStartInfo(command, home, work, redirect: true) };
         try
         {
-            try { if (!process.Start()) throw new InferenceException("runner_start_failed"); }
-            catch (System.ComponentModel.Win32Exception) { throw new InferenceException("runner_unavailable"); }
+            Start(process);
             using var registration = timeout.Token.Register(() => Kill(process));
             var output = ReadOutputAsync(process.StandardOutput, displayCode, timeout.Token);
             var errors = DrainAsync(process.StandardError, timeout.Token);
@@ -101,7 +102,63 @@ public sealed class PiRunner(PiRunnerOptions options)
         }
     }
 
-    private static async Task<List<JsonElement>> ReadOutputAsync(StreamReader reader, Action<DeviceLogin>? displayCode, CancellationToken ct)
+    private async Task ExecuteTerminalAsync(string command, CancellationToken cancellationToken)
+    {
+        var home = PrepareHome();
+        await using var heldLock = LockHome(home);
+        var work = CreateWork(home);
+        using var timeout = CreateTimeout(command, cancellationToken);
+        using var process = new Process { StartInfo = CreateStartInfo(command, home, work, redirect: false) };
+        try
+        {
+            Start(process);
+            using var registration = timeout.Token.Register(() => Kill(process));
+            await process.WaitForExitAsync(timeout.Token);
+            if (process.ExitCode == 22) throw new RunnerRateLimitException();
+            if (process.ExitCode != 0) throw new AuthException("runner_sign_in_failed", requiresSignIn: true);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { throw new InferenceException("runner_timeout"); }
+        finally
+        {
+            await CleanUpAsync(process, work);
+        }
+    }
+
+    private string PrepareHome()
+    {
+        var home = Path.GetFullPath(options.HomeDirectory);
+        Directory.CreateDirectory(home);
+        if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(home, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        return home;
+    }
+
+    private static FileStream LockHome(string home)
+    {
+        try { return new FileStream(Path.Combine(home, ".runner.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+        catch (IOException) { throw new InferenceException("runner_busy"); }
+    }
+
+    private static string CreateWork(string home)
+    {
+        var work = Path.Combine(home, "work", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(work);
+        return work;
+    }
+
+    private CancellationTokenSource CreateTimeout(string command, CancellationToken cancellationToken)
+    {
+        var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(command == "login" ? TimeSpan.FromMinutes(20) : options.Timeout ?? TimeSpan.FromMinutes(5));
+        return timeout;
+    }
+
+    private static void Start(Process process)
+    {
+        try { if (!process.Start()) throw new InferenceException("runner_start_failed"); }
+        catch (System.ComponentModel.Win32Exception) { throw new InferenceException("runner_unavailable"); }
+    }
+
+    private async Task<List<JsonElement>> ReadOutputAsync(StreamReader reader, Action<DeviceLogin>? displayCode, CancellationToken ct)
     {
         var messages = new List<JsonElement>();
         var line = new StringBuilder();
@@ -126,19 +183,23 @@ public sealed class PiRunner(PiRunnerOptions options)
         return messages;
     }
 
-    private ProcessStartInfo CreateStartInfo(string command, string home, string work)
+    private ProcessStartInfo CreateStartInfo(string command, string home, string work, bool redirect)
     {
-        var start = new ProcessStartInfo(options.NodeExecutable) { WorkingDirectory = work, UseShellExecute = false, CreateNoWindow = true, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true };
+        var start = new ProcessStartInfo(options.NodeExecutable)
+        {
+            WorkingDirectory = work, UseShellExecute = false, CreateNoWindow = redirect,
+            RedirectStandardInput = redirect, RedirectStandardOutput = redirect, RedirectStandardError = redirect
+        };
         start.ArgumentList.Add(Path.GetFullPath(options.BridgePath));
         start.ArgumentList.Add(command);
         // Allowlist only OS execution essentials. In particular NODE_OPTIONS, proxy settings,
         // provider API keys, personal configuration and Paperless credentials never cross.
+        // Harness-specific variables are the bridge's responsibility.
         start.Environment.Clear();
         foreach (var name in new[] { "PATH", "SystemRoot", "WINDIR", "PATHEXT" })
             if (Environment.GetEnvironmentVariable(name) is { } value) start.Environment[name] = value;
         foreach (var name in new[] { "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "TMPDIR", "TMP", "TEMP" }) start.Environment[name] = work;
         start.Environment["PPLLM_RUNNER_HOME"] = home;
-        start.Environment["PI_CODING_AGENT_DIR"] = work;
         start.Environment["NO_COLOR"] = "1";
         return start;
     }
@@ -158,7 +219,7 @@ public sealed class PiRunner(PiRunnerOptions options)
             var value = code.ValueKind == JsonValueKind.Undefined ? null : code.GetProperty("code").GetString();
             throw new InferenceException(value is "model_unavailable" or "context_limit" or "image_invalid" or "input_limit" or "incomplete_response"
                 or "image_rejected" or "model_access_denied" or "access_denied" or "transport_failed" or "provider_unavailable"
-                or "request_rejected" or "auth_failed" or "inference_failed" ? "runner_" + value : "runner_request_failed");
+                or "request_rejected" or "auth_failed" or "inference_failed" or "harness_unsafe" or "harness_unavailable" ? "runner_" + value : "runner_request_failed");
         }
     }
 
@@ -169,13 +230,13 @@ public sealed class PiRunner(PiRunnerOptions options)
         try { Directory.Delete(work, recursive: true); } catch (IOException) { }
     }
 
-    private static void DisplayDeviceCode(JsonElement message, Action<DeviceLogin>? displayCode)
+    private void DisplayDeviceCode(JsonElement message, Action<DeviceLogin>? displayCode)
     {
         if (message.GetProperty("type").GetString() == "device_code" && displayCode is not null)
         {
             var url = message.GetProperty("url").GetString()!;
             var code = message.GetProperty("code").GetString()!;
-            if (url != "https://auth.openai.com/codex/device" || code.Length > 32 || code.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
+            if (options.DeviceLoginUrl is null || url != options.DeviceLoginUrl || code.Length > 32 || code.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '-'))
                 throw new AuthException("runner_device_code_invalid");
             displayCode(new DeviceLogin(url, code));
         }

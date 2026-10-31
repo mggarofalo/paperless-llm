@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 async function bridge(command, request = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'ppllm-bridge-'));
   try {
-    for (const name of ['bridge.mjs', 'errors.mjs']) await copyFile(new URL(name, import.meta.url), join(directory, name));
+    for (const name of ['bridge.mjs', 'errors.mjs', 'protocol.mjs']) await copyFile(new URL(name, import.meta.url), join(directory, name));
     const module = join(directory, 'node_modules', '@earendil-works', 'pi-coding-agent');
     await mkdir(module, { recursive: true });
     await writeFile(join(module, 'package.json'), JSON.stringify({ type: 'module', exports: './index.mjs' }));
