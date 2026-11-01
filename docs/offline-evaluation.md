@@ -67,6 +67,41 @@ outputs and receive an `.error.txt` record. The scorer remains the authority on
 schema and production-validator behavior.
 Pressing Ctrl+C during `experiment` cancels active calls, stops their process
 trees, saves bounded stage logs and provenance, and exits with status 130.
+
+### Claude Code harness
+
+`--harness claude` runs each case through the production Claude bridge
+(`runner/claude-bridge.mjs infer`) instead of `codex exec`, so the evaluation
+uses the same pinned Claude Code binary, CLI flags, structured-output schema,
+effort setting and process isolation as the deployed worker. The bridge process
+receives the worker's environment allowlist: only `PATH` and the OS execution
+variables cross, every personal configuration path points at a throwaway stage
+directory, and `PPLLM_RUNNER_HOME` names the directory holding the Claude Code
+sign-in (`--runner-home`, required). Provider API keys in your shell never reach
+the CLI, so a run cannot fall back to separately billed access.
+
+```powershell
+dotnet run --project src/PaperlessLlm.Eval -- experiment `
+  --cases C:\private\eval\cases.jsonl --split holdout --recipe C:\private\eval\recipe.json `
+  --out C:\private\eval\runs\claude-sonnet --concurrency 1 --timeout 300 `
+  --harness claude --runner-home C:\private\claude-auth --model claude-sonnet-5-5
+```
+
+The recipe's `reasoning` becomes the CLI `--effort`, and the recipe must be
+`pipeline: single`, because every bridge call returns schema-bound structured
+output rather than free text. The final stage is split the way the worker
+splits it: the recipe prompt is the system prompt file and the evidence block
+(document payload, schema text and image status) is the user message. The text
+is identical to what the Codex harness sends as one composed prompt. Page
+images are read from disk and sent as PNG or JPEG data URLs. `--model` defaults
+to the harness default (`claude-sonnet-5-5`) and `--bridge` overrides the bridge
+path for tests. Stage provenance records `harness`, the bridge fingerprint and
+the token counts the bridge forwards, including prompt-cache reads and writes;
+Claude Code's own cost figure is not forwarded by the bridge. A bridge error
+code (`auth_required`, `rate_limited`, `harness_unsafe`, ...) becomes the case's
+`.error.txt` record with its bounded stdout and stderr; no result is published.
+Run with `--concurrency 1` to measure the latency the worker sees, since the
+worker makes one call at a time.
 When `--references` is supplied to `score`, an additional `.regions.json` file
 reports partial OCR-region, signed-amount, identifier, and anchor metrics against
 the private reference map without changing the existing report schema.
@@ -78,7 +113,7 @@ reported as a safe abstention; malformed or production-validator-rejected output
 is reported separately as invalid. This gate measures only its reviewed partial
 checks and does not certify complete transcription.
 
-The export and score commands in `PaperlessLlm.Eval` remain offline: they do not use a Paperless client or authentication. The experiment command separately invokes the authenticated local Codex CLI as described above. The harness references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
+The export and score commands in `PaperlessLlm.Eval` remain offline: they do not use a Paperless client or authentication. The experiment command separately invokes the authenticated local Codex CLI or the production Claude Code bridge as described above. The harness references the production `IntentPrompt.Build`, `DocumentIntent.Schema`, and `IntentValidator` directly. It does not alter the production prompt.
 
 Keep the real case file, page images, task exports, model outputs, and reports in a private directory outside this repository. Do not commit them. `notes` and all `expected` labels are grader-only: export includes only the production prompt, schema, input payload, case ID, split, and page image paths. Page image paths are references and are not opened or copied by the harness.
 
@@ -146,3 +181,8 @@ The [exact-name and model comparison](evaluations/2026-10-02-named-organization.
 adds deterministic name binding, compares Luna with Sol 6/6.1, repeats the selected
 policy, and evaluates ten fresh documents plus synthetic boundary cases. Sol 6 low
 is the strongest integration candidate; production defaults remain unchanged.
+
+The [Claude model evaluation](evaluations/2026-10-31-claude-named-organization.md)
+runs the same frozen prompt and held-out cases through the production Claude Code
+bridge for Haiku 5.5 and Sonnet 5.5 at low effort, and records accuracy,
+abstentions, latency and token usage beside the Sol 6 results.

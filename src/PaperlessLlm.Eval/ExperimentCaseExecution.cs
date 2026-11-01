@@ -35,10 +35,10 @@ public static partial class ExperimentRunner
             var finalInstructionsForStage = recipe.Pipeline == "pagewise-compose"
                 ? finalInstructions + "\n\nMetadata-only final stage: keep OCR unchanged; do not create or revise OCR content. Page transcription drafts are evidence only."
                 : finalInstructions;
-            var finalPrompt = recipe.OutputContract == "names"
-                ? AssembleFinal(finalInstructionsForStage, NamedIntentContract.Payload(payload, c.ToTaxonomy()), recipe.ContextOrder, finalDrafts, NamedIntentContract.Schema()) + "\n\n" + finalImageContext
-                : AssembleFinal(finalInstructionsForStage, payload, recipe.ContextOrder, finalDrafts) + "\n\n" + finalImageContext;
-            var raw = await InvokeStageAsync(finalPrompt, finalImages, "final");
+            var finalEvidence = (recipe.OutputContract == "names"
+                ? FinalEvidence(NamedIntentContract.Payload(payload, c.ToTaxonomy()), finalDrafts, NamedIntentContract.Schema())
+                : FinalEvidence(payload, finalDrafts)) + "\n\n" + finalImageContext;
+            var raw = await InvokeFinalAsync(finalInstructionsForStage, finalEvidence, finalImages);
             await File.WriteAllTextAsync(Path.Combine(caseDir, "final.txt"), raw, ct);
             if (recipe.OutputContract == "names") raw = NamedIntentContract.Resolve(raw, c.ToDocument(), c.ToTaxonomy(), c.PageCount);
             if (recipe.Pipeline == "pagewise-compose") raw = ApplyPagewiseComposition(raw, pageTranscriptions);
@@ -50,6 +50,13 @@ public static partial class ExperimentRunner
         private Task<string> InvokeStageAsync(string prompt, IReadOnlyList<string> stageImages, string name) =>
             stageInvoker is null ? InvokeCodexAsync(prompt, stageImages, recipe.Reasoning, options, caseDir, name, ct)
                 : stageInvoker(prompt, stageImages, name, ct);
+
+        // The Claude bridge separates system instructions from the user message and enforces the schema itself;
+        // Codex receives the same text as one composed prompt. Both see identical instructions and evidence.
+        private Task<string> InvokeFinalAsync(string instructions, string evidence, IReadOnlyList<string> finalImages) =>
+            stageInvoker is null && options.Harness == ClaudeHarness
+                ? InvokeClaudeAsync(instructions, evidence, FinalSchema(recipe), finalImages, recipe.Reasoning, options, caseDir, "final", ct)
+                : InvokeStageAsync(ComposeFinal(instructions, evidence, recipe.ContextOrder), finalImages, "final");
 
         private async Task<string> Stage(string name, string instructions, string prompt, IReadOnlyList<string> stageImages)
         {

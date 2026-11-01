@@ -7,72 +7,99 @@ namespace PaperlessLlm.Eval;
 
 public static partial class ExperimentRunner
 {
-    internal static async Task<string> InvokeCodexAsync(string prompt, IReadOnlyList<string> images, string reasoning,
+    /// <summary>Token counts a stage reported. Cache counts exist only for harnesses that expose them.</summary>
+    internal sealed record StageUsage(long InputTokens, long OutputTokens, long? CacheReadTokens = null, long? CacheWriteTokens = null) { }
+
+    /// <summary>How one harness's child process is interpreted: usage from its stream, and its accepted result.</summary>
+    internal sealed record StageTransport(string Harness, Func<string, StageUsage> ReadUsage, Func<string, int, string, string> Extract) { }
+
+    private static readonly StageTransport CodexTransport = new("codex", ReadCodexUsage, (stdout, exitCode, stage) =>
+    {
+        if (exitCode != 0) throw new InvalidDataException($"Codex stage {stage} exited {exitCode}.");
+        return ExtractFinalMessage(stdout);
+    });
+
+    internal static Task<string> InvokeCodexAsync(string prompt, IReadOnlyList<string> images, string reasoning,
         ExperimentOptions options, string caseDir, string stage, CancellationToken ct,
         Func<ProcessStartInfo, ProcessStartInfo>? configureProcess = null)
+        => InvokeProcessAsync(cwd => CreateCodexStartInfo(options.Model, reasoning, cwd, images), prompt, images, reasoning,
+            options, caseDir, stage, CodexTransport, ct, configureProcess);
+
+    internal static async Task<string> InvokeProcessAsync(Func<string, ProcessStartInfo> createStartInfo, string input, IReadOnlyList<string> images,
+        string reasoning, ExperimentOptions options, string caseDir, string stage, StageTransport transport, CancellationToken ct,
+        Func<ProcessStartInfo, ProcessStartInfo>? configureProcess)
     {
         ct.ThrowIfCancellationRequested();
         var cwd = Path.Combine(caseDir, ".cwd-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(cwd);
-        var psi = CreateCodexStartInfo(options.Model, reasoning, cwd, images);
+        var psi = createStartInfo(cwd);
         if (configureProcess is not null) psi = configureProcess(psi);
         try
         {
             using var process = new Process { StartInfo = psi };
             ct.ThrowIfCancellationRequested();
-            if (!process.Start()) throw new IOException("Could not start codex.");
+            if (!process.Start()) throw new IOException($"Could not start the {transport.Harness} stage process.");
             using var killOnCancellation = ct.Register(KillOnCancellation, process);
             ct.ThrowIfCancellationRequested();
             var startedUtc = DateTimeOffset.UtcNow;
             var startedTimestamp = Stopwatch.GetTimestamp();
             var stdoutTask = ReadBoundedAsync(process.StandardOutput, MaxStreamCharacters);
             var stderrTask = ReadBoundedAsync(process.StandardError, MaxStreamCharacters);
-            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(options.TimeoutSeconds));
-            var timedOut = false;
-            try
-            {
-                await process.StandardInput.WriteAsync(prompt.AsMemory(), timeout.Token);
-                ct.ThrowIfCancellationRequested();
-                process.StandardInput.Close();
-                await process.WaitForExitAsync(timeout.Token);
-            }
-            catch (OperationCanceledException)
-            {
-                await StopProcessTreeAsync(process);
-                try { process.StandardInput.Close(); } catch (InvalidOperationException) { }
-                timedOut = !ct.IsCancellationRequested;
-            }
+            var timedOut = await FeedAndWaitAsync(process, input, options.TimeoutSeconds, ct);
             var stdoutCapture = await stdoutTask; var stderrCapture = await stderrTask;
             var stdout = stdoutCapture.Text + (stdoutCapture.Truncated ? "\n[stdout truncated at configured capture limit]\n" : "");
             var stderr = stderrCapture.Text + (stderrCapture.Truncated ? "\n[stderr truncated at configured capture limit]\n" : "");
-            var imageRecords = await ImageProvenanceAsync(images, ct);
-            var usage = ReadUsage(stdout);
+            var usage = transport.ReadUsage(stdout);
             var stageProvenance = new
             {
                 stage,
+                harness = transport.Harness,
                 model = options.Model,
                 reasoning,
                 started_utc = startedUtc,
                 finished_utc = DateTimeOffset.UtcNow,
                 elapsed_ms = (long)Stopwatch.GetElapsedTime(startedTimestamp).TotalMilliseconds,
-                prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(prompt))),
+                prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(input))),
                 image_count = images.Count,
                 stdout_truncated = stdoutCapture.Truncated,
                 stderr_truncated = stderrCapture.Truncated,
                 timed_out = timedOut,
                 cancelled = ct.IsCancellationRequested,
-                images = imageRecords,
+                images = await ImageProvenanceAsync(images, ct),
                 input_tokens = usage.InputTokens,
-                output_tokens = usage.OutputTokens
+                output_tokens = usage.OutputTokens,
+                cache_read_tokens = usage.CacheReadTokens,
+                cache_write_tokens = usage.CacheWriteTokens
             };
             await PersistStageArtifactsAsync(caseDir, stage, stdout, stderr,
                 JsonSerializer.Serialize(stageProvenance, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }), ct);
             ct.ThrowIfCancellationRequested();
-            if (timedOut) throw new TimeoutException($"Codex stage {stage} exceeded {options.TimeoutSeconds}s.");
-            if (stdoutCapture.Truncated) throw new InvalidDataException($"Codex stage {stage} exceeded the stdout capture limit; result rejected.");
-            if (process.ExitCode != 0) throw new InvalidDataException($"Codex stage {stage} exited {process.ExitCode}.");
-            return ExtractFinalMessage(stdout);
+            if (timedOut) throw new TimeoutException($"{transport.Harness} stage {stage} exceeded {options.TimeoutSeconds}s.");
+            if (stdoutCapture.Truncated) throw new InvalidDataException($"{transport.Harness} stage {stage} exceeded the stdout capture limit; result rejected.");
+            return transport.Extract(stdout, process.ExitCode, stage);
         }
-        finally { RemoveEmptyWorkingDirectory(cwd); }
+        finally { RemoveWorkingDirectory(cwd); }
+    }
+
+    /// <summary>Writes stdin and waits within the stage limit; a stopped child reports whether the limit, not the caller, stopped it.</summary>
+    private static async Task<bool> FeedAndWaitAsync(Process process, string input, int timeoutSeconds, CancellationToken ct)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct); timeout.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+        try
+        {
+            // A child that refuses the request exits before reading stdin; its own diagnostics, not the broken pipe, explain why.
+            try { await process.StandardInput.WriteAsync(input.AsMemory(), timeout.Token); }
+            catch (IOException) { }
+            ct.ThrowIfCancellationRequested();
+            try { process.StandardInput.Close(); } catch (IOException) { }
+            await process.WaitForExitAsync(timeout.Token);
+            return false;
+        }
+        catch (OperationCanceledException)
+        {
+            await StopProcessTreeAsync(process);
+            try { process.StandardInput.Close(); } catch (InvalidOperationException) { }
+            return !ct.IsCancellationRequested;
+        }
     }
 
     private static async Task<List<object>> ImageProvenanceAsync(IReadOnlyList<string> images, CancellationToken ct)
@@ -97,10 +124,11 @@ public static partial class ExperimentRunner
         try { if (!child.HasExited) child.Kill(entireProcessTree: true); } catch { }
     }
 
-    private static void RemoveEmptyWorkingDirectory(string directory)
+    // The per-stage working directory is created fresh for one child; a bridge may leave its own scratch files there.
+    private static void RemoveWorkingDirectory(string directory)
     {
         if (!Directory.Exists(directory)) return;
-        try { Directory.Delete(directory); } catch (IOException) { }
+        try { Directory.Delete(directory, recursive: true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
     }
 
     internal static async Task PersistStageArtifactsAsync(string caseDirectory, string stage, string stdout, string stderr,

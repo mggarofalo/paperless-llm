@@ -1,0 +1,116 @@
+{
+  "totalCalls": 76,
+  "images": 0,
+  "timeouts": 0,
+  "truncatedStages": 0,
+  "inputTokens": 178,
+  "cacheReadTokens": 420284,
+  "cacheWriteTokens": 270080,
+  "outputTokens": 87234,
+  "concurrency": 1,
+  "arms": [
+    {
+      "arm": "boundary-haiku",
+      "model": "claude-haiku-5-5",
+      "reasoning": "low",
+      "harness": "claude-bridge",
+      "calls": 8,
+      "inputTokens": 22,
+      "outputTokens": 13302,
+      "cacheReadTokens": 50891,
+      "cacheWriteTokens": 25212,
+      "meanSeconds": 8.85,
+      "medianSeconds": 8.93,
+      "maxSeconds": 11.36,
+      "timeouts": 0,
+      "truncatedStages": 0
+    },
+    {
+      "arm": "boundary-sonnet",
+      "model": "claude-sonnet-5-5",
+      "reasoning": "low",
+      "harness": "claude-bridge",
+      "calls": 8,
+      "inputTokens": 16,
+      "outputTokens": 4144,
+      "cacheReadTokens": 31185,
+      "cacheWriteTokens": 21143,
+      "meanSeconds": 4.59,
+      "medianSeconds": 4.61,
+      "maxSeconds": 5.31,
+      "timeouts": 0,
+      "truncatedStages": 0
+    },
+    {
+      "arm": "fresh-haiku",
+      "model": "claude-haiku-5-5",
+      "reasoning": "low",
+      "harness": "claude-bridge",
+      "calls": 30,
+      "inputTokens": 76,
+      "outputTokens": 51854,
+      "cacheReadTokens": 196692,
+      "cacheWriteTokens": 117951,
+      "meanSeconds": 8.57,
+      "medianSeconds": 8.45,
+      "maxSeconds": 12.63,
+      "timeouts": 0,
+      "truncatedStages": 0
+    },
+    {
+      "arm": "fresh-sonnet",
+      "model": "claude-sonnet-5-5",
+      "reasoning": "low",
+      "harness": "claude-bridge",
+      "calls": 30,
+      "inputTokens": 64,
+      "outputTokens": 17934,
+      "cacheReadTokens": 141516,
+      "cacheWriteTokens": 105774,
+      "meanSeconds": 5.21,
+      "medianSeconds": 5.17,
+      "maxSeconds": 10.53,
+      "timeouts": 0,
+      "truncatedStages": 0
+    }
+  ],
+  "reference": {
+    "fresh-sol6": {
+      "arm": "fresh-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 30,
+      "inputTokens": 422966.0,
+      "outputTokens": 5663.0,
+      "meanSeconds": 11.35
+    },
+    "fresh-luna": {
+      "arm": "fresh-luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 30,
+      "inputTokens": 417605.0,
+      "outputTokens": 5216.0,
+      "meanSeconds": 8.01
+    },
+    "boundary-sol6": {
+      "arm": "boundary-sol6",
+      "model": "gpt-6-sol",
+      "reasoning": "low",
+      "calls": 8,
+      "inputTokens": 106164.0,
+      "outputTokens": 1350.0,
+      "meanSeconds": 10.32
+    },
+    "boundary-luna": {
+      "arm": "boundary-luna",
+      "model": "gpt-6-luna",
+      "reasoning": "medium",
+      "calls": 8,
+      "inputTokens": 104732.0,
+      "outputTokens": 1244.0,
+      "meanSeconds": 7.33
+    }
+  },
+  "note": "Claude input tokens are the bridge's uncached input count; cached prompt reads and writes are listed separately. Codex reference counts are total input tokens at concurrency 6, so latencies are not directly comparable."
+}

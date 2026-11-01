@@ -25,7 +25,7 @@ internal static class EvalCli
         }
         catch (OperationCanceledException) when (isExperiment && cancellation.IsCancellationRequested)
         {
-            Console.Error.WriteLine("Experiment cancelled. Active Codex process trees were stopped and partial stage artifacts were saved.");
+            Console.Error.WriteLine("Experiment cancelled. Active harness process trees were stopped and partial stage artifacts were saved.");
             return 130;
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidDataException or IOException or JsonException)
@@ -61,8 +61,10 @@ internal static class EvalCli
         var split = Required(o, "split");
         var concurrency = int.TryParse(o.GetValueOrDefault("concurrency", "1"), out var parsed) ? parsed : 0;
         var timeout = int.TryParse(o.GetValueOrDefault("timeout", "300"), out var parsedTimeout) ? parsedTimeout : 0;
+        var harness = o.GetValueOrDefault("harness", ExperimentRunner.CodexHarness);
+        var defaultModel = harness == ExperimentRunner.ClaudeHarness ? PaperlessLlm.Runner.RunnerHarness.Claude.DefaultModel : "gpt-6-luna";
         await ExperimentRunner.RunAsync(new ExperimentOptions(cases, recipe, output, concurrency,
-            o.GetValueOrDefault("model", "gpt-6-luna"), timeout, split), cancellationToken);
+            o.GetValueOrDefault("model", defaultModel), timeout, split, harness, o.GetValueOrDefault("runner-home"), o.GetValueOrDefault("bridge")), cancellationToken);
         Console.WriteLine($"Experiment outputs and provenance written to {Path.GetFullPath(output)}");
     }
 
@@ -310,5 +312,7 @@ internal static class EvalCli
           score CASES.jsonl OUTPUTS.jsonl|DIR --split train|holdout --version NAME --out report.json [--model NAME] [--harness NAME] [--references FILE] [--regressions FILE]
           compare --baseline report.json --candidate report.json --out comparison.json
           experiment --cases CASES.jsonl --split train|holdout --recipe RECIPE.json --out DIR --concurrency N [--model gpt-6-luna] [--timeout 300]
+                     [--harness codex|claude] [--runner-home DIR] [--bridge runner/claude-bridge.mjs]
+            claude runs the production Claude Code bridge; --runner-home holds that sign-in and --model defaults to claude-sonnet-5-5
         """);
 }

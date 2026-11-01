@@ -1,0 +1,356 @@
+{
+  "fresh-haiku": {
+    "model": "claude-haiku-5-5",
+    "reasoning": "low",
+    "sourceDocuments": 10,
+    "cases": 30,
+    "valid": 30,
+    "fields": [
+      {
+        "condition": "control",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 7,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "control",
+        "field": "date",
+        "scored": 8,
+        "correct": 8,
+        "initiallyCorrect": 8,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "control",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 10,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 7,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "date",
+        "scored": 8,
+        "correct": 6,
+        "initiallyCorrect": 0,
+        "neededRepair": 8,
+        "corrected": 6,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 2,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 0,
+        "neededRepair": 10,
+        "corrected": 10,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 7,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "date",
+        "scored": 8,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 8,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 1,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 0,
+        "neededRepair": 10,
+        "corrected": 10,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      }
+    ],
+    "tags": [
+      {
+        "condition": "control",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 0.0,
+        "recoveredTags": 0.0,
+        "proposedTags": 0.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 10,
+        "ocrKept": 10,
+        "titleKept": 10
+      },
+      {
+        "condition": "missing",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 9.0,
+        "recoveredTags": 9.0,
+        "proposedTags": 9.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 10,
+        "ocrKept": 10,
+        "titleKept": 10
+      },
+      {
+        "condition": "wrong",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 9.0,
+        "recoveredTags": 8.0,
+        "proposedTags": 8.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 9,
+        "ocrKept": 10,
+        "titleKept": 10
+      }
+    ],
+    "usage": {
+      "recordedStages": 30,
+      "inputTokens": 76,
+      "outputTokens": 51854,
+      "cacheReadTokens": 196692,
+      "cacheWriteTokens": 117951
+    },
+    "note": "Fresh reserved documents. References manually reviewed from existing OCR before candidate calls; not scan-verified. Receipt-heavy sample. Ambiguous dates and issuers excluded from field scoring and audited separately. Incorrect writes are disagreements with frozen targets; inspect factual vs interpretive errors separately.",
+    "rawResponses": 30,
+    "rawExtraTagSuggestions": 0,
+    "regressions": 0,
+    "rejections": [],
+    "unscoredSets": 4,
+    "harness": "claude-bridge",
+    "agreementWithFreshSol6": {
+      "date": 26,
+      "correspondent": 30,
+      "document_type": 30,
+      "tags": 29,
+      "all": 25,
+      "cases": 30
+    }
+  },
+  "fresh-sonnet": {
+    "model": "claude-sonnet-5-5",
+    "reasoning": "low",
+    "sourceDocuments": 10,
+    "cases": 30,
+    "valid": 30,
+    "fields": [
+      {
+        "condition": "control",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 7,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "control",
+        "field": "date",
+        "scored": 8,
+        "correct": 8,
+        "initiallyCorrect": 8,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "control",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 10,
+        "neededRepair": 0,
+        "corrected": 0,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 7,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "date",
+        "scored": 8,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 8,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 1,
+        "invalid": 0
+      },
+      {
+        "condition": "missing",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 0,
+        "neededRepair": 10,
+        "corrected": 10,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "correspondent",
+        "scored": 7,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 7,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "date",
+        "scored": 8,
+        "correct": 7,
+        "initiallyCorrect": 0,
+        "neededRepair": 8,
+        "corrected": 7,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 1,
+        "invalid": 0
+      },
+      {
+        "condition": "wrong",
+        "field": "document_type",
+        "scored": 10,
+        "correct": 10,
+        "initiallyCorrect": 0,
+        "neededRepair": 10,
+        "corrected": 10,
+        "incorrectWrites": 0,
+        "abstainedOnWrong": 0,
+        "invalid": 0
+      }
+    ],
+    "tags": [
+      {
+        "condition": "control",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 0.0,
+        "recoveredTags": 0.0,
+        "proposedTags": 0.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 10,
+        "ocrKept": 10,
+        "titleKept": 10
+      },
+      {
+        "condition": "missing",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 9.0,
+        "recoveredTags": 9.0,
+        "proposedTags": 9.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 10,
+        "ocrKept": 10,
+        "titleKept": 10
+      },
+      {
+        "condition": "wrong",
+        "cases": 10,
+        "valid": 10,
+        "expectedTags": 9.0,
+        "recoveredTags": 9.0,
+        "proposedTags": 9.0,
+        "unexpectedTags": 0.0,
+        "exactCases": 10,
+        "ocrKept": 10,
+        "titleKept": 10
+      }
+    ],
+    "usage": {
+      "recordedStages": 30,
+      "inputTokens": 64,
+      "outputTokens": 17934,
+      "cacheReadTokens": 141516,
+      "cacheWriteTokens": 105774
+    },
+    "note": "Fresh reserved documents. References manually reviewed from existing OCR before candidate calls; not scan-verified. Receipt-heavy sample. Ambiguous dates and issuers excluded from field scoring and audited separately. Incorrect writes are disagreements with frozen targets; inspect factual vs interpretive errors separately.",
+    "rawResponses": 30,
+    "rawExtraTagSuggestions": 0,
+    "regressions": 0,
+    "rejections": [],
+    "unscoredSets": 4,
+    "harness": "claude-bridge",
+    "agreementWithFreshSol6": {
+      "date": 29,
+      "correspondent": 30,
+      "document_type": 30,
+      "tags": 30,
+      "all": 29,
+      "cases": 30
+    }
+  }
+}
