@@ -1,0 +1,52 @@
+{
+  "createdAt": "2026-11-01T01:56:10.564755+00:00",
+  "issue": "PPLLM-42",
+  "purpose": "Measure the Claude harness shipped in PPLLM-39 the way Sol 6 was measured before recommending its default model.",
+  "harness": "claude-bridge.mjs infer (claude-code-2.1.314), production flags, concurrency 1",
+  "promptSha256": "DE1C83638E38BBA4BF4181A19A7784F0F41EF5964FD8089038F000C39225FFAF",
+  "promptFrozenAt": "2026-10-02T07:28:18.8133621-04:00",
+  "freshCasesSha256": "EAD33EBA39AB351BD98A55C4C23B970DF102B839C53C568F31384F771B1EBB3C",
+  "arms": [
+    {
+      "id": "fresh-haiku",
+      "model": "claude-haiku-5-5",
+      "reasoning": "low",
+      "cases": 30,
+      "split": "holdout",
+      "source": "fresh-sol6 cases, unchanged"
+    },
+    {
+      "id": "fresh-sonnet",
+      "model": "claude-sonnet-5-5",
+      "reasoning": "low",
+      "cases": 30,
+      "split": "holdout",
+      "source": "fresh-sol6 cases, unchanged"
+    },
+    {
+      "id": "boundary-haiku",
+      "model": "claude-haiku-5-5",
+      "reasoning": "low",
+      "cases": 8,
+      "split": "holdout",
+      "source": "synthetic-boundaries.jsonl"
+    },
+    {
+      "id": "boundary-sonnet",
+      "model": "claude-sonnet-5-5",
+      "reasoning": "low",
+      "cases": 8,
+      "split": "holdout",
+      "source": "synthetic-boundaries.jsonl"
+    }
+  ],
+  "calls": 76,
+  "rules": [
+    "No prompt edits, reruns or relabeling after results; a run is rerun only when the bridge rejects every case before inference (recorded in the note).",
+    "References are the October 2 frozen labels; ambiguous fields stay ignored in accuracy and are audited as unscored sets.",
+    "The schema now includes the decisions diagnostics block added after October 2; it is stripped before validation and does not change scoring.",
+    "Reference comparison is the frozen fresh-sol6 arm; no Codex calls are repeated."
+  ],
+  "noPaperlessWrites": true,
+  "noFurtherTuning": true
+}

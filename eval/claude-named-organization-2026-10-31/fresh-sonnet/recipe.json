@@ -1,0 +1,14 @@
+{
+  "id": "fresh-sonnet",
+  "parent": "fresh-sol6",
+  "hypothesis": "Frozen selected prompt and the 30 reserved fresh holdout conditions, run once through the production Claude Code bridge at low effort. No tuning.",
+  "promptFile": "prompt.txt",
+  "pipeline": "single",
+  "reasoning": "low",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "includeFinalImages": false,
+  "outputContract": "names"
+}

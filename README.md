@@ -23,7 +23,7 @@ docker compose up -d worker
 docker compose logs -f worker
 ```
 
-The Codex default is **Sol 6 low**; the Claude default is **Sonnet 5.5 at low effort**, which has passed synthetic probes but not the private evaluation. Each makes one call per document, with five jobs per hourly cycle. The first run records a baseline; historical backfill is opt-in and bounded. **Writes are enabled by default.** Use the [dry-run and upgrade guide](docs/operations.md) to control enrollment and rollout. Linux `amd64` and `arm64` images are available.
+The Codex default is **Sol 6 low**; the Claude default is **Sonnet 5.5 at low effort**, which [matched Sol 6 on the private held-out set](docs/evaluations/2026-10-31-claude-named-organization.md) through the production bridge. Haiku 5.5 is a slower, more abstention-prone explicit option, not the default. Each makes one call per document, with five jobs per hourly cycle. The first run records a baseline; historical backfill is opt-in and bounded. **Writes are enabled by default.** Use the [dry-run and upgrade guide](docs/operations.md) to control enrollment and rollout. Linux `amd64` and `arm64` images are available.
 
 ## What it does
 
@@ -35,7 +35,7 @@ The Codex default is **Sol 6 low**; the Claude default is **Sonnet 5.5 at low ef
 - Can send an [ntfy alert](docs/operations.md#credential-alerts) when expired sign-in or a rejected Paperless token pauses processing.
 - Keeps durable jobs, prompt hashes and private before/after journals for [review and recovery](docs/review.md). Saved proposals survive sync retries.
 
-OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT or Claude subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md) and inspect early results in your own library.
+OCR, document metadata and visible taxonomy are sent to the selected model through your ChatGPT or Claude subscription. The runner receives no Paperless token or write tools. Validation checks structure and permitted operations; it cannot prove factual accuracy. Read the [evaluation findings](docs/evaluations/2026-10-02-named-organization.md), the [Claude model evaluation](docs/evaluations/2026-10-31-claude-named-organization.md) and inspect early results in your own library.
 
 ## Documentation
 

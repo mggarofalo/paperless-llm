@@ -1,0 +1,14 @@
+{
+  "id": "boundary-sonnet",
+  "parent": "boundary-sol6",
+  "hypothesis": "Eight synthetic boundary diagnostics (card-only evidence, unlisted issuer, damaged check, embedded command, enclosure and certificate dates, wrong current metadata) through the production Claude Code bridge. Frozen prompt; no tuning.",
+  "promptFile": "prompt.txt",
+  "pipeline": "single",
+  "reasoning": "low",
+  "ocrContext": "full",
+  "taxonomy": "full",
+  "contextOrder": "instructions-first",
+  "imageMode": "full",
+  "includeFinalImages": false,
+  "outputContract": "names"
+}

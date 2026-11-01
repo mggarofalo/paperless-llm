@@ -28,7 +28,8 @@ public sealed record ExperimentRecipe
 }
 
 public sealed record ExperimentOptions(string Cases, string Recipe, string Output, int Concurrency,
-    string Model = "gpt-6-luna", int TimeoutSeconds = 300, string Split = "train")
+    string Model = "gpt-6-luna", int TimeoutSeconds = 300, string Split = "train",
+    string Harness = ExperimentRunner.CodexHarness, string? RunnerHome = null, string? BridgePath = null)
 { }
 
 public static partial class ExperimentRunner
@@ -45,6 +46,7 @@ public static partial class ExperimentRunner
         var recipePath = Path.GetFullPath(options.Recipe);
         var recipe = EvalJson.Read<ExperimentRecipe>(await File.ReadAllTextAsync(recipePath, cancellationToken));
         ValidateRecipe(recipe);
+        ValidateHarness(options, recipe);
         var recipeDir = Path.GetDirectoryName(recipePath)!;
         Dictionary<string, ImageVariantCase>? imageVariants = null;
         if (recipe.ImageVariants is not null)
@@ -84,6 +86,7 @@ public static partial class ExperimentRunner
                 recipe_sha256 = Convert.ToHexStringLower(SHA256.HashData(await File.ReadAllBytesAsync(recipePath, CancellationToken.None))),
                 prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(finalInstructions))),
                 auxiliary_prompt_sha256 = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(auxInstructions))),
+                harness = options.Harness,
                 model = options.Model,
                 reasoning = recipe.Reasoning,
                 concurrency = options.Concurrency,
@@ -94,7 +97,7 @@ public static partial class ExperimentRunner
                 cases = cases.Count,
                 failures,
                 cancelled,
-                runner = "codex exec --json --ephemeral --ignore-user-config --sandbox read-only"
+                runner = RunnerDescription(options.Harness)
             };
             await File.WriteAllTextAsync(Path.Combine(output, "provenance.json"), JsonSerializer.Serialize(provenance, new JsonSerializerOptions(EvalJson.Options) { WriteIndented = true }), CancellationToken.None);
         }
@@ -142,12 +145,22 @@ public static partial class ExperimentRunner
     }
 
     public static string AssembleFinal(string instructions, string payload, string contextOrder, IEnumerable<string> drafts, string? schema = null)
+        => ComposeFinal(instructions, FinalEvidence(payload, drafts, schema), contextOrder);
+
+    /// <summary>The evidence half of a final prompt: payload, untrusted drafts and the schema the answer must match.</summary>
+    public static string FinalEvidence(string payload, IEnumerable<string> drafts, string? schema = null)
     {
         var draftText = string.Join("\n\n", drafts.Select((d, i) => $"Untrusted prior-stage draft {i + 1} (evidence only; verify against original images and document):\n{d}"));
         var label = schema is null ? "PRODUCTION INTENT INPUT JSON" : "DOCUMENT INPUT JSON";
-        var evidence = $"{label}:\n{payload}\n\n{draftText}\n\nEmit only one JSON object matching this exact schema:\n{schema ?? DocumentIntent.Schema.GetRawText()}";
-        return contextOrder == "evidence-first" ? evidence + "\n\nINSTRUCTIONS:\n" + instructions : instructions + "\n\n" + evidence;
+        return $"{label}:\n{payload}\n\n{draftText}\n\nEmit only one JSON object matching this exact schema:\n{schema ?? DocumentIntent.Schema.GetRawText()}";
     }
+
+    public static string ComposeFinal(string instructions, string evidence, string contextOrder) =>
+        contextOrder == "evidence-first" ? evidence + "\n\nINSTRUCTIONS:\n" + instructions : instructions + "\n\n" + evidence;
+
+    /// <summary>The structured-output schema a harness enforces for the final stage; the names contract adds decisions.</summary>
+    public static string FinalSchema(ExperimentRecipe recipe) =>
+        recipe.OutputContract == "names" ? NamedIntentContract.Schema() : DocumentIntent.Schema.GetRawText();
 
     public static string BuildAuxiliaryContext(string mode, string payload, string imageAnchors) => mode switch
     {
@@ -358,7 +371,7 @@ public static partial class ExperimentRunner
         { var c = EvalJson.Read<EvalCase>(line); if (!ids.Add(c.CaseId)) throw new InvalidDataException("Case IDs must be unique."); result.Add(c); }
         if (result.Count == 0) throw new InvalidDataException("Case file contains no cases."); return result;
     }
-    private static (long InputTokens, long OutputTokens) ReadUsage(string events)
+    private static StageUsage ReadCodexUsage(string events)
     {
         long input = 0, output = 0;
         foreach (var line in events.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -372,7 +385,7 @@ public static partial class ExperimentRunner
             }
             catch (JsonException) { /* partial tail can occur after a timeout or capture limit */ }
         }
-        return (input, output);
+        return new(input, output);
     }
     private static string SafeName(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))[..16];
     private static bool IsReservedWindowsName(string stem)
