@@ -73,6 +73,27 @@ public sealed class ExperimentPipelineTests : IDisposable
     }
 
     [Fact]
+    public async Task EvidenceFirstFinalKeepsInstructionsAfterEvidenceAndImageStatusLast()
+    {
+        string? seenPrompt = null;
+        Task<string> Invoke(string prompt, IReadOnlyList<string> images, string stage, CancellationToken ct)
+        {
+            seenPrompt = prompt;
+            return Task.FromResult(Keep);
+        }
+        await ExperimentRunner.RunCaseAsync(Case(), Recipe("single") with { ContextOrder = "evidence-first" }, null,
+            directory, "Final policy.", "", Options(), directory, CancellationToken.None, Invoke);
+        var evidence = seenPrompt!.IndexOf("PRODUCTION INTENT INPUT JSON", StringComparison.Ordinal);
+        var instructions = seenPrompt.IndexOf("INSTRUCTIONS:\nFinal policy.", StringComparison.Ordinal);
+        var images = seenPrompt.IndexOf("Attached image 1", StringComparison.Ordinal);
+        Assert.True(evidence >= 0 && evidence < instructions, "evidence must precede the instructions block");
+        Assert.True(instructions < images, "the image status must trail the composed prompt");
+        var composed = ExperimentRunner.AssembleFinal("Final policy.", ExperimentRunner.BuildCandidatePayload(Case(), Recipe("single")), "evidence-first", []) + "\n\n";
+        Assert.StartsWith(composed, seenPrompt);
+        Assert.Contains("Attached image 1", seenPrompt[composed.Length..]);
+    }
+
+    [Fact]
     public async Task NamedFinalRetainsUnmodifiedResponseButPublishesOnlyValidatedIds()
     {
         var raw = Keep.Replace("\"correspondent\":{\"action\":\"keep\",\"value\":null,\"evidence\":[]}",
