@@ -8,7 +8,7 @@ shipped behavior from planned work; a roadmap entry is not a supported configura
 ## Shipped foundation
 
 Scheduled discovery, durable filesystem jobs, Sign In With ChatGPT through device
-codes or a Claude subscription through Claude Code (PPLLM-39), one bounded
+codes or, since **v0.5.0**, a Claude subscription through Claude Code (PPLLM-39), one bounded
 inference request per document, exact-name taxonomy resolution,
 validated automatic sync, private evidence/journals and retrospective `needs review`.
 The production policy uses existing Paperless OCR and keeps titles/OCR unchanged.
