@@ -168,6 +168,34 @@ public sealed class OrganizerTests : IDisposable
         Assert.All(status.Jobs, j => Assert.Equal(0, j.Attempts));
         Assert.Equal(1, source.Inferences);
     }
+    [Fact] public async Task ConfirmedSignInResumesPausedJobsWithoutWaitingOrResettingAttempts()
+    {
+        source.Docs[1] = SyntheticDocuments.Document(1); source.Docs[2] = SyntheticDocuments.Document(2); source.AuthFail = true;
+        using (var worker = Worker(2)) await worker.RunOnceAsync();
+        source.AuthFail = false;
+        using var restarted = Worker();
+        // Without a confirmed sign-in, a scheduled cycle keeps waiting out the pause.
+        Assert.Equal(0, (await restarted.RunOnceAsync(scheduled: true)).Completed);
+        // The batch stops at the first sign-in failure: one job carries the timer, the other is held by the checkpoint pause.
+        Assert.Equal(1, await restarted.ResumeSignInPausesAsync());
+        var resumed = await OrganizerStatusReader.ReadAsync(root);
+        Assert.Null(resumed.PauseReason);
+        Assert.All(resumed.Jobs, j => Assert.Equal(0, j.Attempts));
+        Assert.Equal(2, (await restarted.RunOnceAsync(scheduled: true)).Completed);
+        Assert.Equal(0, await restarted.ResumeSignInPausesAsync());
+    }
+    [Fact] public async Task ConfirmedSignInLeavesRateLimitPauseAndTimersUnchanged()
+    {
+        source.Docs[1] = SyntheticDocuments.Document(1); source.RateLimit = true;
+        using var worker = Worker(1); await worker.RunOnceAsync();
+        var before = Assert.Single((await OrganizerStatusReader.ReadAsync(root)).Jobs).NextAttemptAt;
+        Assert.Equal(0, await worker.ResumeSignInPausesAsync());
+        var after = await OrganizerStatusReader.ReadAsync(root);
+        Assert.Equal("rate_limited", after.PauseReason);
+        Assert.Equal(before, Assert.Single(after.Jobs).NextAttemptAt);
+        source.RateLimit = false;
+        Assert.Equal(0, (await worker.RunOnceAsync(scheduled: true)).Completed);
+    }
     private OrganizerWorker AlertingWorker(PaperlessLlm.Alerts.AuthAlertMonitor alerts, int backfill = 0) => new(source, source, source, source, source,
         new OrganizerOptions { StateDirectory = root, SourceUrl = "https://example.test", BackfillLimit = backfill }, NullLogger<OrganizerWorker>.Instance, alerts: alerts);
     [Fact] public async Task CredentialPauseAlertsOnceAndRecoveryNeedsASuccessfulInference()

@@ -245,8 +245,11 @@ public static class OrganizerCli
             if (args.Length != 2 || !int.TryParse(args[1], out int id) || id <= 0) throw new ArgumentException("Specify a positive enrolled document ID.");
             await worker.RetryAsync(id, command == "reprocess", ct);
             Console.WriteLine("Job queued. Start the worker or run once.");
+            return;
         }
-        else if (command == "once") Console.WriteLine(JsonSerializer.Serialize(await worker.RunOnceAsync(ct)));
+        // CheckSetupAsync has just confirmed the saved sign-in for worker and once.
+        await worker.ResumeSignInPausesAsync(ct);
+        if (command == "once") Console.WriteLine(JsonSerializer.Serialize(await worker.RunOnceAsync(ct)));
         else await host.RunAsync(ct);
     }
 
