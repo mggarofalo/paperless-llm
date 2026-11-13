@@ -331,6 +331,34 @@ public sealed class OrganizerWorker : BackgroundService
         if (alerts is not null) await alerts.RaiseAsync(code, ct);
     }
 
+    private static bool IsSignInCode(string? code) => code is "auth_required" or "auth_unavailable";
+    private static bool WaitingForSignIn(OrganizerJob job, DateTimeOffset now) =>
+        job.State == OrganizerJobState.RetryWaiting && IsSignInCode(job.ErrorCode) && job.NextAttemptAt > now;
+
+    /// <summary>
+    /// Call only after startup has confirmed a saved sign-in. A re-login then resumes on restart instead of
+    /// waiting out the pause. Other pauses and retry timers are unchanged and attempts are never reset.
+    /// </summary>
+    public async Task<int> ResumeSignInPausesAsync(CancellationToken ct = default)
+    {
+        using var stateLock = store.Lock();
+        var now = clock.GetUtcNow();
+        var waiting = (await store.JobsAsync(ct)).Where(job => WaitingForSignIn(job, now)).ToList();
+        foreach (var job in waiting)
+        {
+            job.NextAttemptAt = now;
+            await SaveAsync(job, ct);
+        }
+        var state = await store.ReadAsync<OrganizerCheckpoint>(store.CheckpointPath, ct);
+        if (state is not null && IsSignInCode(state.PauseReason))
+        {
+            state.PauseReason = null; state.NextRunAt = now;
+            await store.SaveAsync(store.CheckpointPath, state, ct);
+        }
+        if (waiting.Count > 0) logger.LogInformation("Sign-in confirmed; resumed {Count} paused jobs", waiting.Count);
+        return waiting.Count;
+    }
+
     /// <summary>Explicit retry preserves a proposal for idempotent sync unless regenerate is deliberately selected.</summary>
     public async Task RetryAsync(int documentId, bool regenerate = false, CancellationToken ct = default)
     {

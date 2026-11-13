@@ -47,7 +47,7 @@ Structured logs contain document/job IDs, state transitions, fixed error codes a
 Console JSON retains the rendered `Message` and typed `State` fields, but omits
 the redundant `{OriginalFormat}` message template. Timestamps are UTC.
 
-Jobs get up to three attempts, with exponential delay serviced on subsequent cycles. Authorization failures and provider rate limits pause the batch without consuming an attempt. Rate limits are retried at the next poll. Source conflicts become failed jobs. Invalid output can trigger another bounded inference attempt.
+Jobs get up to three attempts, with exponential delay serviced on subsequent cycles. Authorization failures and provider rate limits pause the batch without consuming an attempt. Rate limits are retried at the next poll. Sign-in pauses are too, unless a worker restart confirms a saved sign-in first, which resumes them immediately. Source conflicts become failed jobs. Invalid output can trigger another bounded inference attempt.
 
 Stop the worker before `retry` or `once` so they can acquire its state lock. Bulk reprocessing and run controls work while it runs:
 
