@@ -4,7 +4,7 @@
 
 | Image reference | Meaning |
 | --- | --- |
-| `ghcr.io/mggarofalo/paperless-llm:v0.5.0` | Immutable release tag; default in the matching Compose asset |
+| `ghcr.io/mggarofalo/paperless-llm:v0.5.1` | Immutable release tag; default in the matching Compose asset |
 | `ghcr.io/mggarofalo/paperless-llm@sha256:…` | Exact immutable image index; digest is included in release assets |
 | `ghcr.io/mggarofalo/paperless-llm:stable` | Highest successfully published stable semantic version |
 | `ghcr.io/mggarofalo/paperless-llm:latest` | Same stable channel; not a nightly or development build |
@@ -21,6 +21,18 @@ set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:stable` in `.env`. This settin
 is consumed by Compose, not the worker. Pulling a tag does not update a running
 container until Compose recreates it.
 
+## Upgrade to 0.5.1
+
+This patch makes "sign in again, then restart the worker" resume immediately.
+Previously a sign-in pause kept the paused jobs waiting until the next poll even
+after a successful re-login and restart. Now `worker` and `once` startup, after
+confirming the saved sign-in, make those jobs due and clear the sign-in pause.
+Rate-limit and Paperless pauses, other retry timers and attempt counts are
+unchanged. There is no configuration or state change; set
+`PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.5.1`, then run
+`docker compose pull worker` and `docker compose up -d worker`. Upgrading from
+v0.4.0 also needs the v0.5.0 steps below.
+
 ## Upgrade to 0.5.0
 
 This minor release adds a second inference harness and credential alerts.
@@ -35,8 +47,11 @@ There is no state or checkpoint migration; existing jobs and ChatGPT credentials
 carry forward, and rollback to v0.4.0 needs no restore. Set
 `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.5.0` in your existing `.env`,
 then run `docker compose pull worker` and `docker compose up -d worker`.
-`PPLLM_MODEL` may now be empty to select the harness default. Copy this release's
-`compose.yaml` to pass `PPLLM_HARNESS` and the ntfy settings into the container.
+`PPLLM_MODEL` may now be empty to select the harness default. **Replace your
+`compose.yaml` with this release's copy**; the v0.4.0 file does not pass
+`PPLLM_HARNESS` or the ntfy settings into the container. If you maintain your own
+Compose file, set `PPLLM_HARNESS` and `PPLLM_MODEL` in both the `worker` and `auth`
+services: sign-in runs in `auth`, and without it there it falls back to ChatGPT.
 
 To switch to Claude, stop the worker, set `PPLLM_HARNESS=claude` and **clear
 `PPLLM_MODEL`** (an existing `gpt-6-sol` value is not a Claude model and fails

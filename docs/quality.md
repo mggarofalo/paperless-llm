@@ -110,6 +110,14 @@ fail-closed checks against a fake CLI, alert de-duplication and alert-delivery
 failure isolation. These checks do not exercise a real Claude sign-in, credential
 refresh or real-document accuracy inside the Linux image.
 
+## Sign-in resume (v0.5.1)
+
+The .NET 10 Release run passed **374 tests, 2 skipped** (Poppler). Two new tests cover a
+sign-in pause resuming after confirmed sign-in without resetting attempts, and a
+rate-limit pause keeping its timer. Complexity remains at most 10. The container
+acceptance suite passed against the v0.5.1 image. Live re-login after a real
+credential expiry is still a deployment check.
+
 ## Remaining limits
 
 The largest uncovered runtime area is CLI host construction/setup dispatch (65 uncovered sequence-point lines in this run). The independent Docker smoke suite exercises actual container setup, organization, and crash recovery, but those subprocesses are outside this Coverlet run. Additional uncovered runtime branches include unusual filesystem/access failures, alternate OS paths, and race/error handling that is difficult to force deterministically.
