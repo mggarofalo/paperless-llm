@@ -98,6 +98,18 @@ commands in a live synthetic worker and verifies uncertain-write recovery withou
 duplicate notes. These checks do not establish real-document model accuracy or
 live authentication renewal.
 
+## Claude harness and credential alerts (v0.5.0)
+
+The .NET 10 Release run on Windows passed **372 tests, 2 skipped** (synthetic PDF
+rendering checks that need Poppler, which CI installs). JavaScript tests passed with Linux-only cases
+skipped locally; CI runs the full suite. Worker coverage is **92.00% line / 82.76%
+branch**; evaluator coverage is **89.95% line / 79.58% branch**, raised by the
+Claude experiment harness tests. Maximum production function complexity remains 10.
+Coverage includes harness selection, the generic bridge runner, Claude bridge
+fail-closed checks against a fake CLI, alert de-duplication and alert-delivery
+failure isolation. These checks do not exercise a real Claude sign-in, credential
+refresh or real-document accuracy inside the Linux image.
+
 ## Remaining limits
 
 The largest uncovered runtime area is CLI host construction/setup dispatch (65 uncovered sequence-point lines in this run). The independent Docker smoke suite exercises actual container setup, organization, and crash recovery, but those subprocesses are outside this Coverlet run. Additional uncovered runtime branches include unusual filesystem/access failures, alternate OS paths, and race/error handling that is difficult to force deterministically.

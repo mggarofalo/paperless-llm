@@ -4,7 +4,7 @@
 
 | Image reference | Meaning |
 | --- | --- |
-| `ghcr.io/mggarofalo/paperless-llm:v0.4.0` | Immutable release tag; default in the matching Compose asset |
+| `ghcr.io/mggarofalo/paperless-llm:v0.5.0` | Immutable release tag; default in the matching Compose asset |
 | `ghcr.io/mggarofalo/paperless-llm@sha256:…` | Exact immutable image index; digest is included in release assets |
 | `ghcr.io/mggarofalo/paperless-llm:stable` | Highest successfully published stable semantic version |
 | `ghcr.io/mggarofalo/paperless-llm:latest` | Same stable channel; not a nightly or development build |
@@ -20,6 +20,33 @@ Pin a version or digest for reproducible upgrades. To follow a mutable channel,
 set `PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:stable` in `.env`. This setting
 is consumed by Compose, not the worker. Pulling a tag does not update a running
 container until Compose recreates it.
+
+## Upgrade to 0.5.0
+
+This minor release adds a second inference harness and credential alerts.
+`PPLLM_HARNESS=claude` runs inference through the bundled, pinned Claude Code CLI
+with your own Claude subscription; the default `codex` harness, its model and its
+auth path are unchanged. Set `PPLLM_NTFY_URL` to be notified through
+[ntfy](https://ntfy.sh) when missing, expired or revoked credentials pause the
+worker. See [authentication](authentication.md) and
+[credential alerts](operations.md#credential-alerts).
+
+There is no state or checkpoint migration; existing jobs and ChatGPT credentials
+carry forward, and rollback to v0.4.0 needs no restore. Set
+`PPLLM_IMAGE=ghcr.io/mggarofalo/paperless-llm:v0.5.0` in your existing `.env`,
+then run `docker compose pull worker` and `docker compose up -d worker`.
+`PPLLM_MODEL` may now be empty to select the harness default. Copy this release's
+`compose.yaml` to pass `PPLLM_HARNESS` and the ntfy settings into the container.
+
+To switch to Claude, stop the worker, set `PPLLM_HARNESS=claude` and **clear
+`PPLLM_MODEL`** (an existing `gpt-6-sol` value is not a Claude model and fails
+closed), then run the Claude login in [authentication](authentication.md#claude-harness-claude-code-login)
+and the verification commands below it. The default Claude model is
+`claude-sonnet-5-5`, which matched Sol 6 low on the private held-out evaluation
+([evaluation note](evaluations/2026-10-31-claude-named-organization.md)).
+That evaluation ran on Windows with the frozen experimental prompt and no images;
+the Linux image, the current production prompt and live Claude credential renewal
+still require deployment acceptance. Usage counts against your Claude plan's limits.
 
 ## Upgrade to 0.4.0
 
