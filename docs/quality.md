@@ -100,8 +100,8 @@ live authentication renewal.
 
 ## Claude harness and credential alerts (v0.5.0)
 
-The .NET 10 Release run on Windows passed **372 tests, 2 skipped** (Linux-only
-filesystem cases that CI runs). JavaScript tests passed with Linux-only cases
+The .NET 10 Release run on Windows passed **372 tests, 2 skipped** (synthetic PDF
+rendering checks that need Poppler, which CI installs). JavaScript tests passed with Linux-only cases
 skipped locally; CI runs the full suite. Worker coverage is **92.00% line / 82.76%
 branch**; evaluator coverage is **89.95% line / 79.58% branch**, raised by the
 Claude experiment harness tests. Maximum production function complexity remains 10.
